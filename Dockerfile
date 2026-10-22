@@ -1,4 +1,4 @@
-FROM node:22-alpine AS runtime
+FROM node:25-alpine AS runtime
 ARG BUILD_REVISION=unknown
 ENV AIRANK_BUILD_REVISION=$BUILD_REVISION
 WORKDIR /app
@@ -31,7 +31,7 @@ EXPOSE 3002
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD node -e "fetch('http://127.0.0.1:'+process.env.PORT+'/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 CMD ["node", "src/content/worker.mjs"]
 
-FROM node:24-bookworm-slim AS google
+FROM node:25-bookworm-slim AS google
 ARG BUILD_REVISION=unknown
 ENV AIRANK_BUILD_REVISION=$BUILD_REVISION
 WORKDIR /app
