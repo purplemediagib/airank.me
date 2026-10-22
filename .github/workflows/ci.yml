@@ -1,0 +1,57 @@
+name: Test and build
+on:
+  pull_request:
+  push:
+    branches-ignore: [main]
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - directory: app
+            node: 22
+          - directory: app
+            node: 24
+          - directory: google-connector
+            node: 24
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: ${{ matrix.node }}
+      - if: matrix.directory == 'app'
+        working-directory: app
+        run: npm ci
+      - working-directory: ${{ matrix.directory }}
+        run: npm test
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [api, worker, content, google]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Build from source
+        env:
+          SERVICE: ${{ matrix.service }}
+        run: docker build --target "$SERVICE" --tag "airank-test:$SERVICE" .
+      - name: Verify runtime imports and production dependencies
+        env:
+          SERVICE: ${{ matrix.service }}
+        run: |
+          if [ "$SERVICE" = google ]; then
+            docker run --rm --network none --entrypoint node "airank-test:$SERVICE" -e "import('./server.mjs')"
+          else
+            docker run --rm --network none --entrypoint node "airank-test:$SERVICE" -e "Promise.all([import('@libsql/client/web'),import('./src/app/service.mjs'),import('./src/content/engine.mjs')])"
+          fi

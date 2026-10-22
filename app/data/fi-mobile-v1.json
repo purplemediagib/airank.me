@@ -1,0 +1,84 @@
+{
+  "id": "fi-mobile-v1",
+  "industry": {
+    "id": "mobile-operators",
+    "name": "Puhelinoperaattorit"
+  },
+  "version": "v1",
+  "country": "FI",
+  "language": "fi",
+  "brands": [
+    {
+      "id": "elisa",
+      "name": "Elisa",
+      "domain": "elisa.fi",
+      "aliases": []
+    },
+    {
+      "id": "dna",
+      "name": "DNA",
+      "domain": "dna.fi",
+      "aliases": []
+    },
+    {
+      "id": "telia",
+      "name": "Telia",
+      "domain": "telia.fi",
+      "aliases": [
+        "Telia Finland"
+      ]
+    }
+  ],
+  "prompts": [
+    {
+      "id": "mobile-01",
+      "intent": "discovery",
+      "text": "Mitkä operaattorit tarjoavat puhelinliittymiä kuluttajille Suomessa?"
+    },
+    {
+      "id": "mobile-02",
+      "intent": "comparison",
+      "text": "Mitä suomalaisia operaattoreita kannattaa vertailla rajatonta puhelinliittymää valittaessa?"
+    },
+    {
+      "id": "mobile-03",
+      "intent": "selection",
+      "text": "Mistä Suomessa kannattaa hankkia puhelinliittymä opiskelijalle?"
+    },
+    {
+      "id": "mobile-04",
+      "intent": "selection",
+      "text": "Mitkä operaattorit Suomessa tarjoavat sopivia puhelinliittymiä lapsen ensimmäiseen puhelimeen?"
+    },
+    {
+      "id": "mobile-05",
+      "intent": "comparison",
+      "text": "Mitä operaattoreita kannattaa vertailla, kun etsii 5G-puhelinliittymää Suomessa?"
+    },
+    {
+      "id": "mobile-06",
+      "intent": "discovery",
+      "text": "Mitkä operaattorit tarjoavat prepaid-puhelinliittymiä Suomessa?"
+    },
+    {
+      "id": "mobile-07",
+      "intent": "selection",
+      "text": "Mitä operaattoreita kannattaa harkita Suomessa, jos tarvitsee puhelinliittymän vähäiseen käyttöön?"
+    },
+    {
+      "id": "mobile-08",
+      "intent": "comparison",
+      "text": "Mitä puhelinoperaattoreita kannattaa vertailla Suomessa, kun matkustaa usein EU-maissa?"
+    },
+    {
+      "id": "mobile-09",
+      "intent": "selection",
+      "text": "Mitkä suomalaiset operaattorit tarjoavat eSIMiä tukevaa puhelinliittymää?"
+    },
+    {
+      "id": "mobile-10",
+      "intent": "comparison",
+      "text": "Mitä operaattoreita kannattaa vertailla, kun etsii puhelinliittymää koko perheelle Suomessa?"
+    }
+  ]
+}

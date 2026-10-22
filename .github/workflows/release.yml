@@ -1,0 +1,43 @@
+name: Publish release images
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  validate:
+    if: github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/ci.yml
+  publish:
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [api, worker, content, google]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Build and publish exact commit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+          REPOSITORY: ${{ github.repository }}
+          REVISION: ${{ github.sha }}
+          SERVICE: ${{ matrix.service }}
+        run: |
+          set -euo pipefail
+          image="ghcr.io/${REPOSITORY,,}/$SERVICE:sha-$REVISION"
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
+          docker build --platform linux/amd64 --target "$SERVICE" --build-arg "BUILD_REVISION=$REVISION" --label "org.opencontainers.image.revision=$REVISION" --tag "$image" .
+          docker push "$image"
+          printf '### %s\n\n`%s`\n' "$SERVICE" "$image" >> "$GITHUB_STEP_SUMMARY"
+          docker logout ghcr.io
