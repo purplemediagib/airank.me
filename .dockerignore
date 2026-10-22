@@ -1,0 +1,13 @@
+.git
+.github
+**/node_modules
+**/.env
+**/.env.*
+!**/.env.example
+**/*.sqlite*
+**/*.db
+**/*.zip
+**/*.tar*
+**/*.log
+docs
+replit

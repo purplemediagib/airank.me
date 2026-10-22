@@ -1,0 +1,12 @@
+node_modules/
+.env
+.env.*
+!.env.example
+*.db
+*.sqlite*
+*.tar
+*.tar.gz
+*.zip
+*.log
+.DS_Store
+coverage/

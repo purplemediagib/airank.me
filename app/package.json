@@ -1,0 +1,22 @@
+{
+  "name": "airank-bunny-runtime",
+  "version": "0.22.0",
+  "private": true,
+  "type": "module",
+  "description": "AI Rank API and scanning worker for Bunny Magic Containers",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start:api": "node src/api/server.mjs",
+    "start:worker": "node src/worker/worker.mjs",
+    "migrate": "node src/migrate.mjs",
+    "migrate:api-budget": "node src/monitoring/budget-migration.mjs",
+    "test": "node --test test/*.test.mjs",
+    "start:content": "node src/content/worker.mjs",
+    "migrate:content": "node src/content/migration.mjs"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.15.0"
+  }
+}
