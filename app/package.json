@@ -17,6 +17,6 @@
     "migrate:content": "node src/content/migration.mjs"
   },
   "dependencies": {
-    "@libsql/client": "^0.15.0"
+    "@libsql/client": "^0.18.0"
   }
 }
