@@ -1,12 +1,33 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {routesFromEnv,routeAvailable,compatibleRoute,publicProviders} from '../src/providers/routing.mjs';
+import {routesFromEnv,monitoringRoutesFromEnv,routeAvailable,compatibleRoute,publicProviders} from '../src/providers/routing.mjs';
 import {grokSearch,perplexitySearch,normalizeGroundedResponse} from '../src/providers/grounded-responses.mjs';
 import {googleAioSearch} from '../src/providers/google-aio.mjs';
 import {selectSerpContext} from '../src/providers/dataforseo-context.mjs';
 import {providerAvailable} from '../src/common/config.mjs';
 const names=['openai','claude','gemini','grok','perplexity','google_aio'];
 const extraModels={deepseek:'deepseek/deepseek-v4-pro',meta_ai:'meta/muse-spark-1.3',mistral:'mistralai/mistral-large-4-0',kimi:'moonshotai/kimi-k3'};
+test('Grok can explicitly use OpenRouter with its own credential while direct deployments remain stable',()=>{
+ const base={ENABLED_PROVIDERS:'grok'},direct=routesFromEnv(base).grok;
+ const env={...base,OPENROUTER_GROK_MODEL:'x-ai/grok-4.7',GROK_MODEL:'ignored-direct-model',OPENROUTER_SEARCH_ENGINES_JSON:'{"grok":"native"}'};
+ const route=routesFromEnv(env).grok;
+ assert.deepEqual(route,{transport:'openrouter',model:'x-ai/grok-4.7',search_engine:'native'});
+ assert.equal(providerAvailable('grok',{...env,XAI_API_KEY:'fixture-xai-only'}),false);
+ assert.equal(providerAvailable('grok',{...env,OPENROUTER_API_KEY:'fixture-or'}),true);
+ assert.deepEqual(direct,{transport:'direct',model:'grok-4.7'});
+ assert.equal(compatibleRoute(direct,route),false);
+ assert.equal(routesFromEnv({...env,OPENROUTER_SEARCH_ENGINES_JSON:'{"grok":"exa"}'}).grok.search_engine,'exa');
+ for(const model of ['grok-4.7','google/gemini-2.5-flash','x-ai/not-grok','x-ai/grok-4.7:online','x-ai/grok-4.7 '])assert.throws(()=>routesFromEnv({...env,OPENROUTER_GROK_MODEL:model}),/OPENROUTER_GROK_MODEL/);
+ assert.throws(()=>routesFromEnv({...base,OPENROUTER_SEARCH_ENGINES_JSON:'{"grok":"native"}'}),/search engine mapping/);
+ assert.deepEqual(publicProviders({enabledProviders:['openai','claude','grok']}),['openai','claude']);
+});
+test('Grok OpenRouter rollout removes only Grok from collection selection and retains Perplexity',()=>{
+ const env={ENABLED_PROVIDERS:'grok,perplexity',OPENROUTER_GROK_MODEL:'x-ai/grok-4.7',CONSUMER_COLLECTION_PROVIDERS:'perplexity'};
+ const routes=monitoringRoutesFromEnv(env);
+ assert.equal(routes.grok.transport,'openrouter');assert.equal(routes.perplexity.transport,'scrapeless');
+ // Collection selection remains explicit; stale selection must be removed on rollout.
+ assert.equal(monitoringRoutesFromEnv({...env,CONSUMER_COLLECTION_PROVIDERS:'grok,perplexity'}).grok.transport,'scrapeless');
+});
 test('configured extra providers have valid routes and require their OpenRouter credential',()=>{
  const env={ENABLED_PROVIDERS:[...names,...Object.keys(extraModels)].join(','),OPENROUTER_MODELS_JSON:JSON.stringify(extraModels)};
  const routes=routesFromEnv(env);
