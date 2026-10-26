@@ -57,11 +57,17 @@ test('quotes determine scores, mixed evidence remains mixed, offsets match origi
  assert.equal(validateAssessments(output([quote(fi.answer,'positive','luotettavuus')]),fi,{...snapshot,language:'fi'})[0].score,75);
  assert.equal(validateAssessments(output([quote('Example is easy to use.','neutral','')]),e,snapshot)[0].score,50);
 });
-test('rejects entirely fabricated quotes, wrong brands, false absence and missing brand context',()=>{
+test('unverifiable brand assessments are unclassified without fabricated scores or quotes',()=>{
  const e=evidence('Example is easy to use.');
- for(const o of [output([quote('Invented praise.')]),output([quote('easy to use')]),output([],{status:'not_mentioned'}),{assessments:[output([quote(e.answer)]).assessments[0],output([quote(e.answer)]).assessments[0]]}])assert.throws(()=>validateAssessments(o,e,snapshot),/INVALID_SENTIMENT_OUTPUT/);
+ for(const [o,reason] of [[output([quote('Invented praise.')]),'NO_VALID_QUOTES'],[output([quote('easy to use')]),'MISSING_BRAND_CONTEXT'],[output([],{status:'not_mentioned'}),'FALSE_ABSENCE']]){
+  const a=validateAssessments(o,e,snapshot)[0];assert.equal(a.status,'unclassified');assert.equal(a.score,null);assert.deepEqual(a.quotes,[]);assert.equal(a.validationReason,reason);
+ }
  assert.equal(validateAssessments(output([],{status:'unclassified'}),e,snapshot)[0].score,null);
- assert.throws(()=>validateAssessments(output([quote(e.answer)]),evidence('Other is good.'),snapshot));
+ assert.equal(validateAssessments(output([quote(e.answer)]),evidence('Other is good.'),snapshot)[0].validationReason,'ABSENT_BRAND');
+});
+test('ambiguous response identities still fail closed with a specific diagnostic',()=>{
+ const e=evidence(),a=output([quote(e.answer)]).assessments[0];
+ for(const [assessments,reason] of [[[],'ASSESSMENT_COUNT'],[[a,a],'DUPLICATE_BRAND'],[[a,{...a,brandId:'invented'}],'UNKNOWN_BRAND'],[[a,null],'INVALID_ASSESSMENT']])assert.throws(()=>validateAssessments({assessments},e,snapshot),x=>x.code==='INVALID_SENTIMENT_OUTPUT'&&x.validationReason===reason);
 });
 test('invalid, paraphrased and overlapping excerpts are discarded; only exact retained quotes contribute',()=>{
  const e=evidence('**Example Oy** on luotettava.\n- Example on kallis.');
@@ -74,8 +80,8 @@ test('invalid, paraphrased and overlapping excerpts are discarded; only exact re
  assert.equal(a.score,50);assert.equal(a.label,'mixed');
  assert.deepEqual(a.quotes.map(q=>q.text),[first,second]);
  for(const q of a.quotes)assert.equal(e.answer.slice(q.start,q.end),q.text);
- assert.throws(()=>validateAssessments(output([null,quote('rewritten quotation')]),e,snapshot),/INVALID_SENTIMENT_OUTPUT/);
- assert.equal(rubricVersion,'brand-sentiment-quotes-v2');
+ assert.equal(validateAssessments(output([null,quote('rewritten quotation')]),e,snapshot)[0].status,'unclassified');
+ assert.equal(rubricVersion,'brand-sentiment-quotes-v3');
 });
 test('OpenAI adapter uses structured output, treats answer as data, and handles refusal, truncation and HTTP failure',async()=>{
  let request;const env={OPENAI_API_KEY:'secret'},c=config(env),e=evidence();
@@ -83,7 +89,8 @@ test('OpenAI adapter uses structured output, treats answer as data, and handles 
  assert.equal(request.body.model,c.model);assert.equal(request.body.store,false);assert.equal(request.body.response_format.json_schema.strict,true);assert.equal(request.body.tools,undefined);
  assert.equal(JSON.parse(request.body.messages[1].content).answer,e.answer);assert.match(request.body.messages[0].content,/UNTRUSTED/);
  assert.equal(r.assessments[0].score,75);assert.equal(r.usage.total_tokens,50);assert.equal(JSON.stringify(r).includes('secret'),false);
- for(const [res,code] of [[new Response('private body',{status:429}),'SENTIMENT_HTTP_429'],[response(null,{choices:[{finish_reason:'stop',message:{refusal:'private refusal'}}]}),'SENTIMENT_REFUSED'],[response(null,{choices:[{finish_reason:'length',message:{content:'{}'}}]}),'SENTIMENT_INCOMPLETE'],[response(output([quote('fake quote')])),'INVALID_SENTIMENT_OUTPUT']])await assert.rejects(analyse(e,snapshot,c,{env,fetcher:async()=>res}),x=>x.code===code);
+ for(const [res,code] of [[new Response('private body',{status:429}),'SENTIMENT_HTTP_429'],[response(null,{choices:[{finish_reason:'stop',message:{refusal:'private refusal'}}]}),'SENTIMENT_REFUSED'],[response(null,{choices:[{finish_reason:'length',message:{content:'{}'}}]}),'SENTIMENT_INCOMPLETE'],[response({assessments:[]}),'INVALID_SENTIMENT_OUTPUT']])await assert.rejects(analyse(e,snapshot,c,{env,fetcher:async()=>res}),x=>x.code===code);
+ await assert.rejects(analyse(e,snapshot,c,{env,fetcher:async()=>response(null,{choices:[{finish_reason:'stop',message:{content:'not json'}}]})}),x=>x.code==='INVALID_SENTIMENT_OUTPUT'&&x.validationReason==='INVALID_JSON');
 });
 test('analysis persists once and is exposed in owner analytics, competitor metrics, paginated result and detail',async()=>{
  const f=await fixture();try{
@@ -104,6 +111,37 @@ test('both brands in the same response receive their own assessment, from one pa
   await f.worker({call:async(e,s,c)=>analyse(e,s,c,{env:f.env,fetcher:async()=>response({assessments:[{brandId:brandKey(identity),status:'assessed',quotes:[quote('Example is easy to use.')]},{brandId:brandKey(other),status:'assessed',quotes:[quote('Other is unreliable.','negative','reliability')]}]})})}).tick();
   const a=(await f.analytics()).data;assert.equal(a.competitors[0].metrics.sentiment.score,75);assert.equal(a.competitors[1].metrics.sentiment.score,25);
   assert.equal(f.sql.prepare('SELECT COUNT(*) n FROM sentiment_jobs WHERE started_at IS NOT NULL').get().n,1);
+ }finally{f.close();}
+});
+test('one invalid competitor assessment does not discard the target score; diagnostics persist safely',async()=>{
+ const f=await fixture();try{
+  f.add('partial','**Example** on luotettava. Other on kallis.',{...snapshot,language:'fi'});
+  let calls=0;
+  const w=f.worker({call:async(e,s,c)=>{calls++;return analyse(e,s,c,{env:f.env,fetcher:async()=>response({assessments:[
+   {brandId:brandKey(identity),status:'assessed',quotes:[quote('**Example** on luotettava.')]},
+   {brandId:brandKey(other),status:'assessed',quotes:[quote('Other is expensive.','negative')]},
+  ]})});}});
+  await w.tick();await w.tick();
+  const r=(await f.results()).data.items[0];
+  assert.equal(r.sentiment.score,75);assert.equal(r.sentiment.quotes[0].text,'**Example** on luotettava.');
+  assert.equal(r.brandSentiments[brandKey(other)].status,'unclassified');
+  assert.equal(r.brandSentiments[brandKey(other)].score,null);
+  assert.equal(r.brandSentiments[brandKey(other)].validationReason,'NO_VALID_QUOTES');
+  assert.equal((await f.backfill('partial')).data.queued,0);assert.equal(calls,1);
+  const saved=f.logs.find(x=>x.event==='sentiment_saved');assert.equal(saved.status,'done');
+  assert.deepEqual(saved.validation_issues,[{brand_id:brandKey(other),reason:'NO_VALID_QUOTES'}]);
+  assert.equal(JSON.stringify(f.logs).includes('luotettava'),false);
+  assert.equal(JSON.stringify(f.logs).includes('Other is expensive'),false);
+ }finally{f.close();}
+});
+test('structural failures log the validation reason without logging provider text or retrying',async()=>{
+ const f=await fixture();try{
+  f.add();let calls=0;
+  const w=f.worker({call:async(e,s,c)=>{calls++;return analyse(e,s,c,{env:f.env,fetcher:async()=>response({assessments:[]})});}});
+  await w.tick();await w.tick();
+  const saved=f.logs.find(x=>x.event==='sentiment_saved');
+  assert.equal(saved.error,'INVALID_SENTIMENT_OUTPUT');assert.equal(saved.validation_reason,'ASSESSMENT_COUNT');assert.equal(calls,1);
+  assert.equal((await f.results()).data.items[0].sentiment.score,null);
  }finally{f.close();}
 });
 test('absent brands, failed providers and unsupported language do not become sentiment zero or incur calls',async()=>{
@@ -182,7 +220,7 @@ test('untrusted model cannot turn an absent brand into scored sentiment; lengthy
  const f=await fixture();try{
   f.add('long','Example '+ 'x'.repeat(32000));await f.worker({call:()=>assert.fail('must not truncate and score')}).tick();
   const e=(await f.results()).data.items[0];assert.equal(e.sentiment.status,'answer_too_long');assert.equal(e.answer.length,32008);
-  assert.throws(()=>validateAssessments(output([quote('Other is good.')]),evidence('Other is good.'),snapshot));
+  assert.equal(validateAssessments(output([quote('Other is good.')]),evidence('Other is good.'),snapshot)[0].score,null);
  }finally{f.close();}
 });
 test('results include pending tasks, paginate, filter and protect single-result ownership',async()=>{
