@@ -57,11 +57,25 @@ test('quotes determine scores, mixed evidence remains mixed, offsets match origi
  assert.equal(validateAssessments(output([quote(fi.answer,'positive','luotettavuus')]),fi,{...snapshot,language:'fi'})[0].score,75);
  assert.equal(validateAssessments(output([quote('Example is easy to use.','neutral','')]),e,snapshot)[0].score,50);
 });
-test('rejects fabricated quotes, duplicated/overlapping excerpts, wrong brands, false absence and missing brand context',()=>{
+test('rejects entirely fabricated quotes, wrong brands, false absence and missing brand context',()=>{
  const e=evidence('Example is easy to use.');
- for(const o of [output([quote('Invented praise.')]),output([quote(e.answer),quote(e.answer)]),output([quote(e.answer),quote('easy to use')]),output([quote('easy to use')]),output([],{status:'not_mentioned'}),{assessments:[output([quote(e.answer)]).assessments[0],output([quote(e.answer)]).assessments[0]]}])assert.throws(()=>validateAssessments(o,e,snapshot),/INVALID_SENTIMENT_OUTPUT/);
+ for(const o of [output([quote('Invented praise.')]),output([quote('easy to use')]),output([],{status:'not_mentioned'}),{assessments:[output([quote(e.answer)]).assessments[0],output([quote(e.answer)]).assessments[0]]}])assert.throws(()=>validateAssessments(o,e,snapshot),/INVALID_SENTIMENT_OUTPUT/);
  assert.equal(validateAssessments(output([],{status:'unclassified'}),e,snapshot)[0].score,null);
  assert.throws(()=>validateAssessments(output([quote(e.answer)]),evidence('Other is good.'),snapshot));
+});
+test('invalid, paraphrased and overlapping excerpts are discarded; only exact retained quotes contribute',()=>{
+ const e=evidence('**Example Oy** on luotettava.\n- Example on kallis.');
+ const first='**Example Oy** on luotettava.',second='Example on kallis.';
+ const a=validateAssessments(output([
+  quote('Example Oy on luotettava.','strongly_positive'),
+  quote(first),quote(first,'strongly_positive'),quote('on luotettava.'),
+  null,{text:second,polarity:'invalid',attribute:''},quote(second,'negative','hinta'),
+ ]),e,{...snapshot,language:'fi'})[0];
+ assert.equal(a.score,50);assert.equal(a.label,'mixed');
+ assert.deepEqual(a.quotes.map(q=>q.text),[first,second]);
+ for(const q of a.quotes)assert.equal(e.answer.slice(q.start,q.end),q.text);
+ assert.throws(()=>validateAssessments(output([null,quote('rewritten quotation')]),e,snapshot),/INVALID_SENTIMENT_OUTPUT/);
+ assert.equal(rubricVersion,'brand-sentiment-quotes-v2');
 });
 test('OpenAI adapter uses structured output, treats answer as data, and handles refusal, truncation and HTTP failure',async()=>{
  let request;const env={OPENAI_API_KEY:'secret'},c=config(env),e=evidence();

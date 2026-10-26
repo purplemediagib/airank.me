@@ -8,6 +8,9 @@ export function routesFromEnv(env=process.env){
  if(!extra||Array.isArray(extra)||typeof extra!=='object')throw Error('OPENROUTER_MODELS_JSON must be an object');
  for(const [k,v] of Object.entries(extra))if(!/^[a-z][a-z0-9_]{1,39}$/.test(k)||['openai','claude','google_aio','grok','perplexity','copilot'].includes(k)||typeof v!=='string')throw Error('Invalid/reserved OpenRouter provider mapping');
  const engine=env.OPENROUTER_SEARCH_ENGINE||'native';if(!['native','exa'].includes(engine))throw Error('OPENROUTER_SEARCH_ENGINE must be native or exa');
+ let engines;try{engines=JSON.parse(env.OPENROUTER_SEARCH_ENGINES_JSON||'{}');}catch{throw Error('OPENROUTER_SEARCH_ENGINES_JSON must be a JSON object');}
+ if(!engines||Array.isArray(engines)||typeof engines!=='object')throw Error('OPENROUTER_SEARCH_ENGINES_JSON must be a JSON object');
+ for(const [p,e] of Object.entries(engines))if((p!=='gemini'&&!Object.hasOwn(extra,p))||!['native','exa'].includes(e))throw Error('Invalid OpenRouter search engine mapping');
  const map={gemini:env.OPENROUTER_GEMINI_MODEL||'google/gemini-3.8-flash',...extra},routes={};
  for(const p of enabled){
  if(p==='openai')routes[p]={transport:'direct',model:env.OPENAI_MODEL||'gpt-4.1-mini'};
@@ -17,7 +20,7 @@ export function routesFromEnv(env=process.env){
  else if(p==='google_aio')routes[p]={transport:'dataforseo',model:'Google AI Overviews / desktop SERP'};
  else{if(p==='copilot')throw Error('Consumer Copilot is deferred; an OpenRouter model is not Copilot');
  const model=map[p];if(!model||!/^[-\w.]+\/[-\w.]+$/.test(model)||/^(openai|anthropic|openrouter)\//.test(model))throw Error('Configure an explicit non-OpenAI/non-Anthropic OpenRouter model for '+p);
- routes[p]={transport:'openrouter',model,search_engine:engine};}
+ routes[p]={transport:'openrouter',model,search_engine:engines[p]||engine};}
  }
  if(!enabled.length)throw Error('Enable at least one provider');return routes;
 }

@@ -5,6 +5,7 @@ import { validateProfile, METHODOLOGY, buildScanReport } from '../common/scan-pr
 import { scanLimitError } from '../common/scan-limits.mjs';
 import { scanMigrationId, scanChecksum } from './scan-migration.mjs';
 import {sameContext,measurementContext} from '../common/measurement-context.mjs';
+import {routesFromEnv} from '../providers/routing.mjs';
 const fail = (status, code) => {throw Object.assign(new Error(code),{status,code});};
 const one = async (db,sql,args=[]) => (await db.execute({sql,args})).rows[0];
 const accepted = r => ({id:r.scan_id,status:r.status,domain:r.domain,project_id:r.project_id,project_version:Number(r.project_version),submission_id:r.submission_id,created_at:Number(r.created_at)});
@@ -45,7 +46,8 @@ export async function appScans({db,method,path,body,userId,now=Date.now,env=proc
   .map(p=>p.text);
  if(!prompts.length)fail(422,'CONTEXT_PROMPTS_REQUIRED');
  const providers=[...new Set(config.enabledProviders)];
- if(!providers.length || providers.some(p=>!['openai','claude','gemini','grok','perplexity','google_aio'].includes(p))) fail(503,'PROVIDERS_UNAVAILABLE');
+ let routes;try{routes=routesFromEnv(env);}catch{fail(503,'PROVIDERS_UNAVAILABLE');}
+ if(!providers.length || providers.some(p=>!Object.hasOwn(routes,p))) fail(503,'PROVIDERS_UNAVAILABLE');
  const hash=createHash('sha256').update(JSON.stringify({profile,prompts,providers,methodology:METHODOLOGY,project_id:body.project_id,project_version:body.project_version})).digest('hex');
  const validateProject=async tx=>{
   const p=await one(tx,'SELECT p.*,v.identity_json FROM app_projects p JOIN app_identity_versions v ON v.project_id=p.id AND v.version=p.version WHERE p.id=? AND p.owner_id=?',[body.project_id,userId]);

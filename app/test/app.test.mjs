@@ -100,6 +100,25 @@ test('Finnish first check requires the project tracked prompt set; it never fall
  } finally { f.sqlite.close(); }
 });
 
+test('scan preview and enqueue accept configured extra routes and reject malformed or unmapped providers',async()=>{
+ const f=await fixture();try{
+  await migrateProjectScans(f.db);
+  const p=(await f.call('POST','/v1/projects',data)).data;
+  await seedTrackedPrompts(f,p.id,['Mitkä liittymät sopivat suomalaiselle pienyritykselle?']);
+  const input={project_id:p.id,project_version:1,domain:'example.fi',brand_name:'Example',aliases:[],category_fi:data.categoryFi,market:'FI',language:'fi'};
+  const providers=['deepseek','meta_ai','mistral','kimi'];
+  const env={ENABLED_PROVIDERS:providers.join(','),OPENROUTER_MODELS_JSON:JSON.stringify({deepseek:'deepseek/deepseek-v4-pro',meta_ai:'meta/muse-spark-1.3',mistral:'mistralai/mistral-large-4-0',kimi:'moonshotai/kimi-k3'}),RATE_LIMIT_SECRET:'isolated-test-rate-secret-at-least-24'};
+  const args={db:f.db,method:'POST',path:'/v1/scans/preview',body:input,userId:'alice',env,config:{enabledProviders:providers}};
+  const preview=(await appScans(args)).data;
+  assert.deepEqual(preview.providers,providers);assert.equal(preview.paid_calls,0);
+  const result=await appScans({...args,path:'/v1/scans',body:{...input,profile_confirmed:true,methodology:preview.methodology,preview_hash:preview.preview_hash,submission_id:'expanded-providers-test-001'}});
+  assert.equal(result.status,202);
+  const saved=JSON.parse(f.sqlite.prepare('SELECT profile_json FROM scan_profiles WHERE scan_id=?').get(result.data.id).profile_json);
+  assert.deepEqual(saved.providers,providers);
+  for(const bad of [{...env,OPENROUTER_MODELS_JSON:'broken'},{...env,ENABLED_PROVIDERS:'unknown'}, {...env,ENABLED_PROVIDERS:'openai'}])await assert.rejects(appScans({...args,env:bad}),e=>e.code==='PROVIDERS_UNAVAILABLE');
+ }finally{f.sqlite.close();}
+});
+
 test('authenticated scan limit returns the weekly-cap reason and supports an opt-in testing bypass', async () => {
  const f=await fixture();
  try {

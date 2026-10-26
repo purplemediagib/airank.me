@@ -1,5 +1,7 @@
+import {routesFromEnv,routeAvailable} from '../providers/routing.mjs';
+
 export const CONFIG = {
-  version: '0.22.0',
+  version: '0.23.0',
   appEnv: process.env.APP_ENV || 'staging',
   apiPort: Number(process.env.PORT || 3000),
   workerPort: Number(process.env.PORT || 3001),
@@ -22,12 +24,9 @@ export const CONFIG = {
   httpTimeoutMs: Math.max(2000,Number(process.env.PROVIDER_TIMEOUT_SECONDS || 60)*1000),
 };
 export function hasDbConfig(){return !!(process.env.BUNNY_DATABASE_URL && process.env.BUNNY_DATABASE_AUTH_TOKEN)}
-export function providerAvailable(p){
-  if(p==='openai')return !!process.env.OPENAI_API_KEY;
-  if(p==='claude')return !!process.env.ANTHROPIC_API_KEY;
-  if(p==='gemini')return !!process.env.OPENROUTER_API_KEY;
-  if(p==='grok')return !!process.env.XAI_API_KEY;
-  if(p==='perplexity')return !!process.env.PERPLEXITY_API_KEY;
-  if(p==='google_aio')return !!(process.env.DATAFORSEO_LOGIN && process.env.DATAFORSEO_PASSWORD);
-  return false;
+export function providerAvailable(p,env=process.env){
+  try{
+    const routes=routesFromEnv(env);
+    return Object.hasOwn(routes,p)&&routeAvailable(p,routes[p],env);
+  }catch{return false;}
 }

@@ -1,7 +1,7 @@
 import {hash,setting} from '../monitoring/shared.mjs';
 import {containsName} from '../common/scan-profile.mjs';
 
-export const rubricVersion='brand-sentiment-quotes-v1';
+export const rubricVersion='brand-sentiment-quotes-v2';
 export const defaultModel='gpt-4.1-mini-2025-04-14';
 export const polarityScores={strongly_negative:0,negative:25,neutral:50,positive:75,strongly_positive:100};
 export const instructions=`Assess brand sentiment in the supplied saved AI answer, in its original language (English or Finnish).
@@ -48,13 +48,13 @@ export function validateAssessments(output,e,s){
   if(!present||!a.quotes.length)invalid();
   const ranges=[];
   const quotes=a.quotes.map(q=>{
-   if(typeof q.text!=='string'||q.text.trim().length<2||q.text.length>2000||!Object.hasOwn(polarityScores,q.polarity)||typeof q.attribute!=='string'||q.attribute.length>100)invalid();
+   if(!q||typeof q.text!=='string'||q.text.trim().length<2||q.text.length>2000||!Object.hasOwn(polarityScores,q.polarity)||typeof q.attribute!=='string'||q.attribute.length>100)return null;
    const start=e.answer.indexOf(q.text),end=start+q.text.length;
-   if(start<0||ranges.some(r=>start<r.end&&end>r.start))invalid();
+   if(start<0||ranges.some(r=>start<r.end&&end>r.start))return null;
    ranges.push({start,end});
    return {text:q.text,start,end,polarity:q.polarity,score:polarityScores[q.polarity],attribute:q.attribute.trim()};
-  });
-  if(!quotes.some(q=>mentions(q.text,b)))invalid();
+  }).filter(Boolean);
+  if(!quotes.length||!quotes.some(q=>mentions(q.text,b)))invalid();
   const score=Math.round(quotes.reduce((n,q)=>n+q.score,0)/quotes.length*10)/10;
   const mixed=quotes.some(q=>q.score<50)&&quotes.some(q=>q.score>50);
   const label=mixed?'mixed':score<12.5?'strongly_negative':score<50?'negative':score===50?'neutral':score<87.5?'positive':'strongly_positive';

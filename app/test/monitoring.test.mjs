@@ -315,3 +315,22 @@ test('real bounded provider adapters save evidence; unbounded Perplexity is not 
   assert.ok(done.evidence.filter(e=>e.provider!=='perplexity').every(e=>e.citations.length===1&&e.mentioned&&e.meta.usage&&e.meta.response_id));
  }finally{globalThis.fetch=oldFetch;if(oldKey===undefined)delete process.env.OPENROUTER_API_KEY;else process.env.OPENROUTER_API_KEY=oldKey;f.close();}
 });
+
+test('extra models enqueue, reserve budgets, execute and persist independently in Finnish monitoring',async()=>{
+ const models={deepseek:'deepseek/deepseek-v4-pro',meta_ai:'meta/muse-spark-1.3',mistral:'mistralai/mistral-large-4-0',kimi:'moonshotai/kimi-k3'};
+ const f=await fixture({ENABLED_PROVIDERS:Object.keys(models).join(','),OPENROUTER_MODELS_JSON:JSON.stringify(models),OPENROUTER_SEARCH_ENGINES_JSON:JSON.stringify({deepseek:'exa',mistral:'exa',kimi:'exa'}),OPENROUTER_API_KEY:'fixture-only'});
+ try{
+  await f.prompt();const run=await f.run();const calls=[];
+  const worker=engine(f,{call:async(p,text,route,timeout,context)=>{
+   calls.push(p);assert.equal(route.transport,'openrouter');assert.equal(route.model,models[p]);
+   assert.equal(route.api_budget.maxTokens,['deepseek','kimi'].includes(p)?8192:4000);
+   assert.equal(context.language,'fi');assert.equal(context.market,'FI');
+   return success(p,text,route);
+  }});
+  for(let i=0;i<8;i++)await worker.tick();
+  assert.deepEqual(calls.sort(),Object.keys(models).sort());
+  const rows=f.sqlite.prepare('SELECT payload FROM mon_evidence WHERE run_id=?').all(run.id).map(r=>JSON.parse(r.payload));
+  assert.equal(rows.length,4);assert.ok(rows.every(r=>r.status==='success'&&r.model===models[r.provider]));
+  assert.equal(f.sqlite.prepare('SELECT status FROM mon_runs WHERE id=?').get(run.id).status,'complete');
+ }finally{f.close();}
+});
