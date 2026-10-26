@@ -7,15 +7,18 @@ export function routesFromEnv(env=process.env){
  let extra={};try{extra=JSON.parse(env.OPENROUTER_MODELS_JSON||'{}');}catch{throw Error('OPENROUTER_MODELS_JSON must be a JSON object');}
  if(!extra||Array.isArray(extra)||typeof extra!=='object')throw Error('OPENROUTER_MODELS_JSON must be an object');
  for(const [k,v] of Object.entries(extra))if(!/^[a-z][a-z0-9_]{1,39}$/.test(k)||['openai','claude','google_aio','grok','perplexity','copilot'].includes(k)||typeof v!=='string')throw Error('Invalid/reserved OpenRouter provider mapping');
+ // Explicit opt-in keeps existing direct Grok deployments and saved routes stable.
+ const grokModel=env.OPENROUTER_GROK_MODEL;
+ if(grokModel&&!/^x-ai\/grok[-\w.]*$/.test(grokModel))throw Error('OPENROUTER_GROK_MODEL must be an explicit x-ai/grok model');
  const engine=env.OPENROUTER_SEARCH_ENGINE||'native';if(!['native','exa'].includes(engine))throw Error('OPENROUTER_SEARCH_ENGINE must be native or exa');
  let engines;try{engines=JSON.parse(env.OPENROUTER_SEARCH_ENGINES_JSON||'{}');}catch{throw Error('OPENROUTER_SEARCH_ENGINES_JSON must be a JSON object');}
  if(!engines||Array.isArray(engines)||typeof engines!=='object')throw Error('OPENROUTER_SEARCH_ENGINES_JSON must be a JSON object');
- for(const [p,e] of Object.entries(engines))if((p!=='gemini'&&!Object.hasOwn(extra,p))||!['native','exa'].includes(e))throw Error('Invalid OpenRouter search engine mapping');
- const map={gemini:env.OPENROUTER_GEMINI_MODEL||'google/gemini-3.8-flash',...extra},routes={};
+ for(const [p,e] of Object.entries(engines))if((p!=='gemini'&&!(p==='grok'&&grokModel)&&!Object.hasOwn(extra,p))||!['native','exa'].includes(e))throw Error('Invalid OpenRouter search engine mapping');
+ const map={gemini:env.OPENROUTER_GEMINI_MODEL||'google/gemini-3.8-flash',...extra,...(grokModel?{grok:grokModel}:{})},routes={};
  for(const p of enabled){
  if(p==='openai')routes[p]={transport:'direct',model:env.OPENAI_MODEL||'gpt-4.1-mini'};
  else if(p==='claude')routes[p]={transport:'direct',model:env.CLAUDE_MODEL||'claude-sonnet-4-5'};
- else if(p==='grok')routes[p]={transport:'direct',model:env.GROK_MODEL||'grok-4.7'};
+ else if(p==='grok'&&!grokModel)routes[p]={transport:'direct',model:env.GROK_MODEL||'grok-4.7'};
  else if(p==='perplexity')routes[p]={transport:'direct',model:'perplexity-agent/fast'};
  else if(p==='google_aio')routes[p]={transport:'dataforseo',model:'Google AI Overviews / desktop SERP'};
  else{if(p==='copilot')throw Error('Consumer Copilot is deferred; an OpenRouter model is not Copilot');

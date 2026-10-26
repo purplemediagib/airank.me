@@ -31,7 +31,7 @@ test('Gemini receives a bounded larger output allowance without changing search 
 });
 
 test('new model HTTP requests and budget reservations share bounded output allowances',async()=>{
- for(const [model,expected] of [['deepseek/deepseek-v4-pro',8192],['moonshotai/kimi-k3',8192],['meta/muse-spark-1.3',4000],['mistralai/mistral-large-4-0',4000]]){
+ for(const [model,expected] of [['deepseek/deepseek-v4-pro',8192],['moonshotai/kimi-k3',8192],['x-ai/grok-4.7',8192],['meta/muse-spark-1.3',4000],['mistralai/mistral-large-4-0',4000]]){
   const mock=mocked(response());
   await openrouterSearch('Test question',{...options(mock),model,searchEngine:'exa'});
   assert.equal(mock.requests[0].max_tokens,expected);
