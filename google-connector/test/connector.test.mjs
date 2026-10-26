@@ -24,8 +24,8 @@ async function fixture(t,handler,extra={}){
 }
 const path='/v1/projects/p1/connections/ga4';
 function seed(app,k=conn(),overrides={}){app.store.set('connection',k,{workspace:'w1',project:'p1',service:'ga4',googleSub:'sub1',email:'owner@example.test',access_token:'ACCESS',refresh_token:'REFRESH',scope:SCOPES.ga4,expires:Date.now()+3600000,status:'connected',property:'properties/123',generation:'gen1',timeZone:'Europe/Helsinki',currency:'EUR',...overrides});}
-async function start(app,service='ga4'){
-  let r=await app.request('/v1/projects/p1/connections/'+service+'/connect','POST',{userId:'user1',returnUrl:ret});assert.equal(r.status,200);
+async function start(app,service='ga4',returnUrl=ret){
+  let r=await app.request('/v1/projects/p1/connections/'+service+'/connect','POST',{userId:'user1',returnUrl});assert.equal(r.status,200);
   const link=new URL((await r.json()).url);r=await fetch(app.base+link.pathname+link.search,{redirect:'manual'});assert.equal(r.status,303);
   return{state:new URL(r.headers.get('location')).searchParams.get('state'),cookie:r.headers.get('set-cookie').split(';')[0],googleURL:new URL(r.headers.get('location'))};
 }
@@ -54,6 +54,38 @@ test('OAuth callback requires original browser, scopes, one-use state and PKCE',
   const result=await fetch(cb,{redirect:'manual',headers:{Cookie:flow.cookie}});assert.equal(result.status,303);assert.equal(new URL(result.headers.get('location')).searchParams.get('google_connection'),'connected');
   assert.equal((await fetch(cb,{redirect:'manual',headers:{Cookie:flow.cookie}})).status,400);
   const saved=app.store.get('connection',conn());assert.equal(saved.refresh_token,'REFRESH');assert.equal(saved.email,'person@example.test');
+});
+test('GA4 and GSC popups return success or cancellation to each exact approved app address',async t=>{
+ const returns=['https://app.airank.me/oauth/google/done','https://airankme.lovable.app/oauth/google/done','https://id-preview--f43f6624-1f66-4947-a301-a8060a55018e.lovable.app/oauth/google/done'];
+ let service;
+ const app=await fixture(t,url=>url.endsWith('/token')?{access_token:'ACCESS',refresh_token:'REFRESH',expires_in:3600,scope:'openid email '+SCOPES[service]}:{sub:'sub1',email:'person@example.test',email_verified:true},{APP_RETURN_URLS:returns.join(', ')});
+ for(service of ['ga4','gsc'])for(const returnUrl of returns)for(const status of ['cancelled','connected']){
+  const before=app.store.get('connection',conn('w1',service)),calls=app.calls.length;
+  const flow=await start(app,service,returnUrl);
+  assert.equal(flow.googleURL.searchParams.get('redirect_uri'),'http://127.0.0.1:9999/v1/oauth/google/callback');
+  assert.equal(flow.googleURL.searchParams.get('scope'),'openid email '+SCOPES[service]);
+  const callback=app.base+'/v1/oauth/google/callback?state='+flow.state+(status==='cancelled'?'&error=access_denied':'&code=fixture-code')+'&returnUrl=https://evil.example';
+  const response=await fetch(callback,{redirect:'manual',headers:{Cookie:flow.cookie}});
+  assert.equal(response.status,303);
+  const target=new URL(response.headers.get('location'));
+  assert.equal(target.origin+target.pathname,returnUrl);
+  assert.equal(target.searchParams.get('google_connection'),status);
+  assert.equal(target.searchParams.get('service'),service);
+  assert.deepEqual([...target.searchParams.keys()].sort(),['google_connection','service']);
+  assert.match(response.headers.get('set-cookie'),/Max-Age=0/);
+  assert.equal((await fetch(callback,{redirect:'manual',headers:{Cookie:flow.cookie}})).status,400);
+  if(status==='cancelled'){assert.equal(app.calls.length,calls);assert.deepEqual(app.store.get('connection',conn('w1',service)),before);}
+  else assert.equal(app.store.get('connection',conn('w1',service)).status,'connected');
+ }
+ for(const url of ['https://app.airank.me.evil.example/oauth/google/done','https://app.airank.me/wrong','https://app.airank.me/oauth/google/done?next=evil'])assert.equal((await app.request(path+'/connect','POST',{userId:'user1',returnUrl:url})).status,400);
+});
+test('connector canonicalises the approved URLs consistently with the API and rejects invalid lists',async t=>{
+ const app=await fixture(t,()=>assert.fail('no Google call expected'),{APP_RETURN_URLS:' https://APP.EXAMPLE.TEST:443/oauth/google/done '});
+ assert.equal((await app.request(path+'/connect','POST',{userId:'user1',returnUrl:'https://app.example.test/oauth/google/done'})).status,200);
+ for(const value of ['http://app.example.test/done','https://user:secret@app.example.test/done','https://app.example.test/done#hash','/relative'])assert.throws(()=>createApp({APP_RETURN_URLS:value}),/exact HTTPS URLs/);
+ const empty=await fixture(t,()=>assert.fail('no Google call expected'),{APP_RETURN_URLS:' , '});
+ assert.equal(empty.ready,false);assert.ok(empty.missing.includes('APP_RETURN_URLS'));
+ assert.equal((await fetch(empty.base+'/ready')).status,503);
 });
 test('partial consent leaves previous connection intact',async t=>{
   const app=await fixture(t,()=>({access_token:'NEW',refresh_token:'NEWREFRESH',scope:'openid email'}));seed(app);const flow=await start(app);

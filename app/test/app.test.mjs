@@ -65,6 +65,30 @@ test('Google connections retain app session, CSRF, active project ownership and 
   await denied(f.call('POST',route+'/connect',{}),503);
  }finally{f.sqlite.close();}
 });
+test('Google popup connect uses the authenticated client origin only after session and CSRF checks',async()=>{
+ const f=await fixture(),oldFetch=globalThis.fetch;
+ try{
+  const p=(await f.call('POST','/v1/projects',data)).data;
+  const urls=['https://app.airank.me/oauth/google/done','https://airankme.lovable.app/oauth/google/done','https://id-preview--f43f6624-1f66-4947-a301-a8060a55018e.lovable.app/oauth/google/done'];
+  const registry=Object.fromEntries(urls.map((url,i)=>['client-'+i,{origin:new URL(url).origin,redirectUri:new URL(url).origin+'/api/airank/v1/app/google/callback'}]));
+  const env={GOOGLE_CONNECTOR_BASE_URL:'https://connector.example',GOOGLE_CONNECTOR_RETURN_URLS:urls.join(','),GOOGLE_CONNECTOR_API_KEY:'fixture-connector-key-at-least-32-characters'};
+  const app=createAppService({db:f.db,clients:registry,env});
+  let calls=0,expected;
+  globalThis.fetch=async(_url,o)=>{calls++;assert.equal(JSON.parse(o.body).returnUrl,expected);return Response.json({url:'https://connector.example/v1/oauth/google/start?ticket='+'a'.repeat(43),expiresIn:120});};
+  const headers={'x-airank-client':'client-0',origin:registry['client-0'].origin,'content-type':'application/json',cookie:'__Host-airank_session=token-alice','x-csrf-token':csrfFor('token-alice')};
+  const connect=(extra={},body={})=>app({method:'POST',path:`/v1/projects/${p.id}/connections/ga4/connect`,body,headers:{...headers,...extra}});
+  for(let i=0;i<urls.length;i++){
+   expected=urls[i];assert.equal((await connect({'x-airank-client':'client-'+i,origin:registry['client-'+i].origin})).status,200);
+  }
+  await denied(connect({origin:'https://evil.example'}),403);
+  await denied(connect({origin:registry['client-1'].origin}),403);
+  await denied(connect({'x-csrf-token':'wrong'}),403);
+  await denied(connect({cookie:''}),401);
+  await denied(connect({cookie:'__Host-airank_session=token-bob','x-csrf-token':csrfFor('token-bob')}),404);
+  await denied(connect({},{returnUrl:'https://evil.example'}),422);
+  assert.equal(calls,3);
+ }finally{globalThis.fetch=oldFetch;f.sqlite.close();}
+});
 test('accounts can create multiple active workspaces without a workspace-count cap',async()=>{
  const f=await fixture();try{
   for(let i=0;i<8;i++)assert.equal((await f.call('POST','/v1/projects',{...data,brandName:`Business ${i}`})).status,201);

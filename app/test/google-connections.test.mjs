@@ -26,6 +26,23 @@ test('Google configuration requires server-only key, exact HTTPS origin and retu
     {GOOGLE_CONNECTOR_RETURN_URL:'https://app.example/#fragment'},
   ])assert.equal(connectorConfig({...env,...bad}),null);
 });
+test('return URL list selects the exact app origin and preserves the legacy and configured fallback',()=>{
+ const urls=['https://app.airank.me/oauth/google/done','https://airankme.lovable.app/oauth/google/done','https://id-preview--f43f6624-1f66-4947-a301-a8060a55018e.lovable.app/oauth/google/done'];
+ const multi={...env,GOOGLE_CONNECTOR_RETURN_URLS:urls.join(', ')};
+ for(const url of urls)assert.equal(connectorConfig(multi,new URL(url).origin).returnUrl,url);
+ for(const origin of [undefined,'https://unknown.example','https://app.airank.me.evil.example','https://app.airank.me/path'])assert.equal(connectorConfig(multi,origin).returnUrl,urls[0]);
+ assert.equal(connectorConfig(env,'https://app.example').returnUrl,env.GOOGLE_CONNECTOR_RETURN_URL);
+ // Any invalid entry invalidates the whole list, even if another entry matches.
+ for(const invalid of ['http://other.example/done','https://user:secret@other.example/done','https://other.example/done#fragment','/relative'])assert.equal(connectorConfig({...multi,GOOGLE_CONNECTOR_RETURN_URLS:urls[0]+','+invalid},'https://app.airank.me'),null);
+ assert.equal(connectorConfig({...multi,GOOGLE_CONNECTOR_RETURN_URLS:' , '}),null);
+});
+test('connect forwards only the matching configured return URL for GA4 and GSC',async()=>{
+ const returns='https://app.example/oauth/google/done,https://preview.example/oauth/google/done';
+ for(const service of ['ga4','gsc'])await call({method:'POST',path:prefix.replace('ga4',service)+'/connect',body:{},origin:'https://preview.example',env:{...env,GOOGLE_CONNECTOR_RETURN_URLS:returns},fetcher:async(_url,o)=>{
+  assert.deepEqual(JSON.parse(o.body),{userId:'alice',returnUrl:'https://preview.example/oauth/google/done'});
+  return json({url:'https://connector.example/v1/oauth/google/start?ticket='+'a'.repeat(43),expiresIn:120});
+ }});
+});
 test('Missing configuration is explicit setup-needed and never contacts upstream',async()=>{
   let requests=0;
   const r=await call({env:{},fetcher:async()=>{requests++;}});

@@ -17,9 +17,10 @@ export function createApp(config,fetcher=globalThis.fetch){
   const origin=config.PUBLIC_BASE_URL?.replace(/\/$/,'')||'';
   const validURL=u=>{try{const x=new URL(u);return !x.username&&!x.password&&!x.hash&&(x.protocol==='https:'||(test&&x.hostname==='127.0.0.1'));}catch{return false;}};
   if(origin)fail(validURL(origin)&&new URL(origin).origin===origin,'PUBLIC_BASE_URL must be an HTTPS origin');
-  const returns=(config.APP_RETURN_URLS||'').split(',').map(x=>x.trim()).filter(Boolean);
-  for(const u of returns)fail(validURL(u),'APP_RETURN_URLS must contain exact HTTPS URLs');
-  const missing=['PUBLIC_BASE_URL','GOOGLE_CLIENT_ID','GOOGLE_CLIENT_SECRET','CONNECTOR_API_KEY','TOKEN_ENCRYPTION_KEY','APP_RETURN_URLS'].filter(k=>!config[k]);
+  const returns=(config.APP_RETURN_URLS||'').split(',').map(x=>x.trim()).filter(Boolean).map(u=>{
+    fail(validURL(u),'APP_RETURN_URLS must contain exact HTTPS URLs');return new URL(u).href;
+  });
+  const missing=['PUBLIC_BASE_URL','GOOGLE_CLIENT_ID','GOOGLE_CLIENT_SECRET','CONNECTOR_API_KEY','TOKEN_ENCRYPTION_KEY','APP_RETURN_URLS'].filter(k=>!config[k]||(k==='APP_RETURN_URLS'&&!returns.length));
   if(config.CONNECTOR_API_KEY)fail(config.CONNECTOR_API_KEY.length>=32,'CONNECTOR_API_KEY must be at least 32 characters');
   const store=config.TOKEN_ENCRYPTION_KEY?new Store(config.DATA_DIR||'/data',config.TOKEN_ENCRYPTION_KEY):null;
   const ready=missing.length===0;
@@ -104,7 +105,7 @@ export function createApp(config,fetcher=globalThis.fetch){
     res.setHeader('Cache-Control','no-store, private, max-age=0');res.setHeader('Pragma','no-cache');res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Referrer-Policy','no-referrer');res.setHeader('Content-Security-Policy',"default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'");
     const u=new URL(req.url,'http://internal'),path=u.pathname;
     try{
-      if(path==='/health'&&req.method==='GET')return send(res,200,{status:'ok',service:'airank-google-connector',version:'0.2.0',revision:process.env.AIRANK_BUILD_REVISION||null});
+      if(path==='/health'&&req.method==='GET')return send(res,200,{status:'ok',service:'airank-google-connector',version:'0.2.1',revision:process.env.AIRANK_BUILD_REVISION||null});
       if(path==='/ready'&&req.method==='GET')return send(res,ready?200:503,{ready});
       if(path==='/'&&req.method==='GET')return page(res,'AI Rank.me Google Connector',ready?'Service is running. Manage your Google connections inside the AI Rank application.':'Service is running. Deployment configuration is not complete yet.');
       if(path==='/v1/oauth/google/start'&&req.method==='GET'){
