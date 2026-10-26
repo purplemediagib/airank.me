@@ -1,4 +1,5 @@
 import {routesFromEnv,routeAvailable} from '../providers/routing.mjs';
+import {providerDailyLimit} from './daily-limits.mjs';
 
 export const CONFIG = {
   version: '0.23.0',
@@ -16,7 +17,7 @@ export const CONFIG = {
   claudeModel: process.env.CLAUDE_MODEL || 'claude-sonnet-4-5',
   geminiModel: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
   maxProviderCalls: Math.max(1, Number(process.env.MAX_PROVIDER_CALLS_PER_SCAN || 18)),
-  maxDailyProviderCalls: Math.max(1, Number(process.env.MAX_DAILY_PROVIDER_CALLS || 200)),
+  maxDailyProviderCalls: providerDailyLimit(),
   scanPrompts: Math.min(6,Math.max(1,Number(process.env.FREE_PROMPTS_PER_PROVIDER || 3))),
   jobPollMs: Math.max(5000,Number(process.env.JOB_POLL_SECONDS || 30)*1000),
   leaseMs: 30*60*1000,

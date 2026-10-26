@@ -1,5 +1,6 @@
 import {hash,setting} from '../monitoring/shared.mjs';
 import {containsName} from '../common/scan-profile.mjs';
+import {dailyCallLimit} from '../common/daily-limits.mjs';
 
 export const rubricVersion='brand-sentiment-quotes-v2';
 export const defaultModel='gpt-4.1-mini-2025-04-14';
@@ -13,7 +14,7 @@ Each excerpt can have one concise attribute in the answer's original language (e
 export function config(env=process.env){
  const model=(env.SENTIMENT_MODEL||defaultModel).trim();
  if(!/^[a-zA-Z0-9._:-]{1,100}$/.test(model))throw Error('INVALID_SENTIMENT_MODEL');
- return {model,version:hash({rubricVersion,instructions,model}),timeoutMs:setting(env,'SENTIMENT_TIMEOUT_MS',45000,1000,120000),daily:setting(env,'SENTIMENT_MAX_DAILY_CALLS',100,0,10000)};
+ return {model,version:hash({rubricVersion,instructions,model}),timeoutMs:setting(env,'SENTIMENT_TIMEOUT_MS',45000,1000,120000),daily:dailyCallLimit(env,'SENTIMENT_MAX_DAILY_CALLS',100,10000)};
 }
 export const brandKey=identity=>hash({name:identity.brandName,aliases:[...new Set(identity.aliases||[])].sort()});
 export const mentions=(answer,identity)=>[identity.brandName,...(identity.aliases||[])].filter(Boolean).some(n=>containsName(answer,n));

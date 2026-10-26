@@ -121,3 +121,13 @@ test('transient retrieval failure resumes GET, deadline ends safely, and metadat
 test('polling continues to capture already-paid results when new collection is disabled',async()=>{
  const f=await collectorFixture();try{await f.run();const c=fake();await engine(f,c).tick();f.env.CONSUMER_COLLECTION_ENABLED='false';f.advance(5001);await engine(f,c).tick();assert.equal(c.posts,1);assert.equal(c.gets,1);assert.equal(f.sqlite.prepare('SELECT status FROM mon_tasks').get().status,'done');}finally{f.close();}
 });
+
+test('unlimited collector and provider daily limits retain unit reservations and deduplication',async()=>{
+ const f=await collectorFixture({CONSUMER_MAX_DAILY_COST_USD:'unlimited',MAX_DAILY_PROVIDER_CALLS:'unlimited',CONSUMER_UNIT_COSTS_JSON:'{"grok":50}'});try{
+  const c=fake(),worker=engine(f,c);
+  await f.run();await worker.tick();f.advance(5001);await worker.tick();
+  await f.run();await worker.tick();f.advance(5001);await worker.tick();await worker.tick();
+  assert.equal(c.posts,2);
+  assert.equal(f.sqlite.prepare('SELECT SUM(reserved_usd) total FROM mon_collections').get().total,100);
+ }finally{f.close();}
+});

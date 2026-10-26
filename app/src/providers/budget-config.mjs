@@ -27,8 +27,9 @@ export function apiBudgetPlan({provider,route,prompt,context,env}){
  }
  let config;try{config=JSON.parse(env.API_BUDGET_CONFIG_JSON);}catch{invalid();}
  if(!config||typeof config!=='object'||Array.isArray(config)||!config.routes||typeof config.routes!=='object'||Array.isArray(config.routes))invalid();
- const dailyNano=Math.floor(rate(config.dailyUsd)*NANO_USD);
- if(!Number.isSafeInteger(dailyNano)||dailyNano<=0)invalid();
+ // Explicit JSON null removes the aggregate daily stop, not per-call validation.
+ const dailyNano=config.dailyUsd===null?null:Math.floor(rate(config.dailyUsd)*NANO_USD);
+ if(dailyNano!==null&&(!Number.isSafeInteger(dailyNano)||dailyNano<=0))invalid();
  const price=config.routes[provider];
  if(!price)throw Error('API_BUDGET_NOT_CONFIGURED');
  if(price.transport!==route.transport||price.model!==route.model||

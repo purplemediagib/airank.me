@@ -215,3 +215,15 @@ test('HTTP app dispatch requires session and CSRF for backfill, GET cannot start
   const result=await req('POST','sentiment-backfill',{...headers,'x-csrf-token':csrfFor(token)},{runId:'run'});assert.equal(result.status,202);
  }finally{f.close();}
 });
+
+test('explicit unlimited sentiment calls process past the default daily count',async()=>{
+ const f=await fixture({SENTIMENT_MAX_DAILY_CALLS:'unlimited'});try{
+  assert.equal(config(f.env).daily,null);
+  f.add('first');await f.worker().tick();
+  // Seed already-completed jobs rather than making 100 extra model calls.
+  for(let i=0;i<100;i++)f.sql.prepare("INSERT INTO sentiment_jobs (evidence_id,run_id,analysis_version,requested_model,input_hash,status,created_at,started_at) VALUES (?,?,?,?,?,'done',?,?)").run('first','first','old-'+i,'old','hash',f.now(),f.now());
+  f.add('next');await f.worker().tick();
+  assert.equal(f.sql.prepare("SELECT status FROM sentiment_jobs WHERE evidence_id='next'").get().status,'done');
+  assert.throws(()=>config({...f.env,SENTIMENT_MAX_DAILY_CALLS:'unlimted'}),/APP_NOT_CONFIGURED/);
+ }finally{f.close();}
+});

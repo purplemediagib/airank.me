@@ -18,7 +18,7 @@ export async function reserveApiBudget(tx,task,env,now){
  // Duplicate reservation is not authorization to dispatch a second paid call.
  if(old)return {reason:'API_BUDGET_ALREADY_RESERVED'};
  const used=Number((await one(tx,'SELECT COALESCE(SUM(reserved_nano_usd),0) n FROM mon_api_reservations WHERE reserved_at>?',[now-86400000])).n);
- if(!Number.isSafeInteger(used)||used+plan.reservedNano>plan.dailyNano)return {reason:'API_BUDGET_EXHAUSTED'};
+ if(!Number.isSafeInteger(used)||(plan.dailyNano!==null&&used+plan.reservedNano>plan.dailyNano))return {reason:'API_BUDGET_EXHAUSTED'};
  await exec(tx,'INSERT INTO mon_api_reservations VALUES (?,?,?,?)',[task.id,plan.reservedNano,now,JSON.stringify(plan)]);
  return {plan};
 }
@@ -30,7 +30,7 @@ export async function usedCalls(db,since){
 export async function reserveQuickCall(db,{scanId,provider,daily,perRun,now=Date.now()}){
  return transaction(db,async tx=>{
   const runCount=Number((await one(tx,'SELECT COUNT(*) n FROM provider_calls WHERE scan_id=?',[scanId])).n);
-  if(runCount>=perRun||await usedCalls(tx,now-86400000)>=daily)return false;
+  if(runCount>=perRun||(daily!==null&&await usedCalls(tx,now-86400000)>=daily))return false;
   await exec(tx,'INSERT INTO provider_calls (id,scan_id,provider,created_at) VALUES (?,?,?,?)',[uuid(),scanId,provider,now]);return true;
  });
 }

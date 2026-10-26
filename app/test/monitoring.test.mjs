@@ -334,3 +334,12 @@ test('extra models enqueue, reserve budgets, execute and persist independently i
   assert.equal(f.sqlite.prepare('SELECT status FROM mon_runs WHERE id=?').get(run.id).status,'complete');
  }finally{f.close();}
 });
+
+test('unlimited quick-check daily calls still obey the per-scan cap',async()=>{
+ const f=await fixture();try{
+  for(let i=0;i<210;i++)f.sqlite.prepare('INSERT INTO provider_calls (id,scan_id,provider,created_at) VALUES (?,?,?,?)').run('used-'+i,'prior','openai',f.now());
+  assert.equal(await reserveQuickCall(f.db,{scanId:'quick',provider:'openai',daily:null,perRun:1,now:f.now()}),true);
+  assert.equal(await reserveQuickCall(f.db,{scanId:'quick',provider:'openai',daily:null,perRun:1,now:f.now()}),false);
+  assert.equal(await reserveQuickCall(f.db,{scanId:'another',provider:'openai',daily:0,perRun:1,now:f.now()}),false);
+ }finally{f.close();}
+});

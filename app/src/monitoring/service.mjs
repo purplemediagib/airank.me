@@ -8,6 +8,7 @@ import {measurementContext,sameContext} from '../common/measurement-context.mjs'
 import {workspaceSuggestions,validateDraft} from '../common/workspace-suggestions.mjs';
 import {suggestionsReady} from './suggestions-migration.mjs';
 import {immediatePrompts,measurementKey} from './immediate.mjs';
+import {providerDailyLimit} from '../common/daily-limits.mjs';
 import { id,checksum } from './migration.mjs';
 import {assertCanonical,assertPromptCapacity,promptReadiness,assertDailyNotMeasured} from './prompt-policy.mjs';
 import { fail,hash,normalized,one,exec,transaction,methodology,collectionMethodVersion,promptSQL,promptRow,runRow,setting } from './shared.mjs';
@@ -201,7 +202,7 @@ export async function monitoringService({db,method,path,query=new URLSearchParam
      if(routes.some(r=>isCollectorRoute(r)&&!collectionBudget(env,r.provider)))fail(503,'COLLECTOR_BUDGET_NOT_CONFIGURED');
      setting(env,'MONITORING_CONCURRENCY',2,1,8);
      setting(env,'MONITORING_PROVIDER_TIMEOUT_MS',120000,10,600000);
-     setting(env,'MAX_DAILY_PROVIDER_CALLS',200,0,1000000);
+     providerDailyLimit(env);
     }
     const expected=prompts.length*routes.length,stamp=now(),runId=uuid();
     const limit=setting(env,'MONITORING_MAX_TASKS_PER_RUN',1000,1,5000);

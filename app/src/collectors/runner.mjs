@@ -23,7 +23,7 @@ export function createCollectionRunner({db,env,now,complete,client=createCollect
    if((await one(tx,'SELECT checksum FROM app_migrations WHERE id=?',[id]))?.checksum!==checksum)return 'COLLECTOR_MIGRATION_REQUIRED';
    const budget=collectionBudget(env,task.provider);if(!budget)return 'COLLECTOR_BUDGET_NOT_CONFIGURED';
    const used=Number((await one(tx,'SELECT COALESCE(SUM(reserved_usd),0) n FROM mon_collections WHERE reserved_at>?',[now()-86400000])).n);
-   if(used+budget.unit>budget.daily+1e-10)return 'COLLECTOR_BUDGET_EXHAUSTED';
+   if(budget.daily!==null&&used+budget.unit>budget.daily+1e-10)return 'COLLECTOR_BUDGET_EXHAUSTED';
    await exec(tx,"INSERT INTO mon_collections VALUES (?,NULL,'reserved',?,?,?,NULL,'{}')",[task.id,budget.unit,now(),now()]);
    return null;
   },

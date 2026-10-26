@@ -9,8 +9,8 @@ export function consumerRoutes(env,routes){
  }:route]));
 }
 export function collectionBudget(env,provider){
- const daily=Number(env.CONSUMER_MAX_DAILY_COST_USD);
+ const daily=env.CONSUMER_MAX_DAILY_COST_USD==='unlimited'?null:Number(env.CONSUMER_MAX_DAILY_COST_USD);
  let prices;try{prices=JSON.parse(env.CONSUMER_UNIT_COSTS_JSON||'{}');}catch{return null;}
  const unit=prices?.[provider];
- return Number.isFinite(daily)&&daily>0&&typeof unit==='number'&&Number.isFinite(unit)&&unit>0&&unit<=daily?{daily,unit}:null;
+ return (daily===null||Number.isFinite(daily)&&daily>0)&&typeof unit==='number'&&Number.isFinite(unit)&&unit>0&&(daily===null||unit<=daily)?{daily,unit}:null;
 }

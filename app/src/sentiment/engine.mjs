@@ -39,7 +39,7 @@ export function createSentimentEngine({db,env=process.env,now=Date.now,call=anal
    await exec(tx,"UPDATE sentiment_jobs SET status='done',result_json=?,finished_at=?,error=NULL WHERE evidence_id=? AND analysis_version=?",[JSON.stringify(noMentionResult(e,s,c)),now(),j.evidence_id,c.version]);return {skipped:true};
   }
   const used=Number((await one(tx,'SELECT COUNT(*) n FROM sentiment_jobs WHERE started_at>=?',[now()-86400000])).n);
-  const blocked=!env.OPENAI_API_KEY?'MISSING_CREDENTIAL':used>=c.daily?'BUDGET_WAIT':null;
+  const blocked=!env.OPENAI_API_KEY?'MISSING_CREDENTIAL':c.daily!==null&&used>=c.daily?'BUDGET_WAIT':null;
   if(blocked){await exec(tx,'UPDATE sentiment_jobs SET error=? WHERE evidence_id=? AND analysis_version=?',[blocked,j.evidence_id,c.version]);return null;}
   const token=randomUUID();
   await exec(tx,"UPDATE sentiment_jobs SET status='running',started_at=?,lease_until=?,claim_token=?,error=NULL WHERE evidence_id=? AND analysis_version=?",[now(),now()+c.timeoutMs+30000,token,j.evidence_id,c.version]);
