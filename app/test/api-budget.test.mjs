@@ -152,7 +152,7 @@ test('invalid config and wrong model/search route fail closed before dispatch',a
  const f=await fixture();try{
   const valid=JSON.parse(f.env.API_BUDGET_CONFIG_JSON);
   const changes=[
-   c=>{c.dailyUsd=0;},c=>{c.dailyUsd='1';},c=>{c.dailyUsd=-1;},
+   c=>{c.dailyUsd=0;},c=>{c.dailyUsd='1';},c=>{c.dailyUsd=-1;},c=>{delete c.dailyUsd;},c=>{c.dailyUsd='unlimited';},
    c=>{c.routes.claude.inputUsdPerMillion=-1;},c=>{delete c.routes.claude.outputUsdPerMillion;},
    c=>{c.routes.claude.searchUsdPerCall=null;},c=>{c.routes.claude.contextWindowTokens=1.5;},
    c=>{c.routes.claude.maxInputBytes=999999;},c=>{c.routes.claude.maxReplayBytes=0;},
@@ -308,4 +308,23 @@ test('engine persists reconciled observations alongside money labels without upg
    assert.equal(rows(f).length,1);
   }finally{f.close();}
  }
+});
+
+test('explicit unlimited daily dollars and calls retain reservations and all per-call checks',async()=>{
+ const f=await fixture({MAX_DAILY_PROVIDER_CALLS:'unlimited'});try{
+  f.env.API_BUDGET_CONFIG_JSON=fixtureBudgetConfig(f.env,{dailyUsd:null});
+  const stamp=f.now();
+  for(let i=0;i<210;i++)f.sqlite.prepare('INSERT INTO provider_calls (id,scan_id,provider,created_at) VALUES (?,?,?,?)').run('prior-'+i,'prior','claude',stamp);
+  await f.run();const prior=f.sqlite.prepare('SELECT id FROM mon_tasks').get().id;
+  f.sqlite.prepare("UPDATE mon_tasks SET status='done' WHERE id=?").run(prior);
+  f.sqlite.prepare('INSERT INTO mon_api_reservations VALUES (?,?,?,?)').run(prior,50000000000,stamp,'{}');
+  await f.run();await f.run();let paid=0;
+  const call=async(...args)=>{paid++;assert.equal(args[2].api_budget.dailyNano,null);return success(...args);};
+  await Promise.all([worker(f,{call}).tick(),worker(f,{call}).tick()]);
+  assert.equal(paid,2);assert.equal(rows(f).length,3);
+  assert.equal(evidence(f).filter(e=>e.status==='success').length,2);
+  const bad=JSON.parse(f.env.API_BUDGET_CONFIG_JSON);bad.routes.claude.model='wrong';f.env.API_BUDGET_CONFIG_JSON=JSON.stringify(bad);
+  await f.run();await worker(f,{call:()=>assert.fail('unlimited must still validate route')}).tick();
+  assert.equal(evidence(f).at(-1).error,'API_BUDGET_ROUTE_MISMATCH');
+ }finally{f.close();}
 });

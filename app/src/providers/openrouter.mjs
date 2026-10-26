@@ -1,16 +1,24 @@
 import {urlsUnique,promptContext} from './common.mjs';
 import {apiObservation,responseOccurrences} from '../common/observations.mjs';
 import {attachHttpDetails,httpFailure,safeProviderMeta} from './diagnostics.mjs';
+import {openrouterDefaultOutputTokens} from './output-limits.mjs';
 export async function openrouterSearch(prompt,{model,searchEngine='native',timeoutMs=60000,apiKey=process.env.OPENROUTER_API_KEY,fetchImpl=fetch,context={},maxTokens=process.env.OPENROUTER_MAX_TOKENS,budget}={}){
  if(!apiKey)throw Error('OPENROUTER_API_KEY missing');
  if(!model||/^(openai|anthropic|openrouter)\//.test(model))throw Error('OpenAI and Claude must use direct APIs');
  if(!['native','exa'].includes(searchEngine))throw Error('Unsupported search engine');
- // Gemini reasoning can consume the same allowance as its visible answer.
+ // Reasoning can consume the same allowance as the visible answer.
  // Keep requests bounded and never silently retry a truncated paid call.
- const outputLimit=Number(maxTokens??(model.startsWith('google/gemini-')?8192:2000));
+ const outputLimit=Number(maxTokens??openrouterDefaultOutputTokens(model));
  if(!Number.isSafeInteger(outputLimit)||outputLimit<256||outputLimit>16384)throw Error('OPENROUTER_MAX_TOKENS must be an integer from 256 to 16384');
  if(budget&&outputLimit!==budget.maxTokens)throw Error('API_BUDGET_LIMIT_MISMATCH');
- const res=await fetchImpl('https://openrouter.ai/api/v1/chat/completions',{method:'POST',headers:{authorization:'Bearer '+apiKey,'content-type':'application/json'},signal:AbortSignal.timeout(timeoutMs),body:JSON.stringify({model,messages:[{role:'user',content:promptContext(prompt,context)+' Include source citations.'}],tools:[{type:'openrouter:web_search',parameters:{engine:searchEngine,max_uses:3,max_results:5,max_total_results:15}}],max_tool_calls:3,max_tokens:outputLimit,stream:false,provider:{allow_fallbacks:false,require_parameters:true}})});
+ const provider={allow_fallbacks:false,require_parameters:true};
+ // Model prices vary by endpoint; refuse routing above the reserved token rates.
+ if(budget?.mode==='monetary_reserved'){
+  const rates=[budget.inputUsdPerMillion,budget.outputUsdPerMillion];
+  if(rates.some(r=>typeof r!=='number'||!Number.isFinite(r)||r<0))throw Error('API_BUDGET_INVALID_CONFIG');
+  provider.max_price={prompt:rates[0],completion:rates[1]};
+ }
+ const res=await fetchImpl('https://openrouter.ai/api/v1/chat/completions',{method:'POST',headers:{authorization:'Bearer '+apiKey,'content-type':'application/json'},signal:AbortSignal.timeout(timeoutMs),body:JSON.stringify({model,messages:[{role:'user',content:promptContext(prompt,context)+' Include source citations.'}],tools:[{type:'openrouter:web_search',parameters:{engine:searchEngine,max_uses:3,max_results:5,max_total_results:15}}],max_tool_calls:3,max_tokens:outputLimit,stream:false,provider})});
  let j;try{j=await res.json();}catch{throw attachHttpDetails(Error('OpenRouter returned non-JSON HTTP '+res.status),res.status,null,res.headers);}
  const c=j.choices?.[0],message=c?.message;
  const answer=typeof message?.content==='string'?message.content.trim():Array.isArray(message?.content)?message.content.filter(x=>x.type==='text').map(x=>x.text||'').join('\n').trim():'';

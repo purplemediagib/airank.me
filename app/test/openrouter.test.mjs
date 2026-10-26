@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {openrouterSearch} from '../src/providers/openrouter.mjs';
+import {completionLimit} from '../src/providers/budget-config.mjs';
 
 const model='google/gemini-3.8-flash';
 const citation={type:'url_citation',url_citation:{url:'https://example.com/',title:'Source'}};
@@ -29,10 +30,15 @@ test('Gemini receives a bounded larger output allowance without changing search 
  assert.equal(result.meta.max_tokens_requested,8192);
 });
 
-test('other OpenRouter models retain the original default allowance',async()=>{
- const mock=mocked(response());
- await openrouterSearch('Test question',{...options(mock),model:'mistralai/mistral-small'});
- assert.equal(mock.requests[0].max_tokens,2000);
+test('new model HTTP requests and budget reservations share bounded output allowances',async()=>{
+ for(const [model,expected] of [['deepseek/deepseek-v4-pro',8192],['moonshotai/kimi-k3',8192],['meta/muse-spark-1.3',4000],['mistralai/mistral-large-4-0',4000]]){
+  const mock=mocked(response());
+  await openrouterSearch('Test question',{...options(mock),model,searchEngine:'exa'});
+  assert.equal(mock.requests[0].max_tokens,expected);
+  assert.equal(mock.requests[0].tools[0].parameters.engine,'exa');
+  assert.equal(completionLimit('extra',{transport:'openrouter',model},{}),expected);
+  assert.equal(completionLimit('extra',{transport:'openrouter',model},{OPENROUTER_MAX_TOKENS:'4096'}),4096);
+ }
 });
 
 test('an explicit output allowance is validated before any paid request',async()=>{
@@ -42,6 +48,18 @@ test('an explicit output allowance is validated before any paid request',async()
  for(const invalid of [0,255,16385,4000.5,'invalid','']){
   const rejected=mocked(response());
   await assert.rejects(openrouterSearch('Test question',{...options(rejected),maxTokens:invalid}),/integer from 256 to 16384/);
+  assert.equal(rejected.requests.length,0);
+ }
+});
+
+test('reserved token prices cap upstream routing and invalid ceilings fail before a paid call',async()=>{
+ const mock=mocked(response());
+ const budget={mode:'monetary_reserved',maxTokens:8192,inputUsdPerMillion:2,outputUsdPerMillion:4};
+ await openrouterSearch('Question',{...options(mock),budget});
+ assert.deepEqual(mock.requests[0].provider.max_price,{prompt:2,completion:4});
+ for(const value of [undefined,-1,NaN,Infinity,'2']){
+  const rejected=mocked(response());
+  await assert.rejects(openrouterSearch('Question',{...options(rejected),budget:{...budget,inputUsdPerMillion:value}}),/API_BUDGET_INVALID_CONFIG/);
   assert.equal(rejected.requests.length,0);
  }
 });

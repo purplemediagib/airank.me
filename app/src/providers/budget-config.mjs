@@ -1,6 +1,7 @@
 import {promptContext} from './common.mjs';
 import {measurementContext} from '../common/measurement-context.mjs';
 import {claudeOutputBudget} from './claude.mjs';
+import {openrouterDefaultOutputTokens} from './output-limits.mjs';
 
 export const NANO_USD=1_000_000_000;
 const invalid=()=>{throw Error('API_BUDGET_INVALID_CONFIG');};
@@ -10,7 +11,7 @@ export function completionLimit(provider,route,env){
  if(provider==='claude'&&route.transport==='direct'){
   try{return claudeOutputBudget(env);}catch{invalid();}
  }
- const value=route.transport==='openrouter'?env.OPENROUTER_MAX_TOKENS??(route.model.startsWith('google/gemini-')?8192:2000):
+ const value=route.transport==='openrouter'?env.OPENROUTER_MAX_TOKENS??openrouterDefaultOutputTokens(route.model):
   provider==='openai'?1250:8192;
  return integer(Number(value),256,16384);
 }
@@ -26,8 +27,9 @@ export function apiBudgetPlan({provider,route,prompt,context,env}){
  }
  let config;try{config=JSON.parse(env.API_BUDGET_CONFIG_JSON);}catch{invalid();}
  if(!config||typeof config!=='object'||Array.isArray(config)||!config.routes||typeof config.routes!=='object'||Array.isArray(config.routes))invalid();
- const dailyNano=Math.floor(rate(config.dailyUsd)*NANO_USD);
- if(!Number.isSafeInteger(dailyNano)||dailyNano<=0)invalid();
+ // Explicit JSON null removes the aggregate daily stop, not per-call validation.
+ const dailyNano=config.dailyUsd===null?null:Math.floor(rate(config.dailyUsd)*NANO_USD);
+ if(dailyNano!==null&&(!Number.isSafeInteger(dailyNano)||dailyNano<=0))invalid();
  const price=config.routes[provider];
  if(!price)throw Error('API_BUDGET_NOT_CONFIGURED');
  if(price.transport!==route.transport||price.model!==route.model||

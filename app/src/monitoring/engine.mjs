@@ -9,13 +9,14 @@ import { usedCalls,reserveApiBudget } from './budget.mjs';
 import {observeProvider,resultDetails,logEvent} from '../providers/diagnostics.mjs';
 import {isCollectorRoute} from '../collectors/config.mjs';
 import {createCollectionRunner} from '../collectors/runner.mjs';
+import {providerDailyLimit} from '../common/daily-limits.mjs';
 
 // Persistent state machine: queued -> executing -> recorded -> done.
 // An expired executing lease WITHOUT a receipt is ambiguous and is NEVER replayed.
 export function createMonitoringEngine({db,env=process.env,now=Date.now,call=callRoute,available=routeAvailable,storeEvidence,logger=logEvent,collectorClient}){
  const concurrency=setting(env,'MONITORING_CONCURRENCY',2,1,8);
  const timeout=setting(env,'MONITORING_PROVIDER_TIMEOUT_MS',120000,10,600000);
- const daily=setting(env,'MAX_DAILY_PROVIDER_CALLS',200,0,1000000);
+ const daily=providerDailyLimit(env);
  const buffered=new Map();
  let busy=false;
  const evidenceFor=(task,result,observedAt)=>{
@@ -80,8 +81,7 @@ export function createMonitoringEngine({db,env=process.env,now=Date.now,call=cal
   const route=JSON.parse(t.route);
   if(!(env.ENABLED_PROVIDERS||'openai,claude').split(',').map(x=>x.trim()).includes(t.provider)){await finalize(t,'unconfigured',tx,'PROVIDER_DISABLED');return {skipped:true};}
   if(!available(t.provider,route,env)){await finalize(t,'unconfigured',tx,'MISSING_CREDENTIAL');return {skipped:true};}
-  const used=await usedCalls(tx,now()-86400000);
-  if(used>=daily){await finalize(t,'budget_blocked',tx);return {skipped:true};}
+  if(daily!==null&&await usedCalls(tx,now()-86400000)>=daily){await finalize(t,'budget_blocked',tx);return {skipped:true};}
   if(isCollectorRoute(route)){
    const reason=await collectors.reserve(tx,t);
    if(reason){await finalize(t,reason==='COLLECTOR_BUDGET_EXHAUSTED'?'budget_blocked':'unconfigured',tx,reason);return {skipped:true};}

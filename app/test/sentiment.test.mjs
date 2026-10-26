@@ -57,11 +57,25 @@ test('quotes determine scores, mixed evidence remains mixed, offsets match origi
  assert.equal(validateAssessments(output([quote(fi.answer,'positive','luotettavuus')]),fi,{...snapshot,language:'fi'})[0].score,75);
  assert.equal(validateAssessments(output([quote('Example is easy to use.','neutral','')]),e,snapshot)[0].score,50);
 });
-test('rejects fabricated quotes, duplicated/overlapping excerpts, wrong brands, false absence and missing brand context',()=>{
+test('rejects entirely fabricated quotes, wrong brands, false absence and missing brand context',()=>{
  const e=evidence('Example is easy to use.');
- for(const o of [output([quote('Invented praise.')]),output([quote(e.answer),quote(e.answer)]),output([quote(e.answer),quote('easy to use')]),output([quote('easy to use')]),output([],{status:'not_mentioned'}),{assessments:[output([quote(e.answer)]).assessments[0],output([quote(e.answer)]).assessments[0]]}])assert.throws(()=>validateAssessments(o,e,snapshot),/INVALID_SENTIMENT_OUTPUT/);
+ for(const o of [output([quote('Invented praise.')]),output([quote('easy to use')]),output([],{status:'not_mentioned'}),{assessments:[output([quote(e.answer)]).assessments[0],output([quote(e.answer)]).assessments[0]]}])assert.throws(()=>validateAssessments(o,e,snapshot),/INVALID_SENTIMENT_OUTPUT/);
  assert.equal(validateAssessments(output([],{status:'unclassified'}),e,snapshot)[0].score,null);
  assert.throws(()=>validateAssessments(output([quote(e.answer)]),evidence('Other is good.'),snapshot));
+});
+test('invalid, paraphrased and overlapping excerpts are discarded; only exact retained quotes contribute',()=>{
+ const e=evidence('**Example Oy** on luotettava.\n- Example on kallis.');
+ const first='**Example Oy** on luotettava.',second='Example on kallis.';
+ const a=validateAssessments(output([
+  quote('Example Oy on luotettava.','strongly_positive'),
+  quote(first),quote(first,'strongly_positive'),quote('on luotettava.'),
+  null,{text:second,polarity:'invalid',attribute:''},quote(second,'negative','hinta'),
+ ]),e,{...snapshot,language:'fi'})[0];
+ assert.equal(a.score,50);assert.equal(a.label,'mixed');
+ assert.deepEqual(a.quotes.map(q=>q.text),[first,second]);
+ for(const q of a.quotes)assert.equal(e.answer.slice(q.start,q.end),q.text);
+ assert.throws(()=>validateAssessments(output([null,quote('rewritten quotation')]),e,snapshot),/INVALID_SENTIMENT_OUTPUT/);
+ assert.equal(rubricVersion,'brand-sentiment-quotes-v2');
 });
 test('OpenAI adapter uses structured output, treats answer as data, and handles refusal, truncation and HTTP failure',async()=>{
  let request;const env={OPENAI_API_KEY:'secret'},c=config(env),e=evidence();
@@ -199,5 +213,17 @@ test('HTTP app dispatch requires session and CSRF for backfill, GET cannot start
   await assert.rejects(req('GET','results',{...headers,cookie:''}),x=>x.status===401);
   await assert.rejects(req('POST','sentiment-backfill',headers,{runId:'run'}),x=>x.status===403);
   const result=await req('POST','sentiment-backfill',{...headers,'x-csrf-token':csrfFor(token)},{runId:'run'});assert.equal(result.status,202);
+ }finally{f.close();}
+});
+
+test('explicit unlimited sentiment calls process past the default daily count',async()=>{
+ const f=await fixture({SENTIMENT_MAX_DAILY_CALLS:'unlimited'});try{
+  assert.equal(config(f.env).daily,null);
+  f.add('first');await f.worker().tick();
+  // Seed already-completed jobs rather than making 100 extra model calls.
+  for(let i=0;i<100;i++)f.sql.prepare("INSERT INTO sentiment_jobs (evidence_id,run_id,analysis_version,requested_model,input_hash,status,created_at,started_at) VALUES (?,?,?,?,?,'done',?,?)").run('first','first','old-'+i,'old','hash',f.now(),f.now());
+  f.add('next');await f.worker().tick();
+  assert.equal(f.sql.prepare("SELECT status FROM sentiment_jobs WHERE evidence_id='next'").get().status,'done');
+  assert.throws(()=>config({...f.env,SENTIMENT_MAX_DAILY_CALLS:'unlimted'}),/APP_NOT_CONFIGURED/);
  }finally{f.close();}
 });

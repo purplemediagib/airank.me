@@ -4,7 +4,31 @@ import {routesFromEnv,routeAvailable,compatibleRoute,publicProviders} from '../s
 import {grokSearch,perplexitySearch,normalizeGroundedResponse} from '../src/providers/grounded-responses.mjs';
 import {googleAioSearch} from '../src/providers/google-aio.mjs';
 import {selectSerpContext} from '../src/providers/dataforseo-context.mjs';
+import {providerAvailable} from '../src/common/config.mjs';
 const names=['openai','claude','gemini','grok','perplexity','google_aio'];
+const extraModels={deepseek:'deepseek/deepseek-v4-pro',meta_ai:'meta/muse-spark-1.3',mistral:'mistralai/mistral-large-4-0',kimi:'moonshotai/kimi-k3'};
+test('configured extra providers have valid routes and require their OpenRouter credential',()=>{
+ const env={ENABLED_PROVIDERS:[...names,...Object.keys(extraModels)].join(','),OPENROUTER_MODELS_JSON:JSON.stringify(extraModels)};
+ const routes=routesFromEnv(env);
+ for(const [p,model] of Object.entries(extraModels)){
+  assert.equal(routes[p].transport,'openrouter');assert.equal(routes[p].model,model);
+  assert.equal(providerAvailable(p,env),false);
+  assert.equal(providerAvailable(p,{...env,OPENROUTER_API_KEY:'fixture'}),true);
+ }
+ assert.equal(providerAvailable('unmapped',{...env,OPENROUTER_API_KEY:'fixture'}),false);
+ assert.equal(providerAvailable('grok',{...env,OPENROUTER_API_KEY:'fixture'}),false);
+ assert.equal(providerAvailable('grok',{...env,XAI_API_KEY:'fixture'}),true);
+ assert.equal(providerAvailable('deepseek',{...env,OPENROUTER_MODELS_JSON:'broken',OPENROUTER_API_KEY:'fixture'}),false);
+ assert.deepEqual(publicProviders({enabledProviders:Object.keys(routes)}),['openai','claude']);
+});
+test('per-provider search engines preserve Gemini and Meta native search while grounding other models with Exa',()=>{
+ const env={ENABLED_PROVIDERS:['gemini',...Object.keys(extraModels)].join(','),OPENROUTER_MODELS_JSON:JSON.stringify(extraModels),OPENROUTER_SEARCH_ENGINES_JSON:JSON.stringify({deepseek:'exa',meta_ai:'native',mistral:'exa',kimi:'exa'})};
+ const routes=routesFromEnv(env);
+ assert.equal(routes.gemini.search_engine,'native');assert.equal(routes.meta_ai.search_engine,'native');
+ for(const p of ['deepseek','mistral','kimi'])assert.equal(routes[p].search_engine,'exa');
+ assert.equal(compatibleRoute({...routes.deepseek,search_engine:'native'},routes.deepseek),false);
+ for(const raw of ['broken','null','[]','{"deepseek":"auto"}','{"openai":"exa"}','{"unknown":"exa"}'])assert.throws(()=>routesFromEnv({...env,OPENROUTER_SEARCH_ENGINES_JSON:raw}),/search engine|SEARCH_ENGINES_JSON/);
+});
 const catalog={locations:[
  {country_iso_code:'FI',location_type:'Country',location_code:2246,location_name:'Finland'},
  {country_iso_code:'GI',location_type:'Country',location_code:2292,location_name:'Gibraltar'}
