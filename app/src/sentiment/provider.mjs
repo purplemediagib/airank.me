@@ -1,4 +1,4 @@
-import {instructions,brandsFor,validateAssessments,rubricVersion} from './core.mjs';
+import {instructions,brandsFor,validateAssessments,rubricVersion,invalidSentimentOutput} from './core.mjs';
 export const schema={type:'object',additionalProperties:false,required:['assessments'],properties:{assessments:{type:'array',items:{type:'object',additionalProperties:false,required:['brandId','status','quotes'],properties:{brandId:{type:'string'},status:{type:'string',enum:['assessed','not_mentioned','unclassified']},quotes:{type:'array',items:{type:'object',additionalProperties:false,required:['text','polarity','attribute'],properties:{text:{type:'string'},polarity:{type:'string',enum:['strongly_negative','negative','neutral','positive','strongly_positive']},attribute:{type:'string'}}}}}}}}};
 const fail=code=>{throw Object.assign(Error(code),{code});};
 export async function analyse(e,s,c,{env=process.env,fetcher=fetch,now=Date.now}={}){
@@ -12,7 +12,7 @@ export async function analyse(e,s,c,{env=process.env,fetcher=fetch,now=Date.now}
  const choice=data.choices?.[0];
  if(choice?.message?.refusal)fail('SENTIMENT_REFUSED');
  if(choice?.finish_reason!=='stop')fail('SENTIMENT_INCOMPLETE');
- let output;try{output=JSON.parse(choice.message.content);}catch{fail('INVALID_SENTIMENT_OUTPUT');}
+ let output;try{output=JSON.parse(choice.message.content);}catch{invalidSentimentOutput('INVALID_JSON');}
  const assessments=validateAssessments(output,e,s);
  const usage={};for(const k of ['prompt_tokens','completion_tokens','total_tokens'])if(Number.isSafeInteger(data.usage?.[k])&&data.usage[k]>=0)usage[k]=data.usage[k];
  return {analysisVersion:c.version,rubricVersion,requestedModel:c.model,model:typeof data.model==='string'?data.model.slice(0,100):'unknown',assessedAt:now(),responseId:typeof data.id==='string'?data.id.slice(0,200):null,usage,assessments};

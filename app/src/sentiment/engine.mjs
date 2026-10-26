@@ -1,6 +1,6 @@
 import {randomUUID} from 'node:crypto';
 import {one,exec,transaction} from '../monitoring/shared.mjs';
-import {config,brandsFor,mentions,inputHash,eligibility,noMentionResult} from './core.mjs';
+import {config,brandsFor,mentions,inputHash,eligibility,noMentionResult,validationReasons} from './core.mjs';
 import {analyse} from './provider.mjs';
 
 export async function enqueue(db,rows,c,stamp){
@@ -15,9 +15,10 @@ export async function enqueue(db,rows,c,stamp){
 }
 export function createSentimentEngine({db,env=process.env,now=Date.now,call=analyse,logger=(event,fields)=>console.log(JSON.stringify({event,...fields}))}){
  const c=config(env),buffered=new Map();let busy=false;
- const store=async(job,result,error=null)=>{
+ const store=async(job,result,error=null,validationReason=null)=>{
   await exec(db,`UPDATE sentiment_jobs SET status=?,result_json=?,error=?,finished_at=?,lease_until=NULL WHERE evidence_id=? AND analysis_version=? AND claim_token=? AND status IN ('running','interrupted_unknown')`,[result?'done':'failed',result?JSON.stringify(result):null,error,now(),job.evidence_id,c.version,job.claim_token]);
-  logger('sentiment_saved',{evidence_id:job.evidence_id,analysis_version:c.version,status:result?'done':'failed',error});
+  const issues=(result?.assessments||[]).filter(a=>validationReasons.has(a.validationReason)).map(a=>({brand_id:a.brandId,reason:a.validationReason}));
+  logger('sentiment_saved',{evidence_id:job.evidence_id,analysis_version:c.version,status:result?'done':'failed',error,...(validationReason?{validation_reason:validationReason}:{}),...(issues.length?{validation_issues:issues}: {})});
  };
  const seed=()=>transaction(db,async tx=>{
   // Start with new evidence only. Historical processing is an explicit owner request.
@@ -49,16 +50,16 @@ export function createSentimentEngine({db,env=process.env,now=Date.now,call=anal
   if(busy||env.SENTIMENT_ENABLED!=='true')return;busy=true;
   try{
    // Storage-only retry: a paid analysis is never repeated for a database failure.
-   for(const [id,p] of buffered){try{await store(p.job,p.result,p.error);buffered.delete(id);}catch{}}
+   for(const [id,p] of buffered){try{await store(p.job,p.result,p.error,p.validationReason);buffered.delete(id);}catch{}}
    if(buffered.size)return;
    await seed();
    const job=await claim();if(!job||job.skipped)return;
    logger('sentiment_started',{evidence_id:job.evidence_id,analysis_version:c.version,model:c.model});
-   let result,error=null;
+   let result,error=null,validationReason=null;
    try{result=await call(job.e,job.s,c,{env,now});}
-   catch(e){error=/^(?:INVALID_SENTIMENT_\w+|SENTIMENT_\w+|MISSING_CREDENTIAL)$/.test(e?.code||'')?e.code:['TimeoutError','AbortError'].includes(e?.name)?'SENTIMENT_TIMEOUT':'SENTIMENT_FAILED';}
-   const pending={job,result,error};buffered.set(job.evidence_id,pending);
-   try{await store(job,result,error);buffered.delete(job.evidence_id);}catch{logger('sentiment_storage_pending',{evidence_id:job.evidence_id});}
+   catch(e){error=/^(?:INVALID_SENTIMENT_\w+|SENTIMENT_\w+|MISSING_CREDENTIAL)$/.test(e?.code||'')?e.code:['TimeoutError','AbortError'].includes(e?.name)?'SENTIMENT_TIMEOUT':'SENTIMENT_FAILED';validationReason=validationReasons.has(e?.validationReason)?e.validationReason:null;}
+   const pending={job,result,error,validationReason};buffered.set(job.evidence_id,pending);
+   try{await store(job,result,error,validationReason);buffered.delete(job.evidence_id);}catch{logger('sentiment_storage_pending',{evidence_id:job.evidence_id});}
   }finally{busy=false;}
  }};
 }

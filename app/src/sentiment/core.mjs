@@ -2,7 +2,7 @@ import {hash,setting} from '../monitoring/shared.mjs';
 import {containsName} from '../common/scan-profile.mjs';
 import {dailyCallLimit} from '../common/daily-limits.mjs';
 
-export const rubricVersion='brand-sentiment-quotes-v2';
+export const rubricVersion='brand-sentiment-quotes-v3';
 export const defaultModel='gpt-4.1-mini-2025-04-14';
 export const polarityScores={strongly_negative:0,negative:25,neutral:50,positive:75,strongly_positive:100};
 export const instructions=`Assess brand sentiment in the supplied saved AI answer, in its original language (English or Finnish).
@@ -32,21 +32,30 @@ export function eligibility(e,s){
 export function noMentionResult(e,s,c){
  return {analysisVersion:c.version,rubricVersion,requestedModel:c.model,model:null,assessedAt:null,assessments:brandsFor(s).map(b=>({...b,status:'not_mentioned',label:null,score:null,quotes:[]}))};
 }
-const invalid=()=>{throw Object.assign(Error('INVALID_SENTIMENT_OUTPUT'),{code:'INVALID_SENTIMENT_OUTPUT'});};
+export const validationReasons=new Set(['INVALID_JSON','ASSESSMENT_COUNT','INVALID_ASSESSMENT','UNKNOWN_BRAND','DUPLICATE_BRAND','INVALID_STATUS','INVALID_QUOTES','UNEXPECTED_QUOTES','FALSE_ABSENCE','ABSENT_BRAND','NO_VALID_QUOTES','MISSING_BRAND_CONTEXT']);
+export const invalidSentimentOutput=validationReason=>{throw Object.assign(Error('INVALID_SENTIMENT_OUTPUT'),{code:'INVALID_SENTIMENT_OUTPUT',validationReason});};
 export function validateAssessments(output,e,s){
  const brands=brandsFor(s);
- if(!output||!Array.isArray(output.assessments)||output.assessments.length!==brands.length)invalid();
+ if(!output||!Array.isArray(output.assessments)||output.assessments.length!==brands.length)invalidSentimentOutput('ASSESSMENT_COUNT');
  const seen=new Set();
  return output.assessments.map(a=>{
+  if(!a||typeof a!=='object'||Array.isArray(a))invalidSentimentOutput('INVALID_ASSESSMENT');
   const b=brands.find(b=>b.brandId===a.brandId);
-  if(!b||seen.has(a.brandId)||!['assessed','unclassified','not_mentioned'].includes(a.status)||!Array.isArray(a.quotes)||a.quotes.length>8)invalid();
+  if(!b)invalidSentimentOutput('UNKNOWN_BRAND');
+  if(seen.has(a.brandId))invalidSentimentOutput('DUPLICATE_BRAND');
   seen.add(a.brandId);
+  // Invalid evidence for one known brand must not discard another brand's valid
+  // assessment. Never assign a score or manufacture a replacement quotation.
+  const unclassified=validationReason=>({...b,status:'unclassified',label:null,score:null,quotes:[],validationReason});
+  if(!['assessed','unclassified','not_mentioned'].includes(a.status))return unclassified('INVALID_STATUS');
+  if(!Array.isArray(a.quotes)||a.quotes.length>8)return unclassified('INVALID_QUOTES');
   const present=mentions(e.answer,b);
   if(a.status!=='assessed'){
-   if(a.quotes.length||(a.status==='not_mentioned'&&present))invalid();
+   if(a.quotes.length)return unclassified('UNEXPECTED_QUOTES');
+   if(a.status==='not_mentioned'&&present)return unclassified('FALSE_ABSENCE');
    return {...b,status:a.status,label:null,score:null,quotes:[]};
   }
-  if(!present||!a.quotes.length)invalid();
+  if(!present)return unclassified('ABSENT_BRAND');
   const ranges=[];
   const quotes=a.quotes.map(q=>{
    if(!q||typeof q.text!=='string'||q.text.trim().length<2||q.text.length>2000||!Object.hasOwn(polarityScores,q.polarity)||typeof q.attribute!=='string'||q.attribute.length>100)return null;
@@ -55,7 +64,8 @@ export function validateAssessments(output,e,s){
    ranges.push({start,end});
    return {text:q.text,start,end,polarity:q.polarity,score:polarityScores[q.polarity],attribute:q.attribute.trim()};
   }).filter(Boolean);
-  if(!quotes.length||!quotes.some(q=>mentions(q.text,b)))invalid();
+  if(!quotes.length)return unclassified('NO_VALID_QUOTES');
+  if(!quotes.some(q=>mentions(q.text,b)))return unclassified('MISSING_BRAND_CONTEXT');
   const score=Math.round(quotes.reduce((n,q)=>n+q.score,0)/quotes.length*10)/10;
   const mixed=quotes.some(q=>q.score<50)&&quotes.some(q=>q.score>50);
   const label=mixed?'mixed':score<12.5?'strongly_negative':score<50?'negative':score===50?'neutral':score<87.5?'positive':'strongly_positive';
