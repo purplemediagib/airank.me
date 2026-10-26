@@ -12,14 +12,14 @@ USER node
 
 FROM runtime AS api
 ENV PORT=3000 EMAIL_AUTH_ENABLED=true
-LABEL org.opencontainers.image.title="AI Rank API" org.opencontainers.image.version="0.23.2"
+LABEL org.opencontainers.image.title="AI Rank API" org.opencontainers.image.version="0.23.3"
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD node -e "fetch('http://127.0.0.1:'+process.env.PORT+'/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 CMD ["node", "src/app/start-release.mjs"]
 
 FROM runtime AS worker
 ENV PORT=3001
-LABEL org.opencontainers.image.title="AI Rank Monitoring Worker" org.opencontainers.image.version="0.23.2"
+LABEL org.opencontainers.image.title="AI Rank Monitoring Worker" org.opencontainers.image.version="0.23.3"
 EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD node -e "fetch('http://127.0.0.1:'+process.env.PORT+'/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 CMD ["node", "src/worker/worker.mjs"]
@@ -37,7 +37,7 @@ ENV AIRANK_BUILD_REVISION=$BUILD_REVISION
 WORKDIR /app
 COPY google-connector/package.json google-connector/*.mjs ./
 ENV NODE_ENV=production PORT=3000 DATA_DIR=/data
-LABEL org.opencontainers.image.source="https://github.com/purplemediagib/airank.me" org.opencontainers.image.title="AI Rank Google Connector" org.opencontainers.image.version="0.2.0"
+LABEL org.opencontainers.image.source="https://github.com/purplemediagib/airank.me" org.opencontainers.image.title="AI Rank Google Connector" org.opencontainers.image.version="0.2.1"
 EXPOSE 3000
 VOLUME ["/data"]
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 CMD node -e "fetch('http://127.0.0.1:'+process.env.PORT+'/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"

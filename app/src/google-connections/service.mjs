@@ -3,16 +3,20 @@ import {safeImportError} from './errors.mjs';
 
 const routes={status:'GET',connect:'POST',properties:'GET',selection:'PUT',sync:'POST',reports:'GET',disconnect:'DELETE'};
 const date=d=>typeof d==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d)&&Number.isFinite(Date.parse(d))&&new Date(d).toISOString().slice(0,10)===d;
-export function connectorConfig(env){
+export function connectorConfig(env,origin){
   try{
-    const base=new URL(env.GOOGLE_CONNECTOR_BASE_URL),back=new URL(env.GOOGLE_CONNECTOR_RETURN_URL);
-    if(base.protocol!=='https:'||base.origin!==base.href.replace(/\/$/,'')||base.username||base.password||back.protocol!=='https:'||back.username||back.password||back.hash||!env.GOOGLE_CONNECTOR_API_KEY||env.GOOGLE_CONNECTOR_API_KEY.length<32)return null;
+    const base=new URL(env.GOOGLE_CONNECTOR_BASE_URL);
+    const returns=(env.GOOGLE_CONNECTOR_RETURN_URLS||env.GOOGLE_CONNECTOR_RETURN_URL||'').split(',').map(s=>s.trim()).filter(Boolean).map(s=>new URL(s));
+    if(base.protocol!=='https:'||base.origin!==base.href.replace(/\/$/,'')||base.username||base.password||!env.GOOGLE_CONNECTOR_API_KEY||env.GOOGLE_CONNECTOR_API_KEY.length<32||!returns.length||returns.some(u=>u.protocol!=='https:'||u.username||u.password||u.hash))return null;
+    // The caller supplies the Origin already checked against its registered app
+    // client and CSRF token. A fallback can only be another configured URL.
+    const back=returns.find(u=>u.origin===origin)||returns[0];
     return {base:base.origin,returnUrl:back.href,key:env.GOOGLE_CONNECTOR_API_KEY};
   }catch{return null;}
 }
 
 /** Existing workspaces are owner-managed projects, not a second client-supplied tenant namespace. */
-export async function googleConnectionsService({db,method,path,query=new URLSearchParams(),body,userId,env=process.env,fetcher=globalThis.fetch}){
+export async function googleConnectionsService({db,method,path,query=new URLSearchParams(),body,userId,origin,env=process.env,fetcher=globalThis.fetch}){
   const match=path.match(/^\/v1\/projects\/([A-Za-z0-9-]{1,80})\/connections\/(ga4|gsc)(?:\/(connect|properties|selection|sync|reports))?$/);
   if(!match)fail(404,'NOT_FOUND');
   const [,projectId,service,suffix]=match;
@@ -38,7 +42,7 @@ export async function googleConnectionsService({db,method,path,query=new URLSear
     for(const [k,v] of Object.entries({startDate:start,endDate:end,view,offset,limit}))params.set(k,String(v));
     if(query.has('aiOnly'))params.set('aiOnly',query.get('aiOnly'));
   }else if([...query.keys()].length)fail(422,'VALIDATION_FAILED');
-  const config=connectorConfig(env);
+  const config=connectorConfig(env,origin);
   if(!config){
     if(action==='status')return {status:200,data:{configured:false,connected:false,status:'setup_required',service,email:null,property:null,timeZone:null,currency:null,connectedAt:null,sync:null}};
     fail(503,'GOOGLE_CONNECTOR_SETUP_REQUIRED');

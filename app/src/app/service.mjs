@@ -151,7 +151,7 @@ export function createAppService({ db, clients, env = process.env, now = Date.no
       await execute(db, 'DELETE FROM sessions WHERE session_hash=?', [hashToken(auth.token)]);
       return result({ ok: true }, 200, { 'set-cookie': [cookie('__Host-airank_session', '', 0), cookie('__Host-airank_app_oauth', '', 0)] });
     }
-    if (/^\/v1\/projects\/[a-zA-Z0-9-]{1,80}\/connections\//.test(path)) return googleConnectionsService({db,method,path,query,body,userId,env});
+    if (/^\/v1\/projects\/[a-zA-Z0-9-]{1,80}\/connections\//.test(path)) return googleConnectionsService({db,method,path,query,body,userId,origin:headers.origin,env});
     if (method === 'POST' && /^\/v1\/projects\/[a-zA-Z0-9-]{1,80}\/intelligence$/.test(path)) return intelligenceService({db,path,body,userId,env,now});
     if (method==='GET' && path==='/v1/app/content-projects') return result((await execute(db, `SELECT DISTINCT p.id,p.status,v.identity_json FROM app_projects p JOIN app_identity_versions v ON v.project_id=p.id AND v.version=p.version LEFT JOIN content_members m ON m.project_id=p.id WHERE p.owner_id=? OR m.user_id=?`, [userId,userId])).rows.map(r=>({id:r.id,status:r.status,...JSON.parse(r.identity_json)})));
     if (/^\/v1\/projects\/[A-Za-z0-9-]{1,80}\/content(?:\/|$)/.test(path)) return contentService({db,method,path,query,body,userId,env,now});
