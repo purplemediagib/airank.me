@@ -2,6 +2,8 @@ import {promptContext} from './common.mjs';
 import {measurementContext} from '../common/measurement-context.mjs';
 import {claudeOutputBudget} from './claude.mjs';
 import {openrouterDefaultOutputTokens} from './output-limits.mjs';
+import {openrouterPrompt,openrouterSearchLimits} from './openrouter-policy.mjs';
+import {googleAioMaxRequests} from './google-aio.mjs';
 
 export const NANO_USD=1_000_000_000;
 const invalid=()=>{throw Error('API_BUDGET_INVALID_CONFIG');};
@@ -36,14 +38,14 @@ export function apiBudgetPlan({provider,route,prompt,context,env}){
   (route.transport==='openrouter'&&price.searchEngine!==route.search_engine))
   throw Error('API_BUDGET_ROUTE_MISMATCH');
  const maxInputBytes=integer(price.maxInputBytes,1,1000000);
- const input=promptContext(prompt,measurementContext(context))+(route.transport==='openrouter'?' Include source citations.':'');
+ const input=route.transport==='openrouter'?openrouterPrompt(prompt,measurementContext(context),route.model):promptContext(prompt,measurementContext(context));
  if(Buffer.byteLength(input,'utf8')>maxInputBytes)throw Error('API_INPUT_LIMIT');
- const maxRequests=provider==='claude'&&route.transport==='direct'?2:1;
+ const maxRequests=route.transport==='dataforseo'&&provider==='google_aio'?googleAioMaxRequests:provider==='claude'&&route.transport==='direct'?2:1;
  let reservedNano,limits;
  if(route.transport==='dataforseo'&&provider==='google_aio'){
-  // One live SERP request, including the requested asynchronous AI overview.
+  // Reserve both potentially billable live requests before the first attempt.
   const requestUsd=rate(price.requestUsd);
-  reservedNano=Math.ceil(requestUsd*NANO_USD);
+  reservedNano=maxRequests*Math.ceil(requestUsd*NANO_USD);
   limits={requestUsd};
  }else{
   // Perplexity Agent has no verified hard tool-invocation ceiling in this adapter.
@@ -58,7 +60,7 @@ export function apiBudgetPlan({provider,route,prompt,context,env}){
   const maxReplayBytes=provider==='claude'?integer(price.maxReplayBytes,1,10000000):0;
   const inputRate=rate(price.inputUsdPerMillion),outputRate=rate(price.outputUsdPerMillion);
   const searchRate=rate(price.searchUsdPerCall);
-  const maxSearches=3;
+  const maxSearches=route.transport==='openrouter'?openrouterSearchLimits(route.model).max_uses:3;
   reservedNano=maxRequests*(Math.ceil(contextWindowTokens*inputRate*NANO_USD/1000000)+
    Math.ceil(outputTokens*outputRate*NANO_USD/1000000)+Math.ceil(maxSearches*searchRate*NANO_USD));
   limits={contextWindowTokens,maxReplayBytes,maxSearches,inputUsdPerMillion:inputRate,
@@ -75,6 +77,6 @@ export function enforceBudgetInput(budget,provider,route,prompt,context){
  if(budget.provider!==provider||budget.transport!==route.transport||budget.model!==route.model||
   (route.transport==='openrouter'&&budget.searchEngine!==route.search_engine))
   throw Error('API_BUDGET_ROUTE_MISMATCH');
- const input=promptContext(prompt,context)+(route.transport==='openrouter'?' Include source citations.':'');
+ const input=route.transport==='openrouter'?openrouterPrompt(prompt,context,route.model):promptContext(prompt,context);
  if(Buffer.byteLength(input,'utf8')>budget.maxInputBytes)throw Error('API_INPUT_LIMIT');
 }

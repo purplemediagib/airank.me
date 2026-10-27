@@ -283,7 +283,7 @@ test('supported routes have explicit conservative plans; unbounded Agent fails c
   if(provider==='perplexity')assert.throws(plan,/UNBOUNDED_ROUTE/);
   else{
    const budget=plan();assert.equal(budget.mode,'monetary_reserved');assert.ok(budget.reservedNano>0);
-   assert.equal(budget.maxRequests,provider==='claude'?2:1);
+   assert.equal(budget.maxRequests,['claude','google_aio'].includes(provider)?2:1);
   }
  }
 });

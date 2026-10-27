@@ -1,7 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {openrouterSearch} from '../src/providers/openrouter.mjs';
-import {completionLimit} from '../src/providers/budget-config.mjs';
+import {apiBudgetPlan,completionLimit,enforceBudgetInput} from '../src/providers/budget-config.mjs';
+import {routesFromEnv} from '../src/providers/routing.mjs';
+import {fixtureBudgetConfig} from './api-budget-fixture.mjs';
+import {mistralCollectionMethodVersion} from '../src/common/observations.mjs';
 
 const model='google/gemini-3.8-flash';
 const citation={type:'url_citation',url_citation:{url:'https://example.com/',title:'Source'}};
@@ -31,7 +34,7 @@ test('Gemini receives a bounded larger output allowance without changing search 
 });
 
 test('new model HTTP requests and budget reservations share bounded output allowances',async()=>{
- for(const [model,expected] of [['deepseek/deepseek-v4-pro',8192],['moonshotai/kimi-k3',8192],['x-ai/grok-4.7',8192],['meta/muse-spark-1.3',4000],['mistralai/mistral-large-4-0',4000]]){
+ for(const [model,expected] of [['deepseek/deepseek-v4-pro',8192],['moonshotai/kimi-k3',8192],['x-ai/grok-4.7',8192],['meta/muse-spark-1.3',4000],['mistralai/mistral-large-4-0',12000]]){
   const mock=mocked(response());
   await openrouterSearch('Test question',{...options(mock),model,searchEngine:'exa'});
   assert.equal(mock.requests[0].max_tokens,expected);
@@ -87,4 +90,28 @@ test('provider error bodies are not exposed in diagnostic messages',async()=>{
  assert.equal(result.status,'failed');
  assert.equal(result.error,'OpenRouter request failed: HTTP 402 code 402');
  assert.ok(!result.error.includes('private provider detail'));
+});
+
+test('Mistral shares prompt byte checks, 12000 tokens and two searches with its reservation',async()=>{
+ const env={ENABLED_PROVIDERS:'mistral',OPENROUTER_MODELS_JSON:'{"mistral":"mistralai/mistral-large-4-0"}',OPENROUTER_SEARCH_ENGINE:'exa'};
+ env.API_BUDGET_CONFIG_JSON=fixtureBudgetConfig(env,{dailyUsd:null});
+ const route=routesFromEnv(env).mistral;
+ const plan=()=>apiBudgetPlan({provider:'mistral',route,prompt:'Question',context:{},env});
+ const budget=plan(),mock=mocked(response());
+ const r=await openrouterSearch('Question',{...options(mock),model:route.model,searchEngine:'exa',budget});
+ const body=mock.requests[0];
+ assert.equal(body.max_tokens,12000);assert.equal(budget.maxTokens,12000);assert.equal(body.max_tool_calls,2);assert.equal(budget.maxSearches,2);
+ assert.deepEqual(body.tools[0].parameters,{engine:'exa',max_uses:2,max_results:3,max_total_results:6});
+ assert.match(body.messages[0].content,/Keep the answer under about 600 words\.$/);
+ assert.equal(r.meta.collection_method,mistralCollectionMethodVersion);
+ assert.equal(route.collection_method,mistralCollectionMethodVersion);
+ const bytes=Buffer.byteLength(body.messages[0].content,'utf8');
+ const config=JSON.parse(env.API_BUDGET_CONFIG_JSON);config.routes.mistral.maxInputBytes=bytes;
+ env.API_BUDGET_CONFIG_JSON=JSON.stringify(config);assert.equal(plan().maxInputBytes,bytes);
+ config.routes.mistral.maxInputBytes=bytes-1;env.API_BUDGET_CONFIG_JSON=JSON.stringify(config);
+ assert.throws(plan,/API_INPUT_LIMIT/);
+ assert.throws(()=>enforceBudgetInput({...budget,maxInputBytes:bytes-1},'mistral',route,'Question',{}),/API_INPUT_LIMIT/);
+ const other=mocked(response());await openrouterSearch('Question',options(other));
+ assert.ok(!other.requests[0].messages[0].content.includes('600 words'));
+ assert.equal(other.requests[0].max_tool_calls,3);
 });

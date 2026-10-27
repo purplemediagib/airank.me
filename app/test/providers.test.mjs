@@ -71,6 +71,75 @@ test('Google AI Overview distinguishes missing results from missing overview tex
  assert.equal(empty.status,'failed');
 });
 
+test('Google AI Overview retries explicit transient failures once, preserves costs and never leaks messages',async()=>{
+ const old=globalThis.fetch;
+ const success={status_code:20000,cost:0.01,id:'recovered',result:[{items:[{type:'ai_overview',text:'Example Oy näkyy',references:[{url:'https://example.fi/'}]}]}]};
+ try{
+  for(const code of [40101,50000,50001,50301,50302,50303,50401,50402]){
+   for(const recovered of [true,false]){
+    const requests=[],waits=[];let clock=0;
+    globalThis.fetch=async(url,init)=>{
+     requests.push({url,body:JSON.parse(init.body)});
+     const task=requests.length===2&&recovered?success:{status_code:code,cost:0.01,status_message:'private supplier detail'};
+     return new Response(JSON.stringify({status_code:20000,tasks:[task]}));
+    };
+    const r=await googleAioSearch('Kysy',{catalog,now:()=>clock,sleep:async ms=>{waits.push(ms);clock+=ms;}});
+    assert.equal(requests.length,2);assert.deepEqual(requests[0],requests[1]);assert.deepEqual(waits,[4000]);
+    assert.equal(r.meta.request_attempts,2);assert.equal(r.meta.cost,0.02);assert.equal(r.meta.initial_upstream_error_code,String(code));
+    assert.equal(r.status,recovered?'success':'failed');
+    if(recovered)assert.equal(r.citations[0].url,'https://example.fi/');
+    else assert.equal(r.meta.failure_code,'SERP_TEMPORARILY_UNAVAILABLE');
+    assert.ok(!JSON.stringify(r).includes('private supplier detail'));
+   }
+  }
+ }finally{globalThis.fetch=old;}
+});
+
+test('Google AI Overview does not retry permanent errors, valid empty SERPs or ambiguous transport failures',async()=>{
+ const old=globalThis.fetch;
+ try{
+  for(const code of [40100,40102,40104,40202,40203,40209,40210,40501,50100,50304,20000]){
+   let calls=0;
+   globalThis.fetch=async()=>{calls++;return new Response(JSON.stringify({tasks:[{status_code:code,result:[{items:[]}]}]}));};
+   const r=await googleAioSearch('Kysy',{catalog,sleep:()=>assert.fail('must not wait')});
+   assert.equal(calls,1);assert.equal(r.status,code===20000?'no_overview':'failed');
+  }
+  for(const status of [401,402,429,503]){
+   let calls=0;globalThis.fetch=async()=>{calls++;return new Response('{}',{status});};
+   await assert.rejects(googleAioSearch('Kysy',{catalog,sleep:()=>assert.fail('must not retry HTTP errors')}));
+   assert.equal(calls,1);
+  }
+  let calls=0;globalThis.fetch=async()=>{calls++;throw new DOMException('unknown paid outcome','TimeoutError');};
+  await assert.rejects(googleAioSearch('Kysy',{catalog}),{name:'TimeoutError'});assert.equal(calls,1);
+ }finally{globalThis.fetch=old;}
+});
+
+test('Google AI Overview observes the total deadline, original reservation and top-level supplier errors',async()=>{
+ const old=globalThis.fetch;
+ try{
+  for(const scenario of ['no-time','overslept','single-reservation','top-level','second-timeout']){
+   let calls=0,clock=0,waits=0;const signals=[];
+   globalThis.fetch=async(_url,init)=>{
+    signals.push(init.signal);calls++;
+    if(scenario==='second-timeout'&&calls===2)throw new DOMException('private timeout','TimeoutError');
+    if(scenario==='no-time')clock=58000;
+    return new Response(JSON.stringify({status_code:50000}));
+   };
+   const request=googleAioSearch('Kysy',{catalog,now:()=>clock,
+    ...(scenario==='single-reservation'?{budget:{maxRequests:1}}:{}),
+    sleep:async ms=>{waits++;clock+=scenario==='overslept'?60000:ms;}});
+   if(scenario==='second-timeout'){
+    await assert.rejects(request,e=>e.name==='TimeoutError'&&e.providerMeta.request_attempts===2);
+   }else{
+    const r=await request;assert.equal(r.meta.failure_code,'SERP_TEMPORARILY_UNAVAILABLE');
+   }
+   assert.equal(calls,['top-level','second-timeout'].includes(scenario)?2:1);
+   assert.equal(waits,['no-time','single-reservation'].includes(scenario)?0:1);
+   assert.ok(signals.every(s=>s instanceof AbortSignal));
+  }
+ }finally{globalThis.fetch=old;}
+});
+
 test('OpenAI text without sources and incomplete output cannot count as a grounded success',async()=>{
  const payload={status:'completed',output:[{type:'message',content:[{type:'output_text',text:'Purple+ https://purpleplus.ai'}]}]};
  assert.equal((await withMock(payload,()=>openaiSearch('Kysy'))).status,'no_grounding');
