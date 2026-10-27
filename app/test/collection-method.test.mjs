@@ -14,7 +14,7 @@ import {sourceAnalytics} from '../src/analytics/sources.mjs';
 import {overviewInsights} from '../src/analytics/overview.mjs';
 import {hash} from '../src/monitoring/shared.mjs';
 import {extractionVersion} from '../src/analytics/extraction.mjs';
-import {collectionSurface} from '../src/common/observations.mjs';
+import {collectionSurface,mistralCollectionMethodVersion,observationContextKey} from '../src/common/observations.mjs';
 import {normalizeGroundedResponse} from '../src/providers/grounded-responses.mjs';
 import {openaiSearch} from '../src/providers/openai.mjs';
 import {openrouterSearch} from '../src/providers/openrouter.mjs';
@@ -34,6 +34,20 @@ const evidence=(id,extra={})=>({id,runId:id,promptId:'p',promptVersion:1,text:le
  observation:apiObservation({complete:true}),...extra});
 const entry=(snapshot,rows)=>({id:'run',createdAt:1,kind:'neutral',status:'completed',snapshot,rows,
  rawRows:rows,tasks:rows.map(row=>({id:row.id,prompt_id:'p',prompt_version:1,text:row.text,provider:row.provider})),group:'fixture'});
+
+test('Mistral concise collection remains complete-answer evidence but never merges with historical collection',()=>{
+ const old=evidence('old',{provider:'mistral'});
+ const snapshot={...future,routes:[{provider:'mistral',collection_method:mistralCollectionMethodVersion}]};
+ const fresh=extract(old,snapshot),historical=extract(old,future);
+ assert.equal(fresh.status,'success');assert.equal(fresh.metricVersion,completeAnswerMetricVersion);
+ assert.equal(fresh.collectionMethod,mistralCollectionMethodVersion);
+ assert.equal(historical.collectionMethod,collectionMethodVersion);
+ assert.notEqual(observationContextKey(old,snapshot),observationContextKey(old,future));
+ const executing=extract({...old,meta:{collection_method:mistralCollectionMethodVersion}},future);
+ assert.equal(executing.collectionMethod,mistralCollectionMethodVersion);
+ const other=extract(evidence('gemini',{provider:'gemini'}),snapshot);
+ assert.equal(other.collectionMethod,collectionMethodVersion);
+});
 
 test('only future complete API uncited answers are valid; legacy, failed, truncated and missing telemetry stay excluded',()=>{
  const original=evidence('uncited'),before=JSON.stringify(original);

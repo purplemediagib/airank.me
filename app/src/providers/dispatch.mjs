@@ -14,7 +14,7 @@ export async function callRoute(provider,prompt,route,timeoutMs,context={}){
  const limits=budget?{budget,maxTokens:budget.maxTokens}:{};
  if(route.transport==='openrouter')return openrouterSearch(prompt,{model:route.model,searchEngine:route.search_engine,timeoutMs,context,...limits});
  if(route.transport==='dataforseo'&&provider==='google_aio'){
-  const r=await googleAioSearch(prompt,{timeoutMs,context});
+  const r=await googleAioSearch(prompt,{timeoutMs,context,budget});
   r.meta={...r.meta,transport:route.transport,requested_model:route.model,context};return r;
  }
  const fn=provider==='openai'?openaiSearch:provider==='claude'?claudeSearch:provider==='grok'?grokSearch:provider==='perplexity'?perplexitySearch:null;

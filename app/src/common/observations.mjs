@@ -1,5 +1,6 @@
 import { toHostname, sanitizeText } from './utils.mjs';
 export const collectionMethodVersion = 'complete-answer-visibility-v2';
+export const mistralCollectionMethodVersion = 'mistral-concise-search-v1';
 export const apiObservationVersion = 'api-occurrence-evidence-v1';
 export const legacyMetricVersion = 'neutral-valid-weighted-v2-citation-coverage';
 export const completeAnswerMetricVersion = 'neutral-complete-answer-weighted-v3';
@@ -13,13 +14,18 @@ export const collectionSurface = (e={}, snapshot={}) => {
   canonical(snapshot.routes?.find(r=>r.provider===e.provider)?.measurement_surface) ||
   canonical(e.meta?.measurement_surface) || 'model_api';
 };
-export const methodFor = (snapshot={}, e={}) => collectionSurface(e,snapshot)==='consumer_web'
- ? 'consumer-original-v1' : snapshot.collectionMethod || 'citation-required-v1';
-export const metricsFor = (snapshot={}, e={}) => methodFor(snapshot,e)===collectionMethodVersion ? completeAnswerMetricVersion : legacyMetricVersion;
+export const methodFor = (snapshot={}, e={}) => {
+ if(collectionSurface(e,snapshot)==='consumer_web')return 'consumer-original-v1';
+ // Persist the actual request profile; older evidence without it stays historical.
+ const method=e.meta?.collection_method||snapshot.routes?.find(r=>r.provider===e.provider)?.collection_method;
+ return method===mistralCollectionMethodVersion?method:snapshot.collectionMethod||'citation-required-v1';
+};
+const completeAnswerMethod=method=>[collectionMethodVersion,mistralCollectionMethodVersion].includes(method);
+export const metricsFor = (snapshot={}, e={}) => completeAnswerMethod(methodFor(snapshot,e)) ? completeAnswerMetricVersion : legacyMetricVersion;
 
 /** Reconcile only explicitly opted-in API observations. Never upgrade legacy or consumer evidence. */
 export function reconcileObservation(result, snapshot={}, {truncated=false}={}) {
- if(methodFor(snapshot,result)!==collectionMethodVersion || result.collection?.surface==='consumer_web')return result;
+ if(!completeAnswerMethod(methodFor(snapshot,result)) || result.collection?.surface==='consumer_web')return result;
  const complete=result.observation?.version===apiObservationVersion && result.observation?.complete===true && !truncated;
  const eligible=['success','no_grounding'].includes(result.status);
  return {...result,status:truncated?'incomplete':eligible&&!complete?'incomplete':eligible&&String(result.answer||'').trim()?'success':result.status,

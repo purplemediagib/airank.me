@@ -1,4 +1,6 @@
 import {consumerRoutes} from '../collectors/config.mjs';
+import {isMistral} from './openrouter-policy.mjs';
+import {mistralCollectionMethodVersion} from '../common/observations.mjs';
 // Guest routes stay API-only. Consumer selection is restricted to tracked monitoring.
 export const monitoringRoutesFromEnv=(env=process.env)=>consumerRoutes(env,routesFromEnv(env));
 // No secrets in route descriptors: these are persisted in benchmark snapshots.
@@ -23,7 +25,7 @@ export function routesFromEnv(env=process.env){
  else if(p==='google_aio')routes[p]={transport:'dataforseo',model:'Google AI Overviews / desktop SERP'};
  else{if(p==='copilot')throw Error('Consumer Copilot is deferred; an OpenRouter model is not Copilot');
  const model=map[p];if(!model||!/^[-\w.]+\/[-\w.]+$/.test(model)||/^(openai|anthropic|openrouter)\//.test(model))throw Error('Configure an explicit non-OpenAI/non-Anthropic OpenRouter model for '+p);
- routes[p]={transport:'openrouter',model,search_engine:engines[p]||engine};}
+ routes[p]={transport:'openrouter',model,search_engine:engines[p]||engine,...(isMistral(model)?{collection_method:mistralCollectionMethodVersion}:{})};}
  }
  if(!enabled.length)throw Error('Enable at least one provider');return routes;
 }
@@ -38,7 +40,7 @@ export function routeAvailable(p,route,env=process.env){
  if(route?.transport==='dataforseo'&&p==='google_aio')return !!(env.DATAFORSEO_LOGIN&&env.DATAFORSEO_PASSWORD);
  return false;
 }
-export function compatibleRoute(old,current){return !!current&&old?.transport===current.transport&&old?.model===current.model&&old?.search_engine===current.search_engine;}
+export function compatibleRoute(old,current){return !!current&&old?.transport===current.transport&&old?.model===current.model&&old?.search_engine===current.search_engine&&old?.collection_method===current.collection_method;}
 
 // Expanding authenticated measurement must never add paid calls to guest scans.
 export function publicProviders(config){

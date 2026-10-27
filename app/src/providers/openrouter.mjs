@@ -1,5 +1,6 @@
-import {urlsUnique,promptContext} from './common.mjs';
-import {apiObservation,responseOccurrences} from '../common/observations.mjs';
+import {urlsUnique} from './common.mjs';
+import {apiObservation,responseOccurrences,mistralCollectionMethodVersion} from '../common/observations.mjs';
+import {isMistral,openrouterPrompt,openrouterSearchLimits} from './openrouter-policy.mjs';
 import {attachHttpDetails,httpFailure,safeProviderMeta} from './diagnostics.mjs';
 import {openrouterDefaultOutputTokens} from './output-limits.mjs';
 export async function openrouterSearch(prompt,{model,searchEngine='native',timeoutMs=60000,apiKey=process.env.OPENROUTER_API_KEY,fetchImpl=fetch,context={},maxTokens=process.env.OPENROUTER_MAX_TOKENS,budget}={}){
@@ -18,13 +19,16 @@ export async function openrouterSearch(prompt,{model,searchEngine='native',timeo
   if(rates.some(r=>typeof r!=='number'||!Number.isFinite(r)||r<0))throw Error('API_BUDGET_INVALID_CONFIG');
   provider.max_price={prompt:rates[0],completion:rates[1]};
  }
- const res=await fetchImpl('https://openrouter.ai/api/v1/chat/completions',{method:'POST',headers:{authorization:'Bearer '+apiKey,'content-type':'application/json'},signal:AbortSignal.timeout(timeoutMs),body:JSON.stringify({model,messages:[{role:'user',content:promptContext(prompt,context)+' Include source citations.'}],tools:[{type:'openrouter:web_search',parameters:{engine:searchEngine,max_uses:3,max_results:5,max_total_results:15}}],max_tool_calls:3,max_tokens:outputLimit,stream:false,provider})});
+ const searchLimits=openrouterSearchLimits(model);
+ if(budget?.maxSearches!==undefined&&searchLimits.max_uses>budget.maxSearches)throw Error('API_BUDGET_LIMIT_MISMATCH');
+ const res=await fetchImpl('https://openrouter.ai/api/v1/chat/completions',{method:'POST',headers:{authorization:'Bearer '+apiKey,'content-type':'application/json'},signal:AbortSignal.timeout(timeoutMs),body:JSON.stringify({model,messages:[{role:'user',content:openrouterPrompt(prompt,context,model)}],tools:[{type:'openrouter:web_search',parameters:{engine:searchEngine,...searchLimits}}],max_tool_calls:searchLimits.max_uses,max_tokens:outputLimit,stream:false,provider})});
  let j;try{j=await res.json();}catch{throw attachHttpDetails(Error('OpenRouter returned non-JSON HTTP '+res.status),res.status,null,res.headers);}
  const c=j.choices?.[0],message=c?.message;
  const answer=typeof message?.content==='string'?message.content.trim():Array.isArray(message?.content)?message.content.filter(x=>x.type==='text').map(x=>x.text||'').join('\n').trim():'';
  const annotations=[...(message?.annotations||[]),...(Array.isArray(message?.content)?message.content.flatMap(x=>x.annotations||[]):[])];
  const citations=urlsUnique(annotations.filter(x=>x.type==='url_citation').map(x=>x.url_citation||x));
  const meta={transport:'openrouter',requested_model:model,returned_model:j.model||null,upstream_provider:j.provider||null,response_id:j.id||null,search_engine_requested:searchEngine,search_engine_actual:null,usage:j.usage||null,http_status:res.status,finish_reason:c?.finish_reason||null,max_tokens_requested:outputLimit};
+ if(isMistral(model))meta.collection_method=mistralCollectionMethodVersion;
  let status='success',error=null;
  // Do not echo arbitrary provider errors into logs (may contain sensitive request details).
  if(!res.ok||j.error){status='failed';const code=safeProviderMeta({upstream_error_code:String(j.error?.code||'unknown')}).upstream_error_code||'unknown';error='OpenRouter request failed: HTTP '+res.status+' code '+code;meta.failure_code=httpFailure(Number(j.error?.code)||res.status);meta.upstream_error_code=code;}
