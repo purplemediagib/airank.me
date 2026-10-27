@@ -18,8 +18,9 @@ test('0.21 migration sequence upgrades additively and content can read current a
   const imported=new Map();
   for(const m of startup.matchAll(/const \{(migrate\w+)\}=await import\('([^']+)'\)/g))imported.set(m[1],m[2]);
   const calls=[...startup.matchAll(/await (migrate\w+)\(db\)/g)].map(x=>x[1]);
-  assert.equal(calls.at(-1),'migrateContent');assert.equal(id,'app-019-content-studio');
-  for(const name of calls){if(name==='migrateContent')continue;const module=await import(new URL(imported.get(name),new URL('../src/app/start-release.mjs',import.meta.url)));await module[name](db);}
+  const contentIndex=calls.indexOf('migrateContent');assert.equal(contentIndex,18);assert.equal(id,'app-019-content-studio');
+  const apply=async name=>{const module=await import(new URL(imported.get(name),new URL('../src/app/start-release.mjs',import.meta.url)));await module[name](db);};
+  for(const name of calls.slice(0,contentIndex))await apply(name);
   const before=sql.prepare('SELECT id,checksum FROM app_migrations ORDER BY id').all();assert.equal(before.length,18);
   sql.prepare('INSERT INTO users(id,google_sub,email,created_at,updated_at) VALUES (?,?,?,?,?)').run('alice','sub','alice@example.test',1,1);
   sql.prepare('INSERT INTO app_projects VALUES (?,?,?,?,?)').run('project','alice','active',1,1);
@@ -30,6 +31,10 @@ test('0.21 migration sequence upgrades additively and content can read current a
   let received;
   await runJob({db,job:{id:'job',project_id:'project',actor:'alice',kind:'research'},input:{locale:'en',topic:'Example'},env:{},step:async(_key,fn)=>fn(),commit:fn=>fn(db),generateFn:async({input})=>{received=input;return {output:{}};}});
   assert.equal(received.brand.brandName,'Example');assert.deepEqual(received.evidence,[]);
+  // Later additive releases must still run after the existing content upgrade.
+  for(const name of calls.slice(contentIndex+1))await apply(name);
+  assert.equal(sql.prepare('SELECT COUNT(*) n FROM app_migrations').get().n,calls.length);
+  assert.equal((await analyticsService({db,path:'/v1/projects/project/analytics',userId:'alice',env:{}})).status,200);
  }finally{sql.close();}
 });
 

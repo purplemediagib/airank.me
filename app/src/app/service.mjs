@@ -22,6 +22,7 @@ import {normalizeWebsite} from '../common/website-url.mjs';
 import {measurementContext,contextCatalog} from '../common/measurement-context.mjs';
 import {reportService,measurementSettingsService} from '../reports/service.mjs';
 import {emailAuth,emailAuthAvailable,saveAuthLocale} from './email-auth.mjs';
+import {createReportTokens,reportReadAllowed} from './report-tokens.mjs';
 
 export const fail = (status, code, fieldErrors) => { throw Object.assign(new Error(code), { status, code, fieldErrors }); };
 export function safeReturn(input) {
@@ -63,6 +64,7 @@ export const csrfFor = token => hmac('airank-app-csrf-v1', token);
 // Dependency injection exists only for offline tests; production uses existing Google validation and DB.
 export function createAppService({ db, clients, env = process.env, now = Date.now,
   exchange = exchangeGoogleCode, verify = verifyGoogleIdToken, sendMail }) {
+  const reportTokens=createReportTokens({db,env,now});
   const ready = async () => {
     try { const row = await one(db, 'SELECT checksum FROM app_migrations WHERE id=?', [migrationId]); if (row?.checksum !== checksum) fail(503, 'APP_NOT_CONFIGURED'); }
     catch { fail(503, 'APP_NOT_CONFIGURED'); }
@@ -95,6 +97,17 @@ export function createAppService({ db, clients, env = process.env, now = Date.no
     const client = Object.hasOwn(clients, clientId) ? clients[clientId] : null;
     if (!client) fail(503, 'APP_NOT_CONFIGURED');
     const loginAvailable = !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET);
+    const sessionRead=method==='GET'&&path==='/v1/app/session';
+    const hasReportAuthorization=typeof headers.authorization==='string'&&/^Bearer\s+airank_rt_/i.test(headers.authorization);
+    let machineAuth=null;
+    // An explicit report bearer never inherits privileges from an ambient cookie.
+    // Gate it before public login handlers as well as authenticated write handlers.
+    if(hasReportAuthorization&&!sessionRead){
+      machineAuth=await reportTokens.resolve(headers.authorization);
+      if(!machineAuth)fail(401,'AUTH_REQUIRED');
+      if(!reportReadAllowed(method,path))fail(403,'SCOPE_DENIED');
+      await reportTokens.touch(machineAuth);
+    }
     if (method === 'POST' && /^\/v1\/app\/email\/[a-z-]+$/.test(path)) {
       return emailAuth({db,env,now,client,clientId,headers,body,action:path.split('/').at(-1),sendMail});
     }
@@ -136,7 +149,9 @@ export function createAppService({ db, clients, env = process.env, now = Date.no
         return result(null, 302, { location: client.origin + safeReturn(saved.return_to), 'set-cookie': [clear, cookie('__Host-airank_session', sessionToken, CONFIG.sessionDays * 86400)] });
       } catch { return failure(); }
     }
-    const auth = await session(headers);
+    // Session/CSRF/signup state is cookie-only. Bearer callers get the anonymous
+    // session response, without consuming signup flags or creating a browser session.
+    const auth = hasReportAuthorization&&sessionRead?null:machineAuth||await session(headers);
     if (method === 'GET' && path === '/v1/app/session') return result({ authenticated: !!auth, user: auth?.user || null, csrfToken: auth ? csrfFor(auth.token) : null, loginAvailable, emailLoginAvailable: await emailAuthAvailable(db,env),accountCreated:auth?await claimNewGoogleSignup(db,env,hashToken(auth.token)):false });
     if (!auth) fail(401, 'AUTH_REQUIRED');
     const userId = auth.user.id;
@@ -151,6 +166,8 @@ export function createAppService({ db, clients, env = process.env, now = Date.no
       await execute(db, 'DELETE FROM sessions WHERE session_hash=?', [hashToken(auth.token)]);
       return result({ ok: true }, 200, { 'set-cookie': [cookie('__Host-airank_session', '', 0), cookie('__Host-airank_app_oauth', '', 0)] });
     }
+    const reportTokenResult=await reportTokens.manage(method,path,body,userId);
+    if(reportTokenResult)return result(reportTokenResult.data,reportTokenResult.status);
     if (/^\/v1\/projects\/[a-zA-Z0-9-]{1,80}\/connections\//.test(path)) return googleConnectionsService({db,method,path,query,body,userId,origin:headers.origin,env});
     if (method === 'POST' && /^\/v1\/projects\/[a-zA-Z0-9-]{1,80}\/intelligence$/.test(path)) return intelligenceService({db,path,body,userId,env,now});
     if (method==='GET' && path==='/v1/app/content-projects') return result((await execute(db, `SELECT DISTINCT p.id,p.status,v.identity_json FROM app_projects p JOIN app_identity_versions v ON v.project_id=p.id AND v.version=p.version LEFT JOIN content_members m ON m.project_id=p.id WHERE p.owner_id=? OR m.user_id=?`, [userId,userId])).rows.map(r=>({id:r.id,status:r.status,...JSON.parse(r.identity_json)})));
