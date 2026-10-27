@@ -21,6 +21,7 @@ if(process.env.AIRANK_RUN_APP_MIGRATIONS==='true'){
  const {migrateImmediate}=await import('../monitoring/immediate-migration.mjs');
  const {migrateApiBudget}=await import('../monitoring/budget-migration.mjs');
  const {migrateSuggestions}=await import('../monitoring/suggestions-migration.mjs');
+ const {migrateReportTokens}=await import('./report-token-migration.mjs');
  const db=await getDb();
  await migrateApp(db);
  await migrateProjectScans(db);
@@ -42,7 +43,8 @@ if(process.env.AIRANK_RUN_APP_MIGRATIONS==='true'){
   await migrateSuggestions(db);
   const {migrateContent}=await import('../content/migration.mjs');
   await migrateContent(db);
-  console.log('AI Rank app migrations 001–019 verified successfully.');
+  await migrateReportTokens(db);
+  console.log('AI Rank app migrations 001–020 verified successfully.');
 }
 try {
  const {getDb}=await import('../common/db.mjs');
