@@ -1,3 +1,4 @@
+import {scanReadAllowed} from '../common/access.mjs';
 import http from 'node:http';
 import { appRoute, isAppPath } from '../app/http.mjs';
 import {publicCheckHttp} from '../public-check/http.mjs';
@@ -33,6 +34,7 @@ async function route(req,res){
  res.setHeader('Cache-Control','no-store');
  if(pathname.startsWith('/v1/public-check/'))return publicCheckHttp(req,res);
  if(isAppPath(pathname) || (req.headers['x-airank-client'] && /^\/v1\/scans(?:\/|$)/.test(pathname)))return appRoute(req,res,url);
+ if(/^Bearer\s+airank_rt_/i.test(req.headers.authorization||''))return json(res,403,{error:'SCOPE_DENIED',code:'SCOPE_DENIED'});
  if(method==='OPTIONS'){res.writeHead(origin&&!isAllowedOrigin(origin,CONFIG.allowedOrigins)?403:204);res.end();return}
  if(method==='GET' && pathname==='/healthz'){return json(res,200,{ok:true,service:'airank-api',version:CONFIG.version,revision:process.env.AIRANK_BUILD_REVISION||null,uptime_seconds:Math.floor((Date.now()-started)/1000),environment:CONFIG.appEnv})}
  if(method==='GET' && pathname==='/readyz'){
@@ -106,7 +108,7 @@ async function route(req,res){
  if(method==='GET'&&match){
   const job=await one('SELECT * FROM scan_jobs WHERE id=?',[match[1]]);if(!job)return json(res,404,{error:'Scan not found'});
   const session=await getSession(req);const guest=req.headers['x-scan-token']||'';
-  if(!(session && session.user_id===job.owner_id) && !(job.guest_token_hash && guest && eqString(hashToken(guest),job.guest_token_hash)))return json(res,403,{error:'Access to this report is restricted'});
+  if(!await scanReadAllowed(await getDb(),job,session?.user_id,guest))return json(res,403,{error:'Access to this report is restricted'});
   const prompts=await sql('SELECT id,sequence,prompt_text,prompt_version FROM scan_prompts WHERE scan_id=? ORDER BY sequence',[job.id]);
   const results=await sql('SELECT prompt_id,provider,provider_status,model,answer_text,citations_json,own_domain_cited,brand_mentioned,recommended,observed_at,error FROM observations WHERE scan_id=? ORDER BY provider,observed_at',[job.id]);
   const observations=results.rows.map(r=>({...r,citations:JSON.parse(r.citations_json||'[]'),citations_json:undefined}));

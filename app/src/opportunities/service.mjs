@@ -1,10 +1,11 @@
+import {accessibleProject,requireProject} from '../common/access.mjs';
 import {one,exec,fail,hash,transaction} from '../monitoring/shared.mjs';
 import {analyticsService} from '../analytics/service.mjs';
 import {id,checksum} from './migration.mjs';
 export const ruleVersion='fi-evidence-actions-v1';
 export async function opportunityService({db,method,path,body,userId,now=Date.now}){
  const projectId=path.split('/')[3],itemId=path.split('/')[5];
- const p=await one(db,'SELECT * FROM app_projects WHERE id=? AND owner_id=?',[projectId,userId]);if(!p)fail(404,'NOT_FOUND');
+ const p=await accessibleProject(db,projectId,userId,method==='GET'?'read':'edit');if(!p)fail(404,'NOT_FOUND');
  try{if((await one(db,'SELECT checksum FROM app_migrations WHERE id=?',[id]))?.checksum!==checksum)fail(503,'APP_NOT_CONFIGURED');}catch{fail(503,'APP_NOT_CONFIGURED');}
  if(method!=='GET'&&p.status!=='active')fail(409,'VERSION_CONFLICT');
  const list=async cx=>(await exec(cx,'SELECT payload FROM app_opportunities WHERE project_id=? ORDER BY id',[projectId])).rows.map(r=>JSON.parse(r.payload));
@@ -12,6 +13,7 @@ export async function opportunityService({db,method,path,body,userId,now=Date.no
   if(body?.refresh!==true)fail(422,'VALIDATION_FAILED');
   const a=(await analyticsService({db,path:`/v1/projects/${projectId}/analytics`,userId})).data;
   await transaction(db,async tx=>{
+   await requireProject(tx,projectId,userId,method==='GET'?'read':'edit');
    const existing=new Map((await list(tx)).map(o=>[o.id,o]));
    for(const kind of ['visibility_gap','citation_review']){
     const rows=a.evidence.filter(e=>!e.exclusion&&(kind==='visibility_gap'?!e.mentioned:e.citations.length>0&&!e.ownedCitation));
@@ -36,6 +38,7 @@ export async function opportunityService({db,method,path,body,userId,now=Date.no
   });
  }else if(method==='PATCH'&&itemId){
   await transaction(db,async tx=>{
+   await requireProject(tx,projectId,userId,method==='GET'?'read':'edit');
    const r=await one(tx,'SELECT * FROM app_opportunities WHERE project_id=? AND id=?',[projectId,itemId]);if(!r)fail(404,'NOT_FOUND');
    if(body?.expectedVersion!==Number(r.version))fail(409,'VERSION_CONFLICT');
    if(!['new','in_progress','completed'].includes(body.status)||typeof body.notes!=='string'||body.notes.length>4000)fail(422,'VALIDATION_FAILED');

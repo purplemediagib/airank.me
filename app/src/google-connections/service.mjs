@@ -1,3 +1,4 @@
+import {accessibleProject} from '../common/access.mjs';
 import {one,fail} from '../monitoring/shared.mjs';
 import {safeImportError} from './errors.mjs';
 
@@ -15,12 +16,13 @@ export function connectorConfig(env,origin){
   }catch{return null;}
 }
 
-/** Existing workspaces are owner-managed projects, not a second client-supplied tenant namespace. */
+/** Authorize team access locally; the connector retains the stable project namespace. */
 export async function googleConnectionsService({db,method,path,query=new URLSearchParams(),body,userId,origin,env=process.env,fetcher=globalThis.fetch}){
   const match=path.match(/^\/v1\/projects\/([A-Za-z0-9-]{1,80})\/connections\/(ga4|gsc)(?:\/(connect|properties|selection|sync|reports))?$/);
   if(!match)fail(404,'NOT_FOUND');
   const [,projectId,service,suffix]=match;
-  const project=await one(db,"SELECT id,owner_id FROM app_projects WHERE id=? AND owner_id=? AND status='active'",[projectId,userId]);
+  const project=await accessibleProject(db,projectId,userId,method==='GET'&&suffix!=='properties'?'read':'manageConnections');
+  if(project.status!=='active')fail(404,'NOT_FOUND');
   if(!project)fail(404,'NOT_FOUND');
   const action=suffix||(method==='DELETE'?'disconnect':'status');
   if(routes[action]!==method)fail(405,'METHOD_NOT_ALLOWED');

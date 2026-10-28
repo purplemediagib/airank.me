@@ -1,3 +1,4 @@
+import {requireProject} from '../common/access.mjs';
 import {one,exec,fail} from '../monitoring/shared.mjs';
 import {extract} from './extraction.mjs';
 import {loadJobs,attachSentiment} from '../sentiment/read.mjs';
@@ -7,10 +8,10 @@ const skipped=new Set(['unconfigured','disabled','budget_blocked','deadline_not_
 export const resultState=(task,e)=>!e?(['queued','executing','collecting','recorded'].includes(task.status)?task.status==='queued'?'queued':'running':'unavailable'):e.status==='success'?'success':skipped.has(e.status)?'skipped':'failed';
 export async function resultsService({db,path,query=new URLSearchParams(),userId,env=process.env}){
  const projectId=path.split('/')[3],itemId=path.split('/')[5];
- if(!await one(db,'SELECT id FROM app_projects WHERE id=? AND owner_id=?',[projectId,userId]))fail(404,'NOT_FOUND');
+ await requireProject(db,projectId,userId);
  const page=Number(query.get('page')||1),pageSize=Number(query.get('pageSize')||25);
  if(!Number.isSafeInteger(page)||page<1||page>100000||!Number.isSafeInteger(pageSize)||pageSize<1||pageSize>100)fail(422,'INVALID_FILTER');
- const where=['r.project_id=?','r.owner_id=?'],args=[projectId,userId];
+ const where=['r.project_id=?'],args=[projectId];
  // A run may contain multiple measurement partitions. Restrict exact task IDs
  // using the analytics selection itself; run IDs alone would leak other groups.
  if(query.get('group')){

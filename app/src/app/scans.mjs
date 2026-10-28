@@ -1,3 +1,4 @@
+import {requireProject} from '../common/access.mjs';
 import { createHash } from 'node:crypto';
 import { CONFIG } from '../common/config.mjs';
 import { uuid, hmac } from '../common/utils.mjs';
@@ -18,13 +19,14 @@ export async function appScans({db,method,path,body,userId,now=Date.now,env=proc
  catch {fail(503,'APP_NOT_CONFIGURED');}
  const list = path.match(/^\/v1\/projects\/([a-zA-Z0-9-]{1,80})\/scans$/);
  if(method==='GET' && list) {
-  if(!await one(db,'SELECT id FROM app_projects WHERE id=? AND owner_id=?',[list[1],userId])) fail(404,'NOT_FOUND');
-  return {status:200,data:(await db.execute({sql:`${join} WHERE l.project_id=? AND l.owner_id=? AND j.owner_id=? ORDER BY l.created_at DESC,l.scan_id`,args:[list[1],userId,userId]})).rows.map(accepted)};
+  await requireProject(db,list[1],userId);
+  return {status:200,data:(await db.execute({sql:`${join} WHERE l.project_id=? ORDER BY l.created_at DESC,l.scan_id`,args:[list[1]]})).rows.map(accepted)};
  }
  const report = path.match(/^\/v1\/scans\/([a-zA-Z0-9-]{1,80})$/);
  if(method==='GET' && report) {
-  const linked=await one(db,`${join} WHERE l.scan_id=? AND l.owner_id=? AND j.owner_id=?`,[report[1],userId,userId]);
+  const linked=await one(db,`${join} WHERE l.scan_id=?`,[report[1]]);
   if(!linked) fail(404,'NOT_FOUND');
+  await requireProject(db,linked.project_id,userId);
   const saved=await one(db,'SELECT profile_json FROM scan_profiles WHERE scan_id=?',[report[1]]);
   const profile=saved?JSON.parse(saved.profile_json):null;
   const prompts=(await db.execute({sql:'SELECT id,sequence,prompt_text,prompt_version FROM scan_prompts WHERE scan_id=? ORDER BY sequence',args:[report[1]]})).rows;

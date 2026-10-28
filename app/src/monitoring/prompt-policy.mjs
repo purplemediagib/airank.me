@@ -14,8 +14,8 @@ export async function assertDailyNotMeasured(db,userId,projectId,day,kind='neutr
  const midnight=Date.parse(`${day}T00:00:00Z`),from=midnight-4*3600000,to=midnight+86400000;
  const rows=(await exec(db,`SELECT r.created_at,s.due_at FROM mon_runs r
  LEFT JOIN app_schedule_slots s ON s.run_id=r.id AND s.state='submitted'
- WHERE r.owner_id=? AND r.project_id=? AND r.kind=? AND COALESCE(json_extract(r.snapshot,'$.collectionScope'),'full')<>'incremental' AND ((r.created_at>=? AND r.created_at<?) OR (s.due_at>=? AND s.due_at<?))`,
- [userId,projectId,kind,from,to,from,to])).rows;
+ WHERE r.project_id=? AND r.kind=? AND COALESCE(json_extract(r.snapshot,'$.collectionScope'),'full')<>'incremental' AND ((r.created_at>=? AND r.created_at<?) OR (s.due_at>=? AND s.due_at<?))`,
+ [projectId,kind,from,to,from,to])).rows;
  if(rows.some(r=>helsinkiDate(r.created_at)===day||(r.due_at!=null&&helsinkiDate(r.due_at)===day)))fail(409,'DAILY_ALREADY_MEASURED');
 }
 

@@ -1,10 +1,12 @@
+import {requireProject} from '../common/access.mjs';
 import {one,exec} from '../monitoring/shared.mjs';
 import {brandKey,config,eligibility,inputHash,mentions} from './core.mjs';
 export async function loadJobs(db,projectId,userId,evidenceIds=null){
+ await requireProject(db,projectId,userId);
  if(!await one(db,"SELECT name FROM sqlite_master WHERE type='table' AND name='sentiment_jobs'"))return null;
  if(evidenceIds?.length===0)return [];
  const selection=evidenceIds?` AND j.evidence_id IN (${evidenceIds.map(()=>'?').join(',')})`:'';
- return (await exec(db,`SELECT j.* FROM sentiment_jobs j JOIN mon_runs r ON r.id=j.run_id WHERE r.project_id=? AND r.owner_id=?${selection} ORDER BY j.created_at DESC`,[projectId,userId,...(evidenceIds||[])])).rows;
+ return (await exec(db,`SELECT j.* FROM sentiment_jobs j JOIN mon_runs r ON r.id=j.run_id WHERE r.project_id=?${selection} ORDER BY j.created_at DESC`,[projectId,...(evidenceIds||[])])).rows;
 }
 export function attachSentiment(e,s,jobs,env=process.env){
  const c=config(env),reason=eligibility(e,s);

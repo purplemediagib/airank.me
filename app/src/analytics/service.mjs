@@ -1,3 +1,4 @@
+import {requireProject} from '../common/access.mjs';
 import {loadJobs,attachSentiment} from '../sentiment/read.mjs';
 import { hash, one, exec, fail } from '../monitoring/shared.mjs';
 import { extract, aggregate, extractionVersion } from './extraction.mjs';
@@ -83,7 +84,7 @@ export function promptSummaries(entries) {
 }
 export async function analyticsService({db,path,userId,query=new URLSearchParams(),env=process.env,onSelectedTasks}) {
   const id=path.split('/')[3];
-  if(!await one(db,'SELECT id FROM app_projects WHERE id=? AND owner_id=?',[id,userId]))fail(404,'NOT_FOUND');
+  await requireProject(db,id,userId);
   const project=await one(db,'SELECT v.identity_json FROM app_projects p JOIN app_identity_versions v ON v.project_id=p.id AND v.version=p.version WHERE p.id=?',[id]);
   const from=date(query.get('from')),to=date(query.get('to'),true);
   if(from>to)fail(422,'INVALID_FILTER');
@@ -93,11 +94,11 @@ export async function analyticsService({db,path,userId,query=new URLSearchParams
   const promptId=query.get('promptId')||'',version=query.get('promptVersion')||'';
   if(version&&(!promptId||!/^[1-9]\d*$/.test(version)))fail(422,'INVALID_FILTER');
   if(promptId&&!await one(db,'SELECT id FROM mon_prompts WHERE id=? AND project_id=?',[promptId,id]))fail(404,'NOT_FOUND');
-  const raw=(await exec(db,'SELECT * FROM mon_runs WHERE project_id=? AND owner_id=? ORDER BY created_at,id',[id,userId])).rows;
+  const raw=(await exec(db,'SELECT * FROM mon_runs WHERE project_id=? ORDER BY created_at,id',[id])).rows;
   const windowSql=`${Number.isFinite(previousFrom)?' AND r.created_at>=?':''}${Number.isFinite(to)?' AND r.created_at<=?':''}`;
-  const windowArgs=[id,userId,...(Number.isFinite(previousFrom)?[previousFrom]:[]),...(Number.isFinite(to)?[to]:[])];
-  const tasks=(await exec(db,`SELECT t.* FROM mon_tasks t JOIN mon_runs r ON r.id=t.run_id WHERE r.project_id=? AND r.owner_id=?${windowSql}`,windowArgs)).rows;
-  const evidence=(await exec(db,`SELECT e.payload FROM mon_evidence e JOIN mon_runs r ON r.id=e.run_id WHERE r.project_id=? AND r.owner_id=?${windowSql}`,windowArgs)).rows.map(r=>JSON.parse(r.payload));
+  const windowArgs=[id,...(Number.isFinite(previousFrom)?[previousFrom]:[]),...(Number.isFinite(to)?[to]:[])];
+  const tasks=(await exec(db,`SELECT t.* FROM mon_tasks t JOIN mon_runs r ON r.id=t.run_id WHERE r.project_id=?${windowSql}`,windowArgs)).rows;
+  const evidence=(await exec(db,`SELECT e.payload FROM mon_evidence e JOIN mon_runs r ON r.id=e.run_id WHERE r.project_id=?${windowSql}`,windowArgs)).rows.map(r=>JSON.parse(r.payload));
   const tasksByRun=new Map(),evidenceByRun=new Map();
   for(const task of tasks){const bucket=tasksByRun.get(task.run_id)||[];bucket.push(task);tasksByRun.set(task.run_id,bucket);}
   for(const row of evidence){const bucket=evidenceByRun.get(row.runId)||[];bucket.push(row);evidenceByRun.set(row.runId,bucket);}
@@ -189,7 +190,7 @@ export async function analyticsService({db,path,userId,query=new URLSearchParams
   const comparison=previous.length&&priorMetrics.eligible&&Number.isFinite(previousFrom)?{from:new Date(previousFrom).toISOString().slice(0,10),to:new Date(from-1).toISOString().slice(0,10),metrics:priorMetrics}:null;
   const providers=[...new Set(selected.flatMap(e=>e.tasks.map(t=>t.provider)))].sort().map(provider=>({
      provider,metrics:measured(selected[0]?.snapshot,selectedRows.filter(e=>e.provider===provider),selected.reduce((n,e)=>n+e.tasks.filter(t=>t.provider===provider).length,0),provider)}));
-  const audit=(await exec(db,'SELECT * FROM app_audit_events WHERE project_id=? AND user_id=? ORDER BY created_at DESC,id',[id,userId])).rows;
+  const audit=(await exec(db,'SELECT * FROM app_audit_events WHERE project_id=? ORDER BY created_at DESC,id',[id])).rows;
   const versions=(await exec(db,'SELECT v.*,p.id FROM mon_prompt_versions v JOIN mon_prompts p ON p.id=v.prompt_id WHERE p.project_id=? ORDER BY v.created_at DESC',[id])).rows;
   const changes=[...audit.map(r=>({id:r.id,createdAt:r.created_at,type:r.kind,version:Number(r.version||0)})),
     ...versions.map(r=>({id:`${r.id}:${r.version}`,createdAt:new Date(Number(r.created_at)).toISOString(),type:`prompt.${JSON.parse(r.payload).status==='archived'?'archived':Number(r.version)===1?'created':'updated'}`,version:Number(r.version)}))]

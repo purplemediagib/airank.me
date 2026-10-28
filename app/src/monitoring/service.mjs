@@ -1,3 +1,4 @@
+import {accessibleProject} from '../common/access.mjs';
 import {loadJobs,attachSentiment} from '../sentiment/read.mjs';
 import { uuid } from '../common/utils.mjs';
 import { routeAvailable } from '../providers/routing.mjs';
@@ -32,13 +33,13 @@ export async function monitoringService({db,method,path,query=new URLSearchParam
  if(!match)fail(404,'NOT_FOUND');
  const [,projectId,kind,itemId]=match;
  const owned=async cx=>{
-  const p=await one(cx,'SELECT p.*,v.identity_json FROM app_projects p JOIN app_identity_versions v ON v.project_id=p.id AND v.version=p.version WHERE p.id=? AND p.owner_id=?',[projectId,userId]);
+  const p=await accessibleProject(cx,projectId,userId,method==='GET'?'read':kind==='monitoring-runs'?'runChecks':'edit');
   if(!p)fail(404,'NOT_FOUND');if(method!=='GET'&&p.status!=='active')fail(409,'VERSION_CONFLICT');return p;
  };
- const project=await owned(db), identity=JSON.parse(project.identity_json);
+ const project=await owned(db), identity=JSON.parse(project.identity_json),ownerId=project.owner_id;
  const reply=(data,status=200)=>({status,data});
  const addPrompt=async(cx,data)=>{
-   await assertPromptCapacity(cx,userId,projectId,env,{adding:true});
+   await assertPromptCapacity(cx,ownerId,projectId,env,{adding:true});
   const fingerprint=hash([data.kind,normalized(data.text),measurementContext(data)]);
   if(await one(cx,'SELECT id FROM mon_prompts WHERE project_id=? AND hash=?',[projectId,fingerprint]))fail(409,'DUPLICATE_PROMPT');
   const promptId=uuid(),stamp=now();
@@ -74,15 +75,15 @@ export async function monitoringService({db,method,path,query=new URLSearchParam
   const p=await one(db,`${promptSQL} WHERE p.id=? AND p.project_id=?`,[itemId,projectId]);if(!p)fail(404,'NOT_FOUND');
   if(method==='GET'){
    const versions=(await exec(db,'SELECT * FROM mon_prompt_versions WHERE prompt_id=? ORDER BY version DESC',[itemId])).rows.map(v=>({...promptRow(p),...JSON.parse(v.payload),version:Number(v.version),createdAt:Number(v.created_at)}));
-   const measurements=(await exec(db,"SELECT e.payload FROM mon_evidence e JOIN mon_runs r ON r.id=e.run_id WHERE r.owner_id=? AND r.project_id=? AND json_extract(e.payload,'$.promptId')=? ORDER BY e.observed_at DESC",[userId,projectId,itemId])).rows.map(r=>JSON.parse(r.payload));
+   const measurements=(await exec(db,"SELECT e.payload FROM mon_evidence e JOIN mon_runs r ON r.id=e.run_id WHERE r.project_id=? AND json_extract(e.payload,'$.promptId')=? ORDER BY e.observed_at DESC",[projectId,itemId])).rows.map(r=>JSON.parse(r.payload));
    return reply({prompt:promptRow(p),versions,measurements});
   }
   if(method==='PATCH')return transaction(db,async tx=>{
    const currentProject=await owned(tx),current=await one(tx,`${promptSQL} WHERE p.id=? AND p.project_id=?`,[itemId,projectId]);
    if(body?.expectedVersion!==Number(current.version)||!['active','archived'].includes(body?.status))fail(409,'VERSION_CONFLICT');
     if(body.status==='active'){
-     await assertCanonical(tx,userId,projectId);
-     if(current.status!=='active')await assertPromptCapacity(tx,userId,projectId,env,{adding:true});
+     await assertCanonical(tx,ownerId,projectId);
+     if(current.status!=='active')await assertPromptCapacity(tx,ownerId,projectId,env,{adding:true});
     }
    const data=input(body,JSON.parse(currentProject.identity_json),body.status==='archived'),fingerprint=hash([data.kind,normalized(data.text),measurementContext(data)]);
    if(await one(tx,'SELECT id FROM mon_prompts WHERE project_id=? AND hash=? AND id<>?',[projectId,fingerprint,itemId]))fail(409,'DUPLICATE_PROMPT');
@@ -101,6 +102,7 @@ export async function monitoringService({db,method,path,query=new URLSearchParam
    const exclude=(cohort?.brands||[]).flatMap(b=>[b.brandName,...b.aliases,...b.ownedDomains]);
    const drafts=await workspaceSuggestions({db,project,identity,env,now,generate,exclude});return transaction(db,async tx=>{
    const current=await owned(tx),profile=JSON.parse(current.identity_json);
+    if(current.owner_id!==ownerId)fail(409,'VERSION_CONFLICT');
    if(Number(current.version)!==Number(project.version))fail(409,'VERSION_CONFLICT');
    const context=measurementContext(profile);
    for(const draft of drafts){
@@ -151,7 +153,7 @@ export async function monitoringService({db,method,path,query=new URLSearchParam
     await exec(tx,'UPDATE mon_suggestions SET text=?,hash=? WHERE id=?',[data.text,fingerprint,itemId]);
     await exec(tx,'INSERT INTO mon_suggestion_metadata VALUES (?,?) ON CONFLICT(suggestion_id) DO UPDATE SET payload=excluded.payload',[itemId,JSON.stringify(metadata)]);
      const found=await one(tx,'SELECT id,status FROM mon_prompts WHERE project_id=? AND hash=?',[projectId,fingerprint]);
-     await assertCanonical(tx,userId,projectId);
+     await assertCanonical(tx,ownerId,projectId);
      if(found?.status==='archived')fail(409,'PROMPT_ARCHIVED');
     promptId=found?.id||(await addPrompt(tx,data)).id;
    }
@@ -160,9 +162,9 @@ export async function monitoringService({db,method,path,query=new URLSearchParam
   });
  }
  if(kind==='monitoring-runs'){
-  if(method==='GET'&&!itemId){const rows=(await exec(db,'SELECT * FROM mon_runs WHERE project_id=? AND owner_id=? ORDER BY created_at DESC,id',[projectId,userId])).rows;return reply(await Promise.all(rows.map(r=>runRow(db,r))));}
+  if(method==='GET'&&!itemId){const rows=(await exec(db,'SELECT * FROM mon_runs WHERE project_id=? ORDER BY created_at DESC,id',[projectId])).rows;return reply(await Promise.all(rows.map(r=>runRow(db,r))));}
   if(method==='GET'&&itemId){
-   const r=await one(db,'SELECT * FROM mon_runs WHERE id=? AND project_id=? AND owner_id=?',[itemId,projectId,userId]);if(!r)fail(404,'NOT_FOUND');
+   const r=await one(db,'SELECT * FROM mon_runs WHERE id=? AND project_id=?',[itemId,projectId]);if(!r)fail(404,'NOT_FOUND');
    const sentimentJobs=await loadJobs(db,projectId,userId),snapshot=JSON.parse(r.snapshot);
    return reply({run:await runRow(db,r),evidence:(await exec(db,'SELECT payload FROM mon_evidence WHERE run_id=? ORDER BY observed_at,id',[itemId])).rows.map(e=>attachSentiment(JSON.parse(e.payload),snapshot,sentimentJobs,env))});
   }
@@ -175,11 +177,12 @@ export async function monitoringService({db,method,path,query=new URLSearchParam
       const slot=await one(tx,"SELECT s.state,c.enabled FROM app_schedule_slots s JOIN app_project_schedules c ON c.project_id=s.project_id WHERE s.project_id=? AND s.slot=?",[projectId,scheduleSlot]);
       if(slot?.state!=='pending'||!slot.enabled)fail(409,'SCHEDULE_CANCELLED');
      }
-    const previous=immediate?null:await one(tx,'SELECT * FROM mon_runs WHERE owner_id=? AND submission_id=?',[userId,body.submissionId]);
+    const previous=immediate?null:await one(tx,'SELECT * FROM mon_runs WHERE owner_id=? AND submission_id=?',[ownerId,body.submissionId]);
     if(previous){if(previous.request_hash!==requestHash)fail(409,'VERSION_CONFLICT');return reply(await runRow(tx,previous),202);}
-    if(scheduleSlot)await assertDailyNotMeasured(tx,userId,projectId,scheduleSlot,body.kind);
+    if(scheduleSlot)await assertDailyNotMeasured(tx,ownerId,projectId,scheduleSlot,body.kind);
     const current=await owned(tx),profile=JSON.parse(current.identity_json);
-     await assertPromptCapacity(tx,userId,projectId,env);
+    if(current.owner_id!==ownerId)fail(409,'VERSION_CONFLICT');
+     await assertPromptCapacity(tx,ownerId,projectId,env);
      if(await promptReadiness(tx,projectId,profile)==='prompt_review_required')fail(422,'PROMPT_REVIEW_REQUIRED');
     const context=measurementContext(profile);
     let prompts=(await exec(tx,`${promptSQL} WHERE p.project_id=? AND p.status='active' AND json_extract(v.payload,'$.kind')=? ORDER BY p.id`,[projectId,body.kind])).rows.map(promptRow).filter(p=>sameContext(p,context));
@@ -209,16 +212,16 @@ export async function monitoringService({db,method,path,query=new URLSearchParam
     const blocked=expected>limit;
     const deadline=stamp+setting(env,'MONITORING_RUN_TIMEOUT_MS',1800000,1000,86400000);
      const surfaces=new Set(routes.map(r=>r.measurement_surface||'model_api'));
-     const snapshot={identity:profile,identityVersion:Number(current.version),cohort,prompts,routes,
+     const snapshot={actorId:userId,identity:profile,identityVersion:Number(current.version),cohort,prompts,routes,
       collectionMethod:collectionMethodVersion,
       ...(immediate?{collectionTrigger:'immediate'}:{}),collectionScope:immediate&&prompts.length!==fullCount?'incremental':'full',
       methodology:surfaces.size>1?'tracked-separated-surfaces-v2':surfaces.has('consumer_web')?'tracked-consumer-evidence-v1':methodology,...context,kind:body.kind};
     // A no-task capacity rejection can recover after capacity/routes change.
     // Already-reserved prompts are removed above regardless of this key.
     const submissionId=immediate?hash(['immediate',projectId,prompts.map(p=>[p.id,measurementKey(p)]),routes,limit]):body.submissionId;
-    const existing=immediate?await one(tx,'SELECT * FROM mon_runs WHERE owner_id=? AND submission_id=?',[userId,submissionId]):null;
+    const existing=immediate?await one(tx,'SELECT * FROM mon_runs WHERE owner_id=? AND submission_id=?',[ownerId,submissionId]):null;
     if(existing)return reply(await runRow(tx,existing),202);
-    await exec(tx,'INSERT INTO mon_runs VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',[runId,projectId,userId,submissionId,requestHash,body.kind,blocked?'capacity_blocked':'queued',JSON.stringify(snapshot),expected,stamp,deadline,blocked?'panel_exceeds_monitoring_capacity':null]);
+    await exec(tx,'INSERT INTO mon_runs VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',[runId,projectId,ownerId,submissionId,requestHash,body.kind,blocked?'capacity_blocked':'queued',JSON.stringify(snapshot),expected,stamp,deadline,blocked?'panel_exceeds_monitoring_capacity':null]);
     if(!blocked)for(const p of prompts)for(const route of routes)await exec(tx,'INSERT INTO mon_tasks VALUES (?,?,?,?,?,?,?,?,?,?)',[uuid(),runId,p.id,p.version,p.text,route.provider,JSON.stringify(route),'queued',null,null]);
     if(immediate)for(const p of prompts)await exec(tx,"UPDATE mon_immediate_outbox SET state=?,run_id=?,reason=? WHERE prompt_id=? AND fingerprint=?",[blocked?'blocked':'submitted',runId,blocked?'panel_exceeds_monitoring_capacity':null,p.id,measurementKey(p)]);
     return reply(await runRow(tx,await one(tx,'SELECT * FROM mon_runs WHERE id=?',[runId])),202);

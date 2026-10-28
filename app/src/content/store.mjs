@@ -1,3 +1,4 @@
+import {projectRole,requireProject,teamsEnabled} from '../common/access.mjs';
 import {randomUUID,createCipheriv,createDecipheriv,randomBytes} from 'node:crypto';
 import {one,exec,fail,hash,transaction} from '../monitoring/shared.mjs';
 export {one,exec,fail,hash,transaction};
@@ -5,10 +6,12 @@ export const uid=()=>randomUUID();
 export async function access(db,projectId,userId,permission='read'){
  const p=await one(db,'SELECT p.*,v.identity_json FROM app_projects p JOIN app_identity_versions v ON v.project_id=p.id AND v.version=p.version WHERE p.id=?',[projectId]);
  if(!p)fail(404,'NOT_FOUND');
- const role=p.owner_id===userId?'owner':(await one(db,'SELECT role FROM content_members WHERE project_id=? AND user_id=?',[projectId,userId]))?.role;
+ const teams=await teamsEnabled(db),teamRole=teams?await projectRole(db,projectId,userId):null;
+ const role=teams?(teamRole==='member'?'editor':teamRole):p.owner_id===userId?'owner':(await one(db,'SELECT role FROM content_members WHERE project_id=? AND user_id=?',[projectId,userId]))?.role;
  if(!role)fail(404,'NOT_FOUND');
  const allow={read:['owner','viewer','editor','reviewer'],edit:['owner','editor'],review:['owner','reviewer'],manage:['owner']};
- if(!allow[permission]?.includes(role))fail(403,'CONTENT_PERMISSION_DENIED');
+ if(teams)await requireProject(db,projectId,userId,{read:'read',edit:'edit',review:'edit',manage:'manageProject'}[permission]||'invalid');
+ else if(!allow[permission]?.includes(role))fail(403,'CONTENT_PERMISSION_DENIED');
  if(permission!=='read'&&p.status!=='active')fail(409,'PROJECT_ARCHIVED');
  return {...p,identity:JSON.parse(p.identity_json),role};
 }

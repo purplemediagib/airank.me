@@ -1,3 +1,4 @@
+import {accessibleProject} from '../common/access.mjs';
 import {monitoringService} from './service.mjs';
 import {exec,one,hash,normalized,transaction,fail} from './shared.mjs';
 import {measurementContext} from '../common/measurement-context.mjs';
@@ -10,7 +11,7 @@ export async function bootstrapImmediate({db,projectId,userId,body,env=process.e
   Object.keys(body).some(k=>!['kind','submissionId'].includes(k)))fail(422,'VALIDATION_FAILED');
  await immediateReady(db);
  await transaction(db,async tx=>{
-  const project=await one(tx,'SELECT status FROM app_projects WHERE id=? AND owner_id=?',[projectId,userId]);
+  const project=await accessibleProject(tx,projectId,userId,'runChecks');
   if(!project)fail(404,'NOT_FOUND');
   if(project.status!=='active')fail(409,'VERSION_CONFLICT');
   // Explicit user action only: migration/GET/worker never seed old prompt sets.
