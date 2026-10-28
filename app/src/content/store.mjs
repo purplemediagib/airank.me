@@ -1,3 +1,4 @@
+import {assertPlanAccess} from '../common/plans.mjs';
 import {projectRole,requireProject,teamsEnabled} from '../common/access.mjs';
 import {randomUUID,createCipheriv,createDecipheriv,randomBytes} from 'node:crypto';
 import {one,exec,fail,hash,transaction} from '../monitoring/shared.mjs';
@@ -12,6 +13,7 @@ export async function access(db,projectId,userId,permission='read'){
  const allow={read:['owner','viewer','editor','reviewer'],edit:['owner','editor'],review:['owner','reviewer'],manage:['owner']};
  if(teams)await requireProject(db,projectId,userId,{read:'read',edit:'edit',review:'edit',manage:'manageProject'}[permission]||'invalid');
  else if(!allow[permission]?.includes(role))fail(403,'CONTENT_PERMISSION_DENIED');
+ if(permission!=='read')await assertPlanAccess(db,projectId);
  if(permission!=='read'&&p.status!=='active')fail(409,'PROJECT_ARCHIVED');
  return {...p,identity:JSON.parse(p.identity_json),role};
 }

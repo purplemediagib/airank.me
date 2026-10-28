@@ -1,3 +1,4 @@
+import {assertPlanPromptCapacity,assertPlanRun,assertPlanAccess} from '../common/plans.mjs';
 import {accessibleProject} from '../common/access.mjs';
 import {loadJobs,attachSentiment} from '../sentiment/read.mjs';
 import { uuid } from '../common/utils.mjs';
@@ -34,6 +35,7 @@ export async function monitoringService({db,method,path,query=new URLSearchParam
  const [,projectId,kind,itemId]=match;
  const owned=async cx=>{
   const p=await accessibleProject(cx,projectId,userId,method==='GET'?'read':kind==='monitoring-runs'?'runChecks':'edit');
+  if(method!=='GET')await assertPlanAccess(cx,projectId,now());
   if(!p)fail(404,'NOT_FOUND');if(method!=='GET'&&p.status!=='active')fail(409,'VERSION_CONFLICT');return p;
  };
  const project=await owned(db), identity=JSON.parse(project.identity_json),ownerId=project.owner_id;
@@ -83,6 +85,7 @@ export async function monitoringService({db,method,path,query=new URLSearchParam
    if(body?.expectedVersion!==Number(current.version)||!['active','archived'].includes(body?.status))fail(409,'VERSION_CONFLICT');
     if(body.status==='active'){
      await assertCanonical(tx,ownerId,projectId);
+     await assertPlanPromptCapacity(tx,projectId,{adding:current.status!=='active'});
      if(current.status!=='active')await assertPromptCapacity(tx,ownerId,projectId,env,{adding:true});
     }
    const data=input(body,JSON.parse(currentProject.identity_json),body.status==='archived'),fingerprint=hash([data.kind,normalized(data.text),measurementContext(data)]);
@@ -183,6 +186,7 @@ export async function monitoringService({db,method,path,query=new URLSearchParam
     const current=await owned(tx),profile=JSON.parse(current.identity_json);
     if(current.owner_id!==ownerId)fail(409,'VERSION_CONFLICT');
      await assertPromptCapacity(tx,ownerId,projectId,env);
+     const plan=await assertPlanRun(tx,projectId,body.kind,now());
      if(await promptReadiness(tx,projectId,profile)==='prompt_review_required')fail(422,'PROMPT_REVIEW_REQUIRED');
     const context=measurementContext(profile);
     let prompts=(await exec(tx,`${promptSQL} WHERE p.project_id=? AND p.status='active' AND json_extract(v.payload,'$.kind')=? ORDER BY p.id`,[projectId,body.kind])).rows.map(promptRow).filter(p=>sameContext(p,context));
@@ -197,7 +201,7 @@ export async function monitoringService({db,method,path,query=new URLSearchParam
     for(const p of prompts){input(p,profile);if(p.kind==='neutral')for(const b of cohort?.brands||[])input(p,b);}
     let routes;
      try{routes=Object.entries(await selectedRoutes(tx,projectId,env)).map(([provider,r])=>({provider,...r,measurement_surface:r.measurement_surface||'model_api'}));}
-    catch(e){if(immediate)fail(503,'APP_NOT_CONFIGURED');throw e;}
+    catch(e){if(immediate&&e.code!=='PLAN_LIMIT')fail(503,'APP_NOT_CONFIGURED');throw e;}
     if(!routes.length)fail(422,'NO_AVAILABLE_PROVIDERS');
     if(immediate&&verifyImmediateCredentials){
      if(routes.some(r=>!routeAvailable(r.provider,r,env)))fail(503,'MONITORING_PROVIDERS_UNCONFIGURED');
@@ -212,7 +216,7 @@ export async function monitoringService({db,method,path,query=new URLSearchParam
     const blocked=expected>limit;
     const deadline=stamp+setting(env,'MONITORING_RUN_TIMEOUT_MS',1800000,1000,86400000);
      const surfaces=new Set(routes.map(r=>r.measurement_surface||'model_api'));
-     const snapshot={actorId:userId,identity:profile,identityVersion:Number(current.version),cohort,prompts,routes,
+     const snapshot={...(plan?{plan:plan.plan,planRevision:plan.revision}:{}),actorId:userId,identity:profile,identityVersion:Number(current.version),cohort,prompts,routes,
       collectionMethod:collectionMethodVersion,
       ...(immediate?{collectionTrigger:'immediate'}:{}),collectionScope:immediate&&prompts.length!==fullCount?'incremental':'full',
       methodology:surfaces.size>1?'tracked-separated-surfaces-v2':surfaces.has('consumer_web')?'tracked-consumer-evidence-v1':methodology,...context,kind:body.kind};

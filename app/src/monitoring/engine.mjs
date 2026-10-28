@@ -1,3 +1,4 @@
+import {assertPlanRun} from '../common/plans.mjs';
 import { uuid } from '../common/utils.mjs';
 import { callRoute } from '../providers/dispatch.mjs';
 import { routeAvailable } from '../providers/routing.mjs';
@@ -66,11 +67,13 @@ export function createMonitoringEngine({db,env=process.env,now=Date.now,call=cal
  const claim=()=>transaction(db,async tx=>{
   const running=Number((await one(tx,"SELECT COUNT(*) n FROM mon_tasks WHERE status IN ('executing','collecting')")).n);
   if(running>=concurrency)return null;
-  const t=await one(tx,`SELECT t.*,r.snapshot,r.deadline_at,r.project_id FROM mon_tasks t JOIN mon_runs r ON r.id=t.run_id WHERE t.status='queued' AND r.deadline_at>? ORDER BY r.created_at,t.id LIMIT 1`,[now()]);
+  const t=await one(tx,`SELECT t.*,r.snapshot,r.deadline_at,r.project_id,r.created_at AS run_created_at FROM mon_tasks t JOIN mon_runs r ON r.id=t.run_id WHERE t.status='queued' AND r.deadline_at>? ORDER BY r.created_at,t.id LIMIT 1`,[now()]);
   if(!t)return null;
   const snapshot=JSON.parse(t.snapshot);
   const project=await one(tx,'SELECT status FROM app_projects WHERE id=?',[t.project_id]);
   if(project?.status!=='active'){await finalize(t,'cancelled',tx,'PROJECT_ARCHIVED');return {skipped:true};}
+  try{await assertPlanRun(tx,t.project_id,snapshot.kind,now(),{runId:t.run_id,createdAt:Number(t.run_created_at),providers:snapshot.routes.map(r=>r.provider),promptCount:snapshot.prompts.length});}
+  catch(e){if(e.code!=='PLAN_LIMIT')throw e;await finalize(t,'plan_blocked',tx,'PLAN_LIMIT');return {skipped:true};}
   if(snapshot.collectionTrigger==='immediate'){
    const p=await one(tx,'SELECT status,hash FROM mon_prompts WHERE id=?',[t.prompt_id]);
    const frozen=snapshot.prompts.find(p=>p.id===t.prompt_id);
@@ -131,8 +134,9 @@ export function createMonitoringEngine({db,env=process.env,now=Date.now,call=cal
     continue;
    }
    const valid=Number((await one(tx,"SELECT COUNT(*) n FROM mon_evidence WHERE run_id=? AND json_extract(payload,'$.status')='success'",[r.id])).n);
+   const planBlocked=Number((await one(tx,"SELECT COUNT(*) n FROM mon_evidence WHERE run_id=? AND json_extract(payload,'$.status')='plan_blocked'",[r.id])).n);
    const budget=Number((await one(tx,"SELECT COUNT(*) n FROM mon_evidence WHERE run_id=? AND json_extract(payload,'$.status')='budget_blocked'",[r.id])).n);
-   await exec(tx,'UPDATE mon_runs SET status=?,reason=? WHERE id=?',[valid===Number(r.expected)?'complete':valid?'partial':budget?'capacity_blocked':'unavailable',budget?'daily_budget_exhausted':null,r.id]);
+   await exec(tx,'UPDATE mon_runs SET status=?,reason=? WHERE id=?',[valid===Number(r.expected)?'complete':valid?'partial':budget?'capacity_blocked':'unavailable',planBlocked?'PLAN_LIMIT':budget?'daily_budget_exhausted':null,r.id]);
   }
  });
  return {

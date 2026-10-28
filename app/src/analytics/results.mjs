@@ -4,7 +4,7 @@ import {extract} from './extraction.mjs';
 import {loadJobs,attachSentiment} from '../sentiment/read.mjs';
 import {analyticsService,parseMeasurementFilters} from './service.mjs';
 
-const skipped=new Set(['unconfigured','disabled','budget_blocked','deadline_not_started','unsupported_context','not_configured']);
+const skipped=new Set(['unconfigured','disabled','budget_blocked','plan_blocked','deadline_not_started','unsupported_context','not_configured']);
 export const resultState=(task,e)=>!e?(['queued','executing','collecting','recorded'].includes(task.status)?task.status==='queued'?'queued':'running':'unavailable'):e.status==='success'?'success':skipped.has(e.status)?'skipped':'failed';
 export async function resultsService({db,path,query=new URLSearchParams(),userId,env=process.env}){
  const projectId=path.split('/')[3],itemId=path.split('/')[5];
@@ -50,7 +50,7 @@ export async function resultsService({db,path,query=new URLSearchParams(),userId
   where.push(`r.created_at${op}?`);args.push(stamp+(key==='to'?86400000-1:0));
  }
  if(query.get('from')&&query.get('to')&&query.get('from')>query.get('to'))fail(422,'INVALID_FILTER');
- const stateExpr=`CASE WHEN e.id IS NULL THEN CASE WHEN t.status='queued' THEN 'queued' WHEN t.status IN ('executing','collecting','recorded') THEN 'running' ELSE 'unavailable' END WHEN json_extract(e.payload,'$.status')='success' THEN 'success' WHEN json_extract(e.payload,'$.status') IN ('unconfigured','disabled','budget_blocked','deadline_not_started','unsupported_context','not_configured') THEN 'skipped' ELSE 'failed' END`;
+ const stateExpr=`CASE WHEN e.id IS NULL THEN CASE WHEN t.status='queued' THEN 'queued' WHEN t.status IN ('executing','collecting','recorded') THEN 'running' ELSE 'unavailable' END WHEN json_extract(e.payload,'$.status')='success' THEN 'success' WHEN json_extract(e.payload,'$.status') IN ('unconfigured','disabled','budget_blocked','plan_blocked','deadline_not_started','unsupported_context','not_configured') THEN 'skipped' ELSE 'failed' END`;
  const state=query.get('state');if(state){if(!['queued','running','success','skipped','failed','unavailable'].includes(state))fail(422,'INVALID_FILTER');where.push(`(${stateExpr})=?`);args.push(state);}
  const join=`FROM mon_tasks t JOIN mon_runs r ON r.id=t.run_id LEFT JOIN mon_evidence e ON e.id=t.id WHERE ${where.join(' AND ')}`;
  const total=Number((await one(db,`SELECT COUNT(*) n ${join}`,args)).n);

@@ -1,3 +1,5 @@
+import {projectPlan,planScheduleNextAt,assertBrandCapacity,assertWorkspaceAccess} from '../common/plans.mjs';
+import {selectedRoutes} from '../reports/service.mjs';
 import {accessibleProject,requireProject} from '../common/access.mjs';
 import {one,exec,fail,hash,transaction} from '../monitoring/shared.mjs';
 import {monitoringService} from '../monitoring/service.mjs';
@@ -20,18 +22,24 @@ export const dailyConfig=userId=>({timezone:'Europe/Helsinki',hour:4,minute:pars
 export async function ready(db){try{if((await one(db,'SELECT checksum FROM app_migrations WHERE id=?',[id]))?.checksum!==checksum)fail(503,'APP_NOT_CONFIGURED');}catch{fail(503,'APP_NOT_CONFIGURED');}}
 const enabled=env=>env.PROJECT_SCHEDULER_ENABLED==='true'&&env.MONITORING_ENABLED==='true';
 
+export async function nextScheduledSlot(cx,p,stamp){
+ const eligible=await planScheduleNextAt(cx,p.id,stamp);
+ return nextProjectSlot(Math.max(stamp,eligible-1),dailyConfig(p.owner_id));
+}
 async function enroll(tx,p,now){
  const c=dailyConfig(p.owner_id);
  if(!await one(tx,"SELECT id FROM mon_prompts WHERE project_id=? AND status='active' LIMIT 1",[p.id]))return;
- await exec(tx,'INSERT OR IGNORE INTO app_project_schedules VALUES (?,?,?,?,?,?,?)',[p.id,1,1,c.timezone,c.hour,JSON.stringify(c.weekdays),nextProjectSlot(now,c)]);
+ await exec(tx,'INSERT OR IGNORE INTO app_project_schedules VALUES (?,?,?,?,?,?,?)',[p.id,1,1,c.timezone,c.hour,JSON.stringify(c.weekdays),await nextScheduledSlot(tx,p,now)]);
  // Upgrade marker, not an overdue slot: never backfill on migration.
- await exec(tx,'UPDATE app_project_schedules SET next_at=? WHERE project_id=? AND next_at=0',[nextProjectSlot(now,c),p.id]);
+ await exec(tx,'UPDATE app_project_schedules SET next_at=? WHERE project_id=? AND next_at=0',[await nextScheduledSlot(tx,p,now),p.id]);
 }
-async function statusFor(db,p,env){
+async function statusFor(db,p,env,stamp){
  if(p.status!=='active')return 'archived';
  const u=await promptUsage(db,p.owner_id,p.id,env);
- if(u.promptLimit===null)return 'limit_unconfigured';
- if(u.activePromptCount>u.promptLimit)return 'over_limit';
+ if(u.promptLimit===null&&!u.promptUnlimited)return 'limit_unconfigured';
+ if(!u.promptUnlimited&&u.activePromptCount>u.promptLimit)return 'over_limit';
+ const plan=await projectPlan(db,p.id);
+ if(plan)try{assertWorkspaceAccess(plan,stamp);await assertBrandCapacity(db,plan.workspaceId);await selectedRoutes(db,p.id,env);}catch(e){if(e.code==='PLAN_LIMIT')return 'over_limit';throw e;}
  const identity=await one(db,'SELECT identity_json FROM app_identity_versions WHERE project_id=? AND version=?',[p.id,p.version]);
  const state=await promptReadiness(db,p.id,JSON.parse(identity.identity_json));
  return state==='ready'?'scheduled':state;
@@ -49,7 +57,7 @@ export async function scheduleService({db,method,path,body,userId,env=process.en
    await assertCanonical(tx,p.owner_id,projectId);
    const old=await one(tx,'SELECT * FROM app_project_schedules WHERE project_id=?',[projectId]);
    if(body.expectedVersion!==(old?Number(old.version):0))fail(409,'VERSION_CONFLICT');
-   await exec(tx,'INSERT INTO app_project_schedules VALUES (?,?,?,?,?,?,?) ON CONFLICT(project_id) DO UPDATE SET version=excluded.version,enabled=excluded.enabled,next_at=excluded.next_at',[projectId,(old?Number(old.version):0)+1,body.enabled?1:0,c.timezone,4,JSON.stringify(c.weekdays),nextProjectSlot(now(),c)]);
+   await exec(tx,'INSERT INTO app_project_schedules VALUES (?,?,?,?,?,?,?) ON CONFLICT(project_id) DO UPDATE SET version=excluded.version,enabled=excluded.enabled,next_at=excluded.next_at',[projectId,(old?Number(old.version):0)+1,body.enabled?1:0,c.timezone,4,JSON.stringify(c.weekdays),await nextScheduledSlot(tx,p,now())]);
    if(!body.enabled)await exec(tx,"UPDATE app_schedule_slots SET state='cancelled',reason='paused' WHERE project_id=? AND state='pending'",[projectId]);
   });
  }else if(method==='GET'){
@@ -59,13 +67,14 @@ export async function scheduleService({db,method,path,body,userId,env=process.en
   });
  }else fail(405,'METHOD_NOT_ALLOWED');
  const r=await one(db,'SELECT * FROM app_project_schedules WHERE project_id=?',[projectId]);
- let status=await statusFor(db,p,env);
+ let status=await statusFor(db,p,env,now());
  if(status==='scheduled'&&!r?.enabled)status='paused';
  if(status==='scheduled'&&!enabled(env))status='unavailable';
  const last=await one(db,'SELECT created_at,status FROM mon_runs WHERE project_id=? ORDER BY created_at DESC LIMIT 1',[projectId]);
+ const plan=await projectPlan(db,projectId);
  const immediate=await immediateStatus(db,projectId);
  const immediateField=immediate?{immediate}:{};
- return {status:200,data:{...c,...immediateField,version:r?Number(r.version):0,enabled:!!r?.enabled,status,...await promptUsage(db,p.owner_id,projectId,env),nextAt:status==='scheduled'&&r?Number(r.next_at):null,lastRunAt:last?Number(last.created_at):null,lastRunStatus:last?.status??null,activationAvailable:enabled(env),missedPolicy:'skip_after_6_hours',slots:(await exec(db,'SELECT slot,due_at AS dueAt,state,run_id AS runId,reason FROM app_schedule_slots WHERE project_id=? ORDER BY due_at DESC LIMIT 50',[projectId])).rows}};
+ return {status:200,data:{...c,frequency:plan?.limits.frequency||'daily',plan:plan?.plan||null,...immediateField,version:r?Number(r.version):0,enabled:!!r?.enabled,status,...await promptUsage(db,p.owner_id,projectId,env),nextAt:status==='scheduled'&&r?Number(r.next_at):null,lastRunAt:last?Number(last.created_at):null,lastRunStatus:last?.status??null,activationAvailable:enabled(env),missedPolicy:'skip_after_6_hours',slots:(await exec(db,'SELECT slot,due_at AS dueAt,state,run_id AS runId,reason FROM app_schedule_slots WHERE project_id=? ORDER BY due_at DESC LIMIT 50',[projectId])).rows}};
 }
 export async function tickProjects(db,{env=process.env,now=Date.now}={}){
  if(!enabled(env))return;
@@ -76,9 +85,11 @@ export async function tickProjects(db,{env=process.env,now=Date.now}={}){
   for(const p of candidates)await enroll(tx,p,now());
   const due=(await exec(tx,"SELECT s.*,p.owner_id FROM app_project_schedules s JOIN app_projects p ON p.id=s.project_id WHERE s.enabled=1 AND s.next_at>0 AND s.next_at<=? AND p.status='active' ORDER BY s.next_at LIMIT 100",[now()])).rows;
   for(const r of due){
+   const eligible=await planScheduleNextAt(tx,r.project_id,now());
+   const frequencyBlocked=eligible>now();
    const late=now()-Number(r.next_at)>6*3600000,slot=localSlot(Number(r.next_at)).slice(0,10);
-   await exec(tx,'INSERT OR IGNORE INTO app_schedule_slots VALUES (?,?,?,?,NULL,?)',[r.project_id,slot,r.next_at,late?'skipped':'pending',late?'missed_window':null]);
-   await exec(tx,'UPDATE app_project_schedules SET next_at=? WHERE project_id=?',[nextProjectSlot(now(),dailyConfig(r.owner_id)),r.project_id]);
+   await exec(tx,'INSERT OR IGNORE INTO app_schedule_slots VALUES (?,?,?,?,NULL,?)',[r.project_id,slot,r.next_at,frequencyBlocked||late?'skipped':'pending',frequencyBlocked?'PLAN_FREQUENCY':late?'missed_window':null]);
+   await exec(tx,'UPDATE app_project_schedules SET next_at=? WHERE project_id=?',[await nextScheduledSlot(tx,{id:r.project_id,owner_id:r.owner_id},now()),r.project_id]);
   }
  });
  const pending=(await exec(db,"SELECT s.*,p.owner_id FROM app_schedule_slots s JOIN app_projects p ON p.id=s.project_id JOIN app_project_schedules c ON c.project_id=s.project_id WHERE s.state='pending' AND c.enabled=1 AND p.status='active' ORDER BY due_at LIMIT 20")).rows;
@@ -91,14 +102,18 @@ export async function tickProjects(db,{env=process.env,now=Date.now}={}){
    // restarting cannot create another paid run for the same local date.
    const kinds=(await exec(db,`SELECT DISTINCT json_extract(v.payload,'$.kind') kind FROM mon_prompts p
     JOIN mon_prompt_versions v ON v.prompt_id=p.id AND v.version=p.version WHERE p.project_id=? AND p.status='active'`,[s.project_id])).rows.map(r=>r.kind);
-   let r;
+   let r,frequencyError;
    for(const kind of ['neutral','diagnostic'].filter(k=>kinds.includes(k))){
-    r=await monitoringService({db,method:'POST',path:`/v1/projects/${s.project_id}/monitoring-runs`,body:{kind,submissionId:hash(kind==='neutral'?['daily',s.owner_id,s.project_id,s.slot]:['daily',s.owner_id,s.project_id,s.slot,kind])},userId:s.owner_id,env,now,scheduleSlot:s.slot});
+    try{r=await monitoringService({db,method:'POST',path:`/v1/projects/${s.project_id}/monitoring-runs`,body:{kind,submissionId:hash(kind==='neutral'?['daily',s.owner_id,s.project_id,s.slot]:['daily',s.owner_id,s.project_id,s.slot,kind])},userId:s.owner_id,env,now,scheduleSlot:s.slot});}
+    catch(e){if(e.code==='PLAN_LIMIT'&&e.resource==='frequency'){frequencyError=e;continue;}throw e;}
    }
-   if(!r)fail(422,'CONTEXT_PROMPTS_REQUIRED');
-   await exec(db,"UPDATE app_schedule_slots SET state='submitted',run_id=? WHERE project_id=? AND slot=? AND state='pending'",[r.data.id,s.project_id,s.slot]);
+   if(!r){if(frequencyError)throw frequencyError;fail(422,'CONTEXT_PROMPTS_REQUIRED');}
+   await transaction(db,async tx=>{
+    await exec(tx,"UPDATE app_schedule_slots SET state='submitted',run_id=? WHERE project_id=? AND slot=? AND state='pending'",[r.data.id,s.project_id,s.slot]);
+    await exec(tx,'UPDATE app_project_schedules SET next_at=? WHERE project_id=? AND enabled=1',[await nextScheduledSlot(tx,{id:s.project_id,owner_id:s.owner_id},now()),s.project_id]);
+   });
   }catch(e){
-   if([409,422].includes(e.status)||e.code==='PROMPT_LIMIT_NOT_CONFIGURED')await exec(db,"UPDATE app_schedule_slots SET state='blocked',reason=? WHERE project_id=? AND slot=? AND state='pending'",[e.code,s.project_id,s.slot]);
+   if([402,409,422].includes(e.status)||e.code==='PROMPT_LIMIT_NOT_CONFIGURED')await exec(db,"UPDATE app_schedule_slots SET state='blocked',reason=? WHERE project_id=? AND slot=? AND state='pending'",[e.code,s.project_id,s.slot]);
    else throw e;
   }
  }

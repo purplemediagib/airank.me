@@ -1,3 +1,4 @@
+import {projectPlan,assertModelCapacity,assertPlanAccess} from '../common/plans.mjs';
 import {accessibleProject,requireProject} from '../common/access.mjs';
 import {uuid} from '../common/utils.mjs';
 import {one,exec,fail,transaction,setting} from '../monitoring/shared.mjs';
@@ -7,30 +8,36 @@ import {isCollectorRoute,collectionBudget} from '../collectors/config.mjs';
 import {redact} from '../research/service.mjs';
 import {id,checksum} from './migration.mjs';
 async function ready(db){try{if((await one(db,'SELECT checksum FROM app_migrations WHERE id=?',[id]))?.checksum!==checksum)fail(503,'APP_NOT_CONFIGURED');}catch{fail(503,'APP_NOT_CONFIGURED');}}
+export async function providerSelection(db,projectId,env){
+ const routes=routesFromEnv(env),plan=await projectPlan(db,projectId);
+ const exists=await one(db,"SELECT name FROM sqlite_master WHERE type='table' AND name='app_measurement_settings'");
+ const saved=exists?await one(db,'SELECT * FROM app_measurement_settings WHERE project_id=?',[projectId]):null;
+ const providers=saved?JSON.parse(saved.providers):Object.keys(routes).slice(0,plan?.limits.models??Infinity);
+ return {routes,plan,saved,providers};
+}
 export async function selectedRoutes(db,projectId,env){
- const routes=routesFromEnv(env);
- if(!await one(db,"SELECT name FROM sqlite_master WHERE type='table' AND name='app_measurement_settings'"))return routes;
- const r=await one(db,'SELECT providers FROM app_measurement_settings WHERE project_id=?',[projectId]);
- if(!r)return routes;
- const selected=JSON.parse(r.providers);return Object.fromEntries(Object.entries(routes).filter(([p])=>selected.includes(p)));
+ const {routes,providers}=await providerSelection(db,projectId,env);
+ await assertModelCapacity(db,projectId,providers);
+ return Object.fromEntries(Object.entries(routes).filter(([p])=>providers.includes(p)));
 }
 export async function measurementSettingsService({db,method,path,body,userId,env=process.env,now=Date.now}){
  const projectId=path.split('/')[3],project=await accessibleProject(db,projectId,userId,method==='GET'?'read':'manageReports');if(!project)fail(404,'NOT_FOUND');await ready(db);
  const routes=routesFromEnv(env);
- if(method==='PATCH'){
+ if(method==='PATCH'||method==='PUT'&&path.endsWith('/monitoring')){
   if(project.status!=='active')fail(409,'VERSION_CONFLICT');
   if(!Array.isArray(body?.providers)||!body.providers.length||new Set(body.providers).size!==body.providers.length||body.providers.some(p=>!Object.hasOwn(routes,p)))fail(422,'VALIDATION_FAILED');
   await transaction(db,async tx=>{
    await requireProject(tx,projectId,userId,method==='GET'?'read':'manageReports');
-   const r=await one(tx,'SELECT * FROM app_measurement_settings WHERE project_id=?',[projectId]);if(body.expectedVersion!==(r?Number(r.version):0))fail(409,'VERSION_CONFLICT');
+   await assertPlanAccess(tx,projectId,now());
+   await assertModelCapacity(tx,projectId,body.providers);
+   const r=await one(tx,'SELECT * FROM app_measurement_settings WHERE project_id=?',[projectId]);if(!(method==='PUT'&&body.expectedVersion===undefined)&&body.expectedVersion!==(r?Number(r.version):0))fail(409,'VERSION_CONFLICT');
    await exec(tx,'INSERT INTO app_measurement_settings VALUES (?,?,?,?) ON CONFLICT(project_id) DO UPDATE SET version=excluded.version,providers=excluded.providers,updated_at=excluded.updated_at',[projectId,(r?Number(r.version):0)+1,JSON.stringify(body.providers),now()]);
    await exec(tx,'INSERT INTO app_audit_events (id,user_id,project_id,kind,version,created_at) VALUES (?,?,?,?,?,?)',[uuid(),userId,projectId,'providers.updated',(r?Number(r.version):0)+1,new Date(now()).toISOString()]);
   });
  }else if(method!=='GET')fail(405,'METHOD_NOT_ALLOWED');
- const r=await one(db,'SELECT * FROM app_measurement_settings WHERE project_id=?',[projectId]);
- const providers=r?JSON.parse(r.providers):Object.keys(routes);
+ const {saved:r,providers,plan}=await providerSelection(db,projectId,env);
  const count=Number((await one(db,"SELECT COUNT(*) n FROM mon_prompts p JOIN mon_prompt_versions v ON v.prompt_id=p.id AND v.version=p.version WHERE p.project_id=? AND p.status='active' AND json_extract(v.payload,'$.kind')='neutral'",[projectId])).n);
- return{status:200,data:{version:r?Number(r.version):0,providers,available:Object.entries(routes).map(([provider,route])=>({provider,model:route.model,transport:route.transport,configured:routeAvailable(provider,route,env),measurementSurface:route.measurement_surface||'model_api',...(isCollectorRoute(route)?{collectionEnabled:env.CONSUMER_COLLECTION_ENABLED==='true',budgetConfigured:!!collectionBudget(env,provider)}:{})})),prompts:count,requiredCalls:count*providers.filter(p=>Object.hasOwn(routes,p)).length,capacity:setting(env,'MONITORING_MAX_TASKS_PER_RUN',1000,1,5000),updatedAt:r?Number(r.updated_at):null}};
+ return{status:200,data:{version:r?Number(r.version):0,providers,plan:plan?.plan||null,planStatus:plan?.status||null,trialEndsAt:plan?.trialEndsAt||null,planLimits:plan?.limits||null,planSyncPending:!plan,available:Object.entries(routes).map(([provider,route])=>({provider,model:route.model,transport:route.transport,configured:routeAvailable(provider,route,env),measurementSurface:route.measurement_surface||'model_api',...(isCollectorRoute(route)?{collectionEnabled:env.CONSUMER_COLLECTION_ENABLED==='true',budgetConfigured:!!collectionBudget(env,provider)}:{})})),prompts:count,requiredCalls:count*providers.filter(p=>Object.hasOwn(routes,p)).length,capacity:setting(env,'MONITORING_MAX_TASKS_PER_RUN',1000,1,5000),updatedAt:r?Number(r.updated_at):null}};
 }
 const summary=r=>({id:r.id,projectId:r.project_id,createdAt:Number(r.created_at),expiresAt:Number(r.expires_at),locale:r.locale,title:r.title||(r.payload?JSON.parse(r.payload).title:null)||'AI Rank'});
 export async function reportService({db,method,path,body,userId,now=Date.now}){

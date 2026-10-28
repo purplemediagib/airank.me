@@ -1,3 +1,4 @@
+import {assertPlanAccess} from '../common/plans.mjs';
 import {accessibleProject} from '../common/access.mjs';
 import {monitoringService} from './service.mjs';
 import {exec,one,hash,normalized,transaction,fail} from './shared.mjs';
@@ -12,6 +13,7 @@ export async function bootstrapImmediate({db,projectId,userId,body,env=process.e
  await immediateReady(db);
  await transaction(db,async tx=>{
   const project=await accessibleProject(tx,projectId,userId,'runChecks');
+  await assertPlanAccess(tx,projectId,now());
   if(!project)fail(404,'NOT_FOUND');
   if(project.status!=='active')fail(409,'VERSION_CONFLICT');
   // Explicit user action only: migration/GET/worker never seed old prompt sets.
@@ -23,7 +25,7 @@ export async function bootstrapImmediate({db,projectId,userId,body,env=process.e
  try{
   result=await monitoringService({db,method:'POST',path:`/v1/projects/${projectId}/monitoring-runs`,body,userId,env,now,immediate:true});
  }catch(e){
-  if([409,422,503].includes(e.status))await exec(db,"UPDATE mon_immediate_outbox SET state='blocked',reason=? WHERE project_id=? AND state IN ('pending','blocked')",[e.code,projectId]);
+  if([402,409,422,503].includes(e.status))await exec(db,"UPDATE mon_immediate_outbox SET state='blocked',reason=? WHERE project_id=? AND state IN ('pending','blocked')",[e.code,projectId]);
   throw e;
  }
  if(!result.data.id)fail(409,'NO_UNMEASURED_PROMPTS');
@@ -85,7 +87,7 @@ export async function tickImmediate(db,{env=process.env,now=Date.now}={}){
    await monitoringService({db,method:'POST',path:`/v1/projects/${p.project_id}/monitoring-runs`,
     body:{kind,submissionId:hash(['immediate',p.project_id,kind])},userId:p.owner_id,env,now,immediate:true,verifyImmediateCredentials:true});
   }catch(e){
-   if(![409,422,503].includes(e.status))throw e;
+   if(![402,409,422,503].includes(e.status))throw e;
    await exec(db,"UPDATE mon_immediate_outbox SET state='blocked',reason=? WHERE project_id=? AND state IN ('pending','blocked')",[e.code,p.project_id]);
   }
  }

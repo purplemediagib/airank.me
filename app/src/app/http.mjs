@@ -1,7 +1,8 @@
 import { getDb } from '../common/db.mjs';
 import { createAppService, clientsFromEnv } from './service.mjs';
 let handler;
-export const isAppPath = path => /^\/v1\/(?:app(?:\/|$)|projects(?:\/|$)|industries(?:\/|$)|website-profiles(?:\/|$)|measurement-context$|me\/preferences$)/.test(path);
+export const isAppPath = path => /^\/v1\/(?:internal(?:\/|$)|app(?:\/|$)|projects(?:\/|$)|industries(?:\/|$)|website-profiles(?:\/|$)|measurement-context$|me\/preferences$)/.test(path);
+export const appError=e=>({error:{code:e.code||'SERVICE_UNAVAILABLE',...(e.code==='PLAN_LIMIT'&&e.status===402?{limit:e.limit,upgradeTo:e.upgradeTo,...(e.reason?{reason:e.reason}:{})}:{}),...(e.fieldErrors?{fieldErrors:e.fieldErrors}:{})}});
 export async function appRoute(req, res, url) {
   try {
     handler ||= createAppService({ db: await getDb(), clients: clientsFromEnv() });
@@ -24,6 +25,6 @@ export async function appRoute(req, res, url) {
     res.writeHead(e.status || 503, { 'content-type': 'application/json', 'cache-control': 'no-store' });
     // Unexpected failures may occur after a commit: do not label them as a definite
     // pre-submission configuration rejection. Clients must reconcile uncertain writes.
-    res.end(JSON.stringify({ error: { code: e.code || 'SERVICE_UNAVAILABLE', fieldErrors: e.fieldErrors } }));
+    res.end(JSON.stringify(appError(e)));
   }
 }
