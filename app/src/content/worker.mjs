@@ -1,3 +1,4 @@
+import {assertPlanAccess} from '../common/plans.mjs';
 import http from 'node:http';
 import {getDb} from '../common/db.mjs';
 import {transaction,one,exec,uid,enqueue,put,get,fail} from './store.mjs';
@@ -24,7 +25,7 @@ export async function tick(db,{env=process.env,run=runJob,now=Date.now,...inject
 }
 export async function schedule(db,now=Date.now()){
  const rows=(await exec(db,"SELECT r.*,p.owner_id,p.status FROM content_records r JOIN app_projects p ON p.id=r.project_id WHERE r.kind='settings' AND r.id='automation' AND p.status='active'",[])).rows;
- for(const r of rows){const value=JSON.parse(r.payload);if(!value.enabled||value.nextRunAt>now)continue;await transaction(db,async tx=>{const current=await get(tx,r.project_id,'settings','automation');if(current.nextRunAt>now||!current.enabled)return;await enqueue(tx,r.project_id,r.owner_id,'opportunities',{locale:current.locale},'scheduled-'+Math.floor(now/(current.refreshHours*3600000)),now);
+ for(const r of rows){const value=JSON.parse(r.payload);if(!value.enabled||value.nextRunAt>now)continue;await transaction(db,async tx=>{try{await assertPlanAccess(tx,r.project_id,now);}catch(e){if(e.code==='PLAN_LIMIT')return;throw e;}const current=await get(tx,r.project_id,'settings','automation');if(current.nextRunAt>now||!current.enabled)return;await enqueue(tx,r.project_id,r.owner_id,'opportunities',{locale:current.locale},'scheduled-'+Math.floor(now/(current.refreshHours*3600000)),now);
  const pubs=(await exec(tx,"SELECT payload FROM content_records WHERE project_id=? AND kind='publication' ORDER BY updated_at DESC LIMIT 10",[r.project_id])).rows.map(x=>JSON.parse(x.payload)).filter(x=>x.status==='published');
  for(const pub of pubs){const doc=await get(tx,r.project_id,'document',pub.documentId);if(doc)await enqueue(tx,r.project_id,r.owner_id,'impact',{locale:doc.locale,documentId:doc.id,documentVersion:doc.version},'impact-'+doc.id+'-'+Math.floor(now/86400000),now);}
  await put(tx,r.project_id,'settings','automation',{...current,nextRunAt:now+current.refreshHours*3600000},current.version,r.owner_id,now);});}

@@ -1,4 +1,6 @@
-import {accessibleProject,visibleProjects,teamsEnabled,ensureWorkspace,reportProjectAllowed} from '../common/access.mjs';
+import {internalPlanService} from './plans.mjs';
+import {assertBrandCapacity,assertPlanAccess} from '../common/plans.mjs';
+import {accessibleProject,requireProject,visibleProjects,teamsEnabled,ensureWorkspace,reportProjectAllowed} from '../common/access.mjs';
 import {teamsService} from './teams.mjs';
 import {contentService} from '../content/service.mjs';
 import {resultsService} from '../analytics/results.mjs';
@@ -89,6 +91,7 @@ export function createAppService({ db, clients, env = process.env, now = Date.no
   };
   return async ({ method, path, query = new URLSearchParams(), headers = {}, body }) => {
     await ready();
+    if(path.startsWith('/v1/internal/'))return internalPlanService({db,method,path,headers,body,env,now});
     const result = (data, status = 200, responseHeaders = {}) => ({ status, data, headers: responseHeaders });
     const clientId = headers['x-airank-client'];
     const client = Object.hasOwn(clients, clientId) ? clients[clientId] : null;
@@ -156,6 +159,9 @@ export function createAppService({ db, clients, env = process.env, now = Date.no
       if (headers.origin !== client.origin || !eqString(headers['x-csrf-token'] || '', csrfFor(auth.token))) fail(403, 'CSRF_INVALID');
       if (!/^application\/json(?:;|$)/i.test(headers['content-type'] || '')) fail(415, 'JSON_REQUIRED');
     }
+    const planProject=path.match(/^\/v1\/projects\/([a-zA-Z0-9-]{1,80})(?:\/|$)/);
+    const cleanup=method==='POST'&&/\/(?:archive|team\/invites\/[A-Za-z0-9-]+\/revoke)$/.test(path)||method==='DELETE'&&/\/team\/members\/[A-Za-z0-9-]+$/.test(path);
+    if(method!=='GET'&&planProject&&!cleanup&&!path.endsWith('/monitoring-runs')){await requireProject(db,planProject[1],userId);await assertPlanAccess(db,planProject[1],now());}
     if(method==='POST' && /^\/v1\/scans(?:\/preview)?$/.test(path))fail(410,'DAILY_TRACKING_ONLY');
     if(method==='POST' && /^\/v1\/projects\/[a-zA-Z0-9-]{1,80}\/monitoring-runs$/.test(path))
      return bootstrapImmediate({db,projectId:path.split('/')[3],userId,body,env,now});
@@ -180,7 +186,7 @@ export function createAppService({ db, clients, env = process.env, now = Date.no
     if(method==='GET'&&path==='/v1/measurement-context')return result(contextCatalog());
     if (/^\/v1\/projects\/[a-zA-Z0-9-]{1,80}\/opportunities(?:\/[a-zA-Z0-9-]{1,80})?$/.test(path)) return opportunityService({db,method,path,body,userId,now});
     if (/^\/v1\/projects\/[a-zA-Z0-9-]{1,80}\/reports(?:\/[a-zA-Z0-9-]{1,80})?$/.test(path)) return reportService({db,method,path,body,userId,now});
-    if (/^\/v1\/projects\/[a-zA-Z0-9-]{1,80}\/measurement-settings$/.test(path)) return measurementSettingsService({db,method,path,body,userId,now,env});
+    if (/^\/v1\/projects\/[a-zA-Z0-9-]{1,80}\/(?:measurement-settings|monitoring)$/.test(path)) return measurementSettingsService({db,method,path,body,userId,now,env});
     if (/^\/v1\/projects\/[a-zA-Z0-9-]{1,80}\/schedule$/.test(path)) return scheduleService({db,method,path,body,userId,env,now});
     if (/^\/v1\/projects\/[^/]+\/(?:research|evidence)(?:\/|$)/.test(path)) return researchService({db,method,path,body,userId,now,env});
     if (/^\/v1\/projects\/[^/]+\/(?:prompts|suggestions|monitoring-runs)(?:\/|$)/.test(path)) return monitoringService({db,method,path,query,body,userId,now,env});
@@ -189,7 +195,7 @@ export function createAppService({ db, clients, env = process.env, now = Date.no
     if (path === '/v1/projects' && method === 'POST') {
       const data = identity(body), id = uuid(), stamp = new Date(now()).toISOString();
       return transaction(async tx => {
-        if(await teamsEnabled(tx)){const w=await ensureWorkspace(tx,userId,data.brandName,now());await execute(tx,'INSERT INTO app_projects (id,owner_id,status,version,created_at,workspace_id) VALUES (?,?,?,?,?,?)',[id,w.owner_id,'active',1,stamp,w.id]);}
+        if(await teamsEnabled(tx)){const w=await ensureWorkspace(tx,userId,data.brandName,now());await assertBrandCapacity(tx,w.id,{adding:true,stamp:now()});await execute(tx,'INSERT INTO app_projects (id,owner_id,status,version,created_at,workspace_id) VALUES (?,?,?,?,?,?)',[id,w.owner_id,'active',1,stamp,w.id]);}
         else await execute(tx, 'INSERT INTO app_projects (id,owner_id,status,version,created_at) VALUES (?,?,?,?,?)', [id, userId, 'active', 1, stamp]);
         await execute(tx, 'INSERT INTO app_identity_versions VALUES (?,?,?,?)', [id, 1, JSON.stringify(data), stamp]);
         await audit(tx, userId, id, 'project.created', 1);

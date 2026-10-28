@@ -1,3 +1,4 @@
+import {plansEnabled,TRIAL_MS} from './plans.mjs';
 import {uuid,hashToken,eqString} from './utils.mjs';
 import {one,exec,fail} from '../monitoring/shared.mjs';
 export const RANK={viewer:0,member:1,admin:2,owner:3};
@@ -38,7 +39,10 @@ export async function ensureWorkspace(cx,userId,name,now=Date.now()){
  const old=await one(cx,'SELECT * FROM app_workspaces WHERE owner_id=?',[userId]);
  if(old)return old;
  const w={id:'ws_'+uuid(),owner_id:userId,name};
- await exec(cx,'INSERT INTO app_workspaces VALUES (?,?,?,?)',[w.id,userId,name,now]);return w;
+ if(await plansEnabled(cx)){
+  const user=await one(cx,'SELECT created_at FROM users WHERE id=?',[userId]);const started=Number(user.created_at);
+  await exec(cx,"INSERT INTO app_workspaces (id,owner_id,name,created_at,plan,plan_status,trial_started_at,trial_ends_at) VALUES (?,?,?,?,'pro','trialing',?,?)",[w.id,userId,name,now,started,started+TRIAL_MS]);
+ }else await exec(cx,'INSERT INTO app_workspaces (id,owner_id,name,created_at) VALUES (?,?,?,?)',[w.id,userId,name,now]);return w;
 }
 export async function reportProjectAllowed(cx,tokenId,projectId){
  return !await teamsEnabled(cx)||!await one(cx,'SELECT token_id FROM app_report_token_revocations WHERE token_id=? AND project_id=?',[tokenId,projectId]);

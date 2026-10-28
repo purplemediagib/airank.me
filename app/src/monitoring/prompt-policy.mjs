@@ -1,3 +1,4 @@
+import {projectPlan,workspaceUsage,planLimit} from '../common/plans.mjs';
 import {one,exec,fail} from './shared.mjs';
 import {sameContext} from '../common/measurement-context.mjs';
 import {validateDraft} from '../common/workspace-suggestions.mjs';
@@ -19,8 +20,7 @@ export async function assertDailyNotMeasured(db,userId,projectId,day,kind='neutr
  if(rows.some(r=>helsinkiDate(r.created_at)===day||(r.due_at!=null&&helsinkiDate(r.due_at)===day)))fail(409,'DAILY_ALREADY_MEASURED');
 }
 
-// No implicit unlimited tier. Until commercial plans exist, operators configure
-// a default cap and optional account-specific entitlements on both API and worker.
+// Legacy operator limits apply only until billing assigns a workspace plan.
 export function promptLimit(env=process.env,userId){
  let overrides;
  try{overrides=JSON.parse(env.TRACKED_PROMPT_LIMITS_JSON||'{}');}catch{return null;}
@@ -35,14 +35,17 @@ export async function assertCanonical(db,userId,projectId){
  if(!project)fail(404,'NOT_FOUND');
 }
 export async function promptUsage(db,userId,projectId,env=process.env){
+ const plan=await projectPlan(db,projectId);
+ if(plan){const usage=await workspaceUsage(db,plan.workspaceId);return {activePromptCount:usage.prompts,promptLimit:plan.limits.prompts,promptUnlimited:plan.limits.prompts===null,plan:plan.plan};}
  const active=Number((await one(db,"SELECT COUNT(*) n FROM mon_prompts p JOIN app_projects a ON a.id=p.project_id WHERE a.owner_id=? AND a.status='active' AND p.status='active'",[userId])).n);
  return {activePromptCount:active,promptLimit:promptLimit(env,userId)};
 }
 export async function assertPromptCapacity(db,userId,projectId,env,{adding=false}={}){
  await assertCanonical(db,userId,projectId);
  const usage=await promptUsage(db,userId,projectId,env);
+ if(usage.promptUnlimited)return usage;
  if(usage.promptLimit===null)fail(503,'PROMPT_LIMIT_NOT_CONFIGURED');
- if(usage.activePromptCount+(adding?1:0)>usage.promptLimit)fail(422,'PROMPT_LIMIT_REACHED');
+ if(usage.activePromptCount+(adding?1:0)>usage.promptLimit){if(usage.plan)planLimit(usage.plan,'prompts');fail(422,'PROMPT_LIMIT_REACHED');}
  return usage;
 }
 export async function promptReadiness(db,projectId,identity){

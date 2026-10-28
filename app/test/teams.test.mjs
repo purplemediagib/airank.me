@@ -17,7 +17,7 @@ async function fixture(){
  const db={execute,transaction:async()=>{sql.exec('BEGIN IMMEDIATE');return {execute,commit:async()=>sql.exec('COMMIT'),rollback:async()=>sql.exec('ROLLBACK'),close(){}};}};
  const startup=readFileSync(new URL('../src/app/start-release.mjs',import.meta.url),'utf8'),imported=new Map();
  for(const m of startup.matchAll(/const \{(migrate\w+)\}=await import\('([^']+)'\)/g))imported.set(m[1],m[2]);
- for(const m of startup.matchAll(/await (migrate\w+)\(db\)/g))if(m[1]!=='migrateTeams'){const mod=await import(new URL(imported.get(m[1]),new URL('../src/app/start-release.mjs',import.meta.url)));await mod[m[1]](db);}
+ for(const m of startup.matchAll(/await (migrate\w+)\(db\)/g))if(!['migrateTeams','migratePlans'].includes(m[1])){const mod=await import(new URL(imported.get(m[1]),new URL('../src/app/start-release.mjs',import.meta.url)));await mod[m[1]](db);}
  let clock=Date.parse('2026-10-28T12:00:00Z');
  for(const u of ['owner','admin','admin2','member','viewer','guest','guestadmin','outsider','otherowner','invitee','legacy']){
   sql.prepare('INSERT INTO users(id,google_sub,email,display_name,created_at,updated_at) VALUES(?,?,?,?,?,?)').run(u,u,u+'@example.test',u,clock,clock);
