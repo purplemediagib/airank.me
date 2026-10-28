@@ -1,3 +1,4 @@
+import {teamsEnabled,visibleProjects,RANK} from '../common/access.mjs';
 import {hashToken,randomToken,uuid} from '../common/utils.mjs';
 import {id as migrationId,checksum} from './report-token-migration.mjs';
 
@@ -47,6 +48,7 @@ export function createReportTokens({db,env=process.env,now=Date.now}){
     if(!/^\d{1,3}$/.test(rawDays)||!Number.isSafeInteger(days)||days<1||days>365)fail(503,'REPORT_TOKEN_DAYS_INVALID');
     const token=`airank_rt_${randomToken(32)}`,id=uuid(),stamp=now(),expiresAt=stamp+days*86400000;
     return transaction(async tx=>{
+     if(await teamsEnabled(tx)&&!(await visibleProjects(tx,userId)).some(p=>RANK[p.myRole]>=RANK.admin))fail(403,'ROLE_FORBIDDEN');
      await exec(tx,'INSERT INTO app_report_tokens (id,token_hash,user_id,label,created_at,expires_at,last_used_at,revoked_at) VALUES (?,?,?,?,?,?,NULL,NULL)',[id,hashToken(token),userId,label,stamp,expiresAt]);
      await audit(tx,userId,'report_token.created',stamp);
      // This is the only response that contains the credential. Never persist/log it.

@@ -1,3 +1,4 @@
+import {accessibleProject,requireProject} from '../common/access.mjs';
 import {one,exec,fail,hash,transaction} from '../monitoring/shared.mjs';
 import {monitoringService} from '../monitoring/service.mjs';
 import {immediateStatus} from '../monitoring/immediate.mjs';
@@ -36,15 +37,16 @@ async function statusFor(db,p,env){
  return state==='ready'?'scheduled':state;
 }
 export async function scheduleService({db,method,path,body,userId,env=process.env,now=Date.now}){
- const projectId=path.split('/')[3],p=await one(db,'SELECT * FROM app_projects WHERE id=? AND owner_id=?',[projectId,userId]);
+ const projectId=path.split('/')[3],p=await accessibleProject(db,projectId,userId,method==='GET'?'read':'manageProject');
  if(!p)fail(404,'NOT_FOUND');await ready(db);
- const c=dailyConfig(userId);
+ const c=dailyConfig(p.owner_id);
  if(method==='PATCH'){
   if(p.status!=='active')fail(409,'VERSION_CONFLICT');
   if(!body||typeof body.enabled!=='boolean'||body.timezone!==c.timezone||body.hour!==4||!Array.isArray(body.weekdays)||JSON.stringify([...new Set(body.weekdays)].sort())!==JSON.stringify(c.weekdays))fail(422,'DAILY_SCHEDULE_FIXED');
   if(body.enabled&&!enabled(env))fail(503,'SCHEDULER_NOT_ENABLED');
   await transaction(db,async tx=>{
-   await assertCanonical(tx,userId,projectId);
+   await requireProject(tx,projectId,userId,method==='GET'?'read':'manageProject');
+   await assertCanonical(tx,p.owner_id,projectId);
    const old=await one(tx,'SELECT * FROM app_project_schedules WHERE project_id=?',[projectId]);
    if(body.expectedVersion!==(old?Number(old.version):0))fail(409,'VERSION_CONFLICT');
    await exec(tx,'INSERT INTO app_project_schedules VALUES (?,?,?,?,?,?,?) ON CONFLICT(project_id) DO UPDATE SET version=excluded.version,enabled=excluded.enabled,next_at=excluded.next_at',[projectId,(old?Number(old.version):0)+1,body.enabled?1:0,c.timezone,4,JSON.stringify(c.weekdays),nextProjectSlot(now(),c)]);
@@ -52,6 +54,7 @@ export async function scheduleService({db,method,path,body,userId,env=process.en
   });
  }else if(method==='GET'){
   if(p.status==='active')await transaction(db,async tx=>{
+   await requireProject(tx,projectId,userId,method==='GET'?'read':'manageProject');
    await enroll(tx,p,now());
   });
  }else fail(405,'METHOD_NOT_ALLOWED');
@@ -59,10 +62,10 @@ export async function scheduleService({db,method,path,body,userId,env=process.en
  let status=await statusFor(db,p,env);
  if(status==='scheduled'&&!r?.enabled)status='paused';
  if(status==='scheduled'&&!enabled(env))status='unavailable';
- const last=await one(db,'SELECT created_at,status FROM mon_runs WHERE owner_id=? AND project_id=? ORDER BY created_at DESC LIMIT 1',[userId,projectId]);
+ const last=await one(db,'SELECT created_at,status FROM mon_runs WHERE project_id=? ORDER BY created_at DESC LIMIT 1',[projectId]);
  const immediate=await immediateStatus(db,projectId);
  const immediateField=immediate?{immediate}:{};
- return {status:200,data:{...c,...immediateField,version:r?Number(r.version):0,enabled:!!r?.enabled,status,...await promptUsage(db,userId,projectId,env),nextAt:status==='scheduled'&&r?Number(r.next_at):null,lastRunAt:last?Number(last.created_at):null,lastRunStatus:last?.status??null,activationAvailable:enabled(env),missedPolicy:'skip_after_6_hours',slots:(await exec(db,'SELECT slot,due_at AS dueAt,state,run_id AS runId,reason FROM app_schedule_slots WHERE project_id=? ORDER BY due_at DESC LIMIT 50',[projectId])).rows}};
+ return {status:200,data:{...c,...immediateField,version:r?Number(r.version):0,enabled:!!r?.enabled,status,...await promptUsage(db,p.owner_id,projectId,env),nextAt:status==='scheduled'&&r?Number(r.next_at):null,lastRunAt:last?Number(last.created_at):null,lastRunStatus:last?.status??null,activationAvailable:enabled(env),missedPolicy:'skip_after_6_hours',slots:(await exec(db,'SELECT slot,due_at AS dueAt,state,run_id AS runId,reason FROM app_schedule_slots WHERE project_id=? ORDER BY due_at DESC LIMIT 50',[projectId])).rows}};
 }
 export async function tickProjects(db,{env=process.env,now=Date.now}={}){
  if(!enabled(env))return;

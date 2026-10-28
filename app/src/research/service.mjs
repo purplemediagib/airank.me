@@ -1,3 +1,4 @@
+import {accessibleProject,requireProject} from '../common/access.mjs';
 import {uuid} from '../common/utils.mjs';
 import {one,exec,fail,hash,normalized,transaction} from '../monitoring/shared.mjs';
 import {extract,sourceUrls} from '../analytics/extraction.mjs';
@@ -84,7 +85,7 @@ async function view(db,projectId,identity){
 }
 export async function researchService({db,method,path,body,userId,now=Date.now,env=process.env,generate}){
  const projectId=path.split('/')[3],evidenceId=path.split('/')[5];
- const project=await one(db,'SELECT p.*,v.identity_json FROM app_projects p JOIN app_identity_versions v ON v.project_id=p.id AND v.version=p.version WHERE p.id=? AND p.owner_id=?',[projectId,userId]);
+ const project=await accessibleProject(db,projectId,userId,method==='GET'?'read':'edit');
  if(!project)fail(404,'NOT_FOUND');
  try{if((await one(db,'SELECT checksum FROM app_migrations WHERE id=?',[id]))?.checksum!==checksum)fail(503,'APP_NOT_CONFIGURED');}catch{fail(503,'APP_NOT_CONFIGURED');}
  const identity=JSON.parse(project.identity_json);
@@ -100,7 +101,7 @@ export async function researchService({db,method,path,body,userId,now=Date.now,e
    const exclude=state.competitors.filter(b=>b.status==='active').flatMap(b=>[b.name,...b.aliases,...b.domains]);
    const drafts=await workspaceSuggestions({db,project,identity,env,now,generate,type:'competitors',exclude});
    await transaction(db,async tx=>{
-    const current=await one(tx,'SELECT version,status FROM app_projects WHERE id=? AND owner_id=?',[projectId,userId]);
+    const current=await accessibleProject(tx,projectId,userId,'edit');
     if(Number(current?.version)!==Number(project.version)||current?.status!=='active')fail(409,'VERSION_CONFLICT');
     for(const draft of drafts){
      const id=hash(normalized(draft.name)).slice(0,32);
@@ -111,6 +112,7 @@ export async function researchService({db,method,path,body,userId,now=Date.now,e
    return {status:200,data:await view(db,projectId,identity)};
   }
   await transaction(db,async tx=>{
+   await requireProject(tx,projectId,userId,'edit');
    const state=await cohortState(tx,projectId);
    if(body?.expectedVersion!==state.version)fail(409,'VERSION_CONFLICT');
    let brands=state.competitors.map(b=>({...b})),candidate=null,brandId=null;

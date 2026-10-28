@@ -1,3 +1,5 @@
+import {accessibleProject,visibleProjects,teamsEnabled,ensureWorkspace,reportProjectAllowed} from '../common/access.mjs';
+import {teamsService} from './teams.mjs';
 import {contentService} from '../content/service.mjs';
 import {resultsService} from '../analytics/results.mjs';
 import {backfillService} from '../sentiment/service.mjs';
@@ -56,8 +58,7 @@ function identity(b, update = false) {
 function revision(b) { if (!Number.isSafeInteger(b.expectedVersion) || b.expectedVersion < 1) fail(422, 'VALIDATION_FAILED'); }
 const one = async (db, sql, args = []) => (await db.execute({ sql, args })).rows[0] || null;
 const execute = (db, sql, args = []) => db.execute({ sql, args });
-const asProject = row => {const p=JSON.parse(row.identity_json);return { id: row.id, ...p,category:p.category??p.categoryFi,status: row.status, version: Number(row.version), createdAt: row.created_at,market:p.market??'FI',promptLanguage:p.promptLanguage??'fi' };};
-const projectSQL = 'SELECT p.*,v.identity_json FROM app_projects p JOIN app_identity_versions v ON v.project_id=p.id AND v.version=p.version';
+const asProject = row => {const p=JSON.parse(row.identity_json);return { id: row.id, ...p,category:p.category??p.categoryFi,status: row.status, version: Number(row.version), createdAt: row.created_at,myRole:row.myRole,ownerName:row.ownerName,workspaceId:row.workspaceId,market:p.market??'FI',promptLanguage:p.promptLanguage??'fi' };};
 const cookie = (name, value, age) => `${name}=${encodeURIComponent(value)}; Path=/; Max-Age=${age}; HttpOnly; Secure; SameSite=Lax`;
 export const csrfFor = token => hmac('airank-app-csrf-v1', token);
 
@@ -75,11 +76,7 @@ export function createAppService({ db, clients, env = process.env, now = Date.no
     const row = await one(db, 'SELECT u.id,u.email,u.display_name FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.session_hash=? AND s.expires_at>?', [hashToken(token), now()]);
     return row ? { token, user: { id: row.id, email: row.email, name: row.display_name || '' } } : null;
   };
-  const owned = async (cx, id, userId) => {
-    const p = await one(cx, `${projectSQL} WHERE p.id=? AND p.owner_id=?`, [id, userId]);
-    if (!p) fail(404, 'NOT_FOUND');
-    return p;
-  };
+  const owned = accessibleProject;
   const audit = (cx, userId, id, kind, version) => execute(cx, 'INSERT INTO app_audit_events VALUES (?,?,?,?,?,?)', [uuid(), userId, id, kind, version, new Date(now()).toISOString()]);
   const transaction = async fn => {
     const tx = await db.transaction('write');
@@ -166,11 +163,14 @@ export function createAppService({ db, clients, env = process.env, now = Date.no
       await execute(db, 'DELETE FROM sessions WHERE session_hash=?', [hashToken(auth.token)]);
       return result({ ok: true }, 200, { 'set-cookie': [cookie('__Host-airank_session', '', 0), cookie('__Host-airank_app_oauth', '', 0)] });
     }
+    const teamResult=await teamsService({db,method,path,body,userId,now});
+    if(teamResult)return result(teamResult.data,teamResult.status);
+    if(machineAuth&&path!=='/v1/projects'&&!await reportProjectAllowed(db,machineAuth.tokenId,path.split('/')[3]))fail(403,'SCOPE_DENIED');
     const reportTokenResult=await reportTokens.manage(method,path,body,userId);
     if(reportTokenResult)return result(reportTokenResult.data,reportTokenResult.status);
     if (/^\/v1\/projects\/[a-zA-Z0-9-]{1,80}\/connections\//.test(path)) return googleConnectionsService({db,method,path,query,body,userId,origin:headers.origin,env});
     if (method === 'POST' && /^\/v1\/projects\/[a-zA-Z0-9-]{1,80}\/intelligence$/.test(path)) return intelligenceService({db,path,body,userId,env,now});
-    if (method==='GET' && path==='/v1/app/content-projects') return result((await execute(db, `SELECT DISTINCT p.id,p.status,v.identity_json FROM app_projects p JOIN app_identity_versions v ON v.project_id=p.id AND v.version=p.version LEFT JOIN content_members m ON m.project_id=p.id WHERE p.owner_id=? OR m.user_id=?`, [userId,userId])).rows.map(r=>({id:r.id,status:r.status,...JSON.parse(r.identity_json)})));
+    if (method==='GET' && path==='/v1/app/content-projects') return result((await visibleProjects(db,userId)).map(asProject));
     if (/^\/v1\/projects\/[A-Za-z0-9-]{1,80}\/content(?:\/|$)/.test(path)) return contentService({db,method,path,query,body,userId,env,now});
     if (method === 'GET' && /^\/v1\/projects\/[a-zA-Z0-9-]{1,80}\/results(?:\/[a-zA-Z0-9-]{1,80})?$/.test(path)) return resultsService({db,path,query,userId,env});
     if (method === 'POST' && /^\/v1\/projects\/[a-zA-Z0-9-]{1,80}\/sentiment-backfill$/.test(path)) return backfillService({db,path,body,userId,env,now});
@@ -185,11 +185,12 @@ export function createAppService({ db, clients, env = process.env, now = Date.no
     if (/^\/v1\/projects\/[^/]+\/(?:research|evidence)(?:\/|$)/.test(path)) return researchService({db,method,path,body,userId,now,env});
     if (/^\/v1\/projects\/[^/]+\/(?:prompts|suggestions|monitoring-runs)(?:\/|$)/.test(path)) return monitoringService({db,method,path,query,body,userId,now,env});
     if (path.startsWith('/v1/scans') || /^\/v1\/projects\/[^/]+\/scans$/.test(path)) return appScans({db,method,path,body,userId,now,env});
-    if (path === '/v1/projects' && method === 'GET') return result((await execute(db, `${projectSQL} WHERE p.owner_id=? ORDER BY p.created_at DESC,p.id`, [userId])).rows.map(asProject));
+    if (path === '/v1/projects' && method === 'GET') {const rows=await visibleProjects(db,userId),allowed=[];for(const p of rows)if(!machineAuth||await reportProjectAllowed(db,machineAuth.tokenId,p.id))allowed.push(asProject(p));return result(allowed);}
     if (path === '/v1/projects' && method === 'POST') {
       const data = identity(body), id = uuid(), stamp = new Date(now()).toISOString();
       return transaction(async tx => {
-        await execute(tx, 'INSERT INTO app_projects VALUES (?,?,?,?,?)', [id, userId, 'active', 1, stamp]);
+        if(await teamsEnabled(tx)){const w=await ensureWorkspace(tx,userId,data.brandName,now());await execute(tx,'INSERT INTO app_projects (id,owner_id,status,version,created_at,workspace_id) VALUES (?,?,?,?,?,?)',[id,w.owner_id,'active',1,stamp,w.id]);}
+        else await execute(tx, 'INSERT INTO app_projects (id,owner_id,status,version,created_at) VALUES (?,?,?,?,?)', [id, userId, 'active', 1, stamp]);
         await execute(tx, 'INSERT INTO app_identity_versions VALUES (?,?,?,?)', [id, 1, JSON.stringify(data), stamp]);
         await audit(tx, userId, id, 'project.created', 1);
         return result(asProject(await owned(tx, id, userId)), 201);
@@ -198,7 +199,7 @@ export function createAppService({ db, clients, env = process.env, now = Date.no
     const match = path.match(/^\/v1\/projects\/([a-zA-Z0-9-]{1,80})(\/archive|\/versions)?$/);
     if (match) {
       const [, id, action] = match;
-      const p = await owned(db, id, userId);
+      const p = await owned(db, id, userId,method==='GET'?'read':'manageProject');
       if (method === 'GET' && !action) return result(asProject(p));
       if (method === 'GET' && action === '/versions') return result((await execute(db, 'SELECT * FROM app_identity_versions WHERE project_id=? ORDER BY version DESC', [id])).rows.map(r => ({ ...JSON.parse(r.identity_json), version: Number(r.version), createdAt: r.created_at })));
       if ((method === 'PATCH' && !action) || (method === 'POST' && action === '/archive')) {
@@ -207,11 +208,11 @@ export function createAppService({ db, clients, env = process.env, now = Date.no
         const prior=JSON.parse(p.identity_json);
         const data = action ? null : identity({market:prior.market??'FI',promptLanguage:prior.promptLanguage??'fi',...body}, true);
         return transaction(async tx => {
-          const current = await owned(tx, id, userId);
+          const current = await owned(tx, id, userId,'manageProject');
           if (Number(current.version) !== body.expectedVersion || current.status !== 'active') fail(409, 'VERSION_CONFLICT');
           const version = Number(current.version) + 1;
           await execute(tx, 'INSERT INTO app_identity_versions VALUES (?,?,?,?)', [id, version, data ? JSON.stringify(data) : current.identity_json, new Date(now()).toISOString()]);
-          await execute(tx, 'UPDATE app_projects SET version=?,status=? WHERE id=? AND owner_id=?', [version, action ? 'archived' : 'active', id, userId]);
+          await execute(tx, 'UPDATE app_projects SET version=?,status=? WHERE id=?', [version, action ? 'archived' : 'active', id]);
           if (action) await execute(tx, 'UPDATE app_preferences SET last_project_id=NULL,version=version+1 WHERE user_id=? AND last_project_id=?', [userId, id]);
           await audit(tx, userId, id, action ? 'project.archived' : 'identity.updated', version);
           return result(asProject(await owned(tx, id, userId)));

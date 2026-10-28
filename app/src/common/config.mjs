@@ -2,7 +2,7 @@ import {routesFromEnv,routeAvailable} from '../providers/routing.mjs';
 import {providerDailyLimit} from './daily-limits.mjs';
 
 export const CONFIG = {
-  version: '0.23.5',
+  version: '0.24.0',
   appEnv: process.env.APP_ENV || 'staging',
   apiPort: Number(process.env.PORT || 3000),
   workerPort: Number(process.env.PORT || 3001),

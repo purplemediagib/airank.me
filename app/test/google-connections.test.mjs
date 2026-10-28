@@ -4,10 +4,11 @@ import {connectorConfig,googleConnectionsService} from '../src/google-connection
 import {safeImportError} from '../src/google-connections/errors.mjs';
 
 const env={GOOGLE_CONNECTOR_BASE_URL:'https://connector.example',GOOGLE_CONNECTOR_RETURN_URL:'https://app.example/en/settings?tab=connections',GOOGLE_CONNECTOR_API_KEY:'fixture-only-key-abcdefghijklmnopqrstuvwxyz'};
-const owned={id:'project-one',owner_id:'alice'};
+const owned={id:'project-one',owner_id:'alice',status:'active',identity_json:'{}',owner_name:'Alice'};
 const makeDB=(project=owned)=>({execute:async({sql,args})=>{
-  assert.match(sql,/owner_id=\?/);assert.match(sql,/status='active'/);
-  return {rows:project&&args[0]===project.id&&args[1]===project.owner_id?[project]:[]};
+  if(sql.includes('sqlite_master'))return {rows:[]};
+  assert.match(sql,/app_projects/);
+  return {rows:project&&args[0]===project.id?[project]:[]};
 }});
 const prefix='/v1/projects/project-one/connections/ga4';
 function call(extra={}){

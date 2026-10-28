@@ -1,3 +1,4 @@
+import {accessibleProject,requireProject} from '../common/access.mjs';
 import {uuid} from '../common/utils.mjs';
 import {one,exec,fail,transaction,setting} from '../monitoring/shared.mjs';
 import {analyticsService} from '../analytics/service.mjs';
@@ -14,12 +15,13 @@ export async function selectedRoutes(db,projectId,env){
  const selected=JSON.parse(r.providers);return Object.fromEntries(Object.entries(routes).filter(([p])=>selected.includes(p)));
 }
 export async function measurementSettingsService({db,method,path,body,userId,env=process.env,now=Date.now}){
- const projectId=path.split('/')[3],project=await one(db,'SELECT * FROM app_projects WHERE id=? AND owner_id=?',[projectId,userId]);if(!project)fail(404,'NOT_FOUND');await ready(db);
+ const projectId=path.split('/')[3],project=await accessibleProject(db,projectId,userId,method==='GET'?'read':'manageReports');if(!project)fail(404,'NOT_FOUND');await ready(db);
  const routes=routesFromEnv(env);
  if(method==='PATCH'){
   if(project.status!=='active')fail(409,'VERSION_CONFLICT');
   if(!Array.isArray(body?.providers)||!body.providers.length||new Set(body.providers).size!==body.providers.length||body.providers.some(p=>!Object.hasOwn(routes,p)))fail(422,'VALIDATION_FAILED');
   await transaction(db,async tx=>{
+   await requireProject(tx,projectId,userId,method==='GET'?'read':'manageReports');
    const r=await one(tx,'SELECT * FROM app_measurement_settings WHERE project_id=?',[projectId]);if(body.expectedVersion!==(r?Number(r.version):0))fail(409,'VERSION_CONFLICT');
    await exec(tx,'INSERT INTO app_measurement_settings VALUES (?,?,?,?) ON CONFLICT(project_id) DO UPDATE SET version=excluded.version,providers=excluded.providers,updated_at=excluded.updated_at',[projectId,(r?Number(r.version):0)+1,JSON.stringify(body.providers),now()]);
    await exec(tx,'INSERT INTO app_audit_events (id,user_id,project_id,kind,version,created_at) VALUES (?,?,?,?,?,?)',[uuid(),userId,projectId,'providers.updated',(r?Number(r.version):0)+1,new Date(now()).toISOString()]);
@@ -33,7 +35,7 @@ export async function measurementSettingsService({db,method,path,body,userId,env
 const summary=r=>({id:r.id,projectId:r.project_id,createdAt:Number(r.created_at),expiresAt:Number(r.expires_at),locale:r.locale,title:r.title||(r.payload?JSON.parse(r.payload).title:null)||'AI Rank'});
 export async function reportService({db,method,path,body,userId,now=Date.now}){
  const projectId=path.split('/')[3],reportId=path.split('/')[5];
- const project=await one(db,'SELECT * FROM app_projects WHERE id=? AND owner_id=?',[projectId,userId]);if(!project)fail(404,'NOT_FOUND');await ready(db);
+ const project=await accessibleProject(db,projectId,userId,method==='GET'?'read':'manageReports');if(!project)fail(404,'NOT_FOUND');await ready(db);
  if(method==='POST'&&!reportId){
   if(project.status!=='active')fail(409,'VERSION_CONFLICT');
   if(!['fi','en'].includes(body?.locale)||!body.filters||typeof body.filters!=='object'||Array.isArray(body.filters))fail(422,'VALIDATION_FAILED');
@@ -43,15 +45,15 @@ export async function reportService({db,method,path,body,userId,now=Date.now}){
   const analytics=(await analyticsService({db,userId,path:`/v1/projects/${projectId}/analytics`,query:new URLSearchParams(filters)})).data;
   const stamp=now(),id=uuid(),identity=JSON.parse((await one(db,'SELECT identity_json FROM app_identity_versions WHERE project_id=? AND version=?',[projectId,project.version])).identity_json);
   const runIds=[...new Set(analytics.runs.filter(r=>r.group===analytics.selectedGroup&&(filters.runId?r.id===filters.runId:r.kind==='neutral')).map(r=>r.id))],runSnapshots=[];
-  for(const runId of runIds){const r=await one(db,'SELECT snapshot FROM mon_runs WHERE id=? AND project_id=? AND owner_id=?',[runId,projectId,userId]);if(r)runSnapshots.push({runId,snapshot:JSON.parse(r.snapshot)});}
+  for(const runId of runIds){const r=await one(db,'SELECT snapshot FROM mon_runs WHERE id=? AND project_id=?',[runId,projectId]);if(r)runSnapshots.push({runId,snapshot:JSON.parse(r.snapshot)});}
   const snapshot=redact({schemaVersion:'report-snapshot-v1',title:title.trim(),sections,locale:body.locale,filters,measurementLanguage:runSnapshots[0]?.snapshot.language??identity.promptLanguage??'fi',market:runSnapshots[0]?.snapshot.market??identity.market??'FI',timezone:'UTC',identity:runSnapshots[0]?.snapshot.identity||identity,runSnapshots,analytics});
-  await exec(db,'INSERT INTO app_reports VALUES (?,?,?,?,?,?,?)',[id,projectId,userId,stamp,stamp+30*86400000,body.locale,JSON.stringify(snapshot)]);
+  await transaction(db,async tx=>{const current=await accessibleProject(tx,projectId,userId,'manageReports');if(current.status!=='active')fail(409,'VERSION_CONFLICT');await exec(tx,'INSERT INTO app_reports VALUES (?,?,?,?,?,?,?)',[id,projectId,current.owner_id,stamp,stamp+30*86400000,body.locale,JSON.stringify(snapshot)]);});
   return{status:201,data:{...summary({id,project_id:projectId,created_at:stamp,expires_at:stamp+30*86400000,locale:body.locale,title:snapshot.title}),snapshot}};
  }
  if(method!=='GET')fail(405,'METHOD_NOT_ALLOWED');
  if(reportId){
-  const r=await one(db,'SELECT * FROM app_reports WHERE id=? AND project_id=? AND owner_id=?',[reportId,projectId,userId]);if(!r)fail(404,'NOT_FOUND');if(Number(r.expires_at)<=now())fail(410,'REPORT_EXPIRED');
+  const r=await one(db,'SELECT * FROM app_reports WHERE id=? AND project_id=?',[reportId,projectId]);if(!r)fail(404,'NOT_FOUND');if(Number(r.expires_at)<=now())fail(410,'REPORT_EXPIRED');
   return{status:200,data:{...summary(r),snapshot:JSON.parse(r.payload)}};
  }
- return{status:200,data:(await exec(db,"SELECT id,project_id,created_at,expires_at,locale,json_extract(payload,'$.title') title FROM app_reports WHERE project_id=? AND owner_id=? ORDER BY created_at DESC,id",[projectId,userId])).rows.map(summary)};
+ return{status:200,data:(await exec(db,"SELECT id,project_id,created_at,expires_at,locale,json_extract(payload,'$.title') title FROM app_reports WHERE project_id=? ORDER BY created_at DESC,id",[projectId])).rows.map(summary)};
 }

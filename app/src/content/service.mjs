@@ -1,3 +1,4 @@
+import {teamsEnabled} from '../common/access.mjs';
 import {access,get,list,put,event,one,exec,fail,hash,transaction,uid,enqueue,jobView,seal} from './store.mjs';
 import {id,checksum} from './migration.mjs';
 import {documentInput,applyChanges,exportsFor} from './editor.mjs';
@@ -10,7 +11,7 @@ export async function contentService({db,method,path,body={},query=new URLSearch
  const m=path.match(/^\/v1\/projects\/([A-Za-z0-9-]{1,80})\/content(?:\/(.*))?$/);if(!m)fail(404,'NOT_FOUND');const p=m[1],[area='',item='',action='']= (m[2]||'').split('/');
  const project=await access(db,p,userId);if((await one(db,'SELECT checksum FROM app_migrations WHERE id=?',[id]))?.checksum!==checksum)fail(503,'CONTENT_MIGRATION_REQUIRED');
  if(['PATCH','PUT'].includes(method)||area==='documents'&&method==='POST'&&item&&action){if(!Number.isSafeInteger(body.expectedVersion)||body.expectedVersion<0)fail(422,'EXPECTED_VERSION_REQUIRED');}
- const permission=async perm=>access(db,p,userId,perm);const write=fn=>transaction(db,fn);const loadDoc=async()=>{const d=await get(db,p,'document',item);if(!d)fail(404,'NOT_FOUND');return d;};
+ let required='read';const permission=async perm=>{required=perm;return access(db,p,userId,perm);};const write=fn=>transaction(db,async tx=>{await access(tx,p,userId,required);return fn(tx);});const loadDoc=async()=>{const d=await get(db,p,'document',item);if(!d)fail(404,'NOT_FOUND');return d;};
  if(method==='GET'&&!area)return response({role:project.role,project:{id:p,...project.identity},documents:(await list(db,p,'document')).map(({markdown,original,...d})=>({...d,wordCount:markdown?.split(/\s+/).length||0})),opportunities:await list(db,p,'opportunity'),brand:await get(db,p,'settings','brand'),settings:await get(db,p,'settings','automation'),capabilities:{languages:['en','fi'],cms:['wordpress','webflow'],modelConfigured:!!(env.OPENROUTER_API_KEY&&env.CONTENT_MODEL),googleMappingConfigured:Object.hasOwn(JSON.parse(env.CONTENT_GOOGLE_WORKSPACES_JSON||'{}'),p)}});
  if(area==='documents'){
   if(method==='GET'&&!item)return response(await list(db,p,'document'));
@@ -59,10 +60,11 @@ export async function contentService({db,method,path,body={},query=new URLSearch
  if(area==='bulk'&&method==='POST'){await permission('edit');if(!Array.isArray(body.items)||body.items.length<1||body.items.length>50)fail(422,'INVALID_BULK');return response(await write(async tx=>{const out=[];for(const [i,b] of body.items.entries()){if(!['audit','research','rewrite'].includes(b.kind))fail(422,'INVALID_BULK_KIND');const d=await get(tx,p,'document',b.documentId);if(!d||d.version!==b.documentVersion)fail(409,'REVISION_CHANGED');out.push(await enqueue(tx,p,userId,b.kind,{documentId:d.id,documentVersion:d.version,locale:d.locale},body.submissionId+'-'+i,now()));}return out;}),202);}
  if(area==='comments'){
   if(method==='GET')return response((await list(db,p,'comment')).filter(c=>!query.get('documentId')||c.documentId===query.get('documentId')));
-  if(method==='POST'){if(project.role==='viewer')fail(403,'CONTENT_PERMISSION_DENIED');await access(db,p,userId,project.role==='reviewer'?'review':'edit');if(!await get(db,p,'document',body.documentId))fail(404,'NOT_FOUND');return response(await write(tx=>put(tx,p,'comment',uid(),{documentId:body.documentId,documentVersion:body.documentVersion,body:text(body.text),actor:userId,resolved:false},0,userId,now())),201);}
+  if(method==='POST'){await permission(project.role==='reviewer'?'review':'edit');if(!await get(db,p,'document',body.documentId))fail(404,'NOT_FOUND');return response(await write(tx=>put(tx,p,'comment',uid(),{documentId:body.documentId,documentVersion:body.documentVersion,body:text(body.text),actor:userId,resolved:false},0,userId,now())),201);}
   if(method==='PATCH'){await permission('review');const c=await get(db,p,'comment',item);if(!c)fail(404,'NOT_FOUND');return response(await write(tx=>put(tx,p,'comment',item,{...c,resolved:body.resolved===true},body.expectedVersion,userId,now())));}
  }
  if(area==='access'){
+  if(method!=='GET'&&await teamsEnabled(db))fail(410,'USE_TEAM_INVITES');
   await permission('manage');if(method==='GET')return response((await exec(db,'SELECT user_id,role FROM content_members WHERE project_id=?',[p])).rows);
   if(method==='PUT'){if(!['viewer','editor','reviewer','remove'].includes(body.role)||typeof body.email!=='string')fail(422,'INVALID_MEMBER');const u=await one(db,'SELECT id FROM users WHERE lower(email)=lower(?)',[body.email]);if(!u)fail(422,'EXISTING_ACCOUNT_REQUIRED');if(u.id===project.owner_id)fail(422,'OWNER_ROLE_FIXED');
    await write(async tx=>{if(body.role==='remove')await exec(tx,'DELETE FROM content_members WHERE project_id=? AND user_id=?',[p,u.id]);else await exec(tx,'INSERT INTO content_members VALUES (?,?,?) ON CONFLICT(project_id,user_id) DO UPDATE SET role=excluded.role',[p,u.id,body.role]);await event(tx,p,userId,'access.updated',{userId:u.id,role:body.role},now());});return response({ok:true});}

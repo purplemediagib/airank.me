@@ -44,7 +44,9 @@ if(process.env.AIRANK_RUN_APP_MIGRATIONS==='true'){
   const {migrateContent}=await import('../content/migration.mjs');
   await migrateContent(db);
   await migrateReportTokens(db);
-  console.log('AI Rank app migrations 001–020 verified successfully.');
+  const {migrateTeams}=await import('./team-migration.mjs');
+  await migrateTeams(db);
+  console.log('AI Rank app migrations 001–021 verified successfully.');
 }
 try {
  const {getDb}=await import('../common/db.mjs');

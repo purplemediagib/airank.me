@@ -1,3 +1,4 @@
+import {requireProject} from '../common/access.mjs';
 import {randomUUID} from 'node:crypto';
 import {one,exec,transaction,fail} from '../monitoring/shared.mjs';
 import {id,checksum} from './migration.mjs';
@@ -5,7 +6,7 @@ import {configuration,domainKey,keyFor} from './core.mjs';
 import {enqueue} from './engine.mjs';
 export async function intelligenceService({db,path,body,userId,env=process.env,now=Date.now}){
  const projectId=path.split('/')[3],c=configuration(env);
- const owned=async tx=>{if(!await one(tx,"SELECT id FROM app_projects WHERE id=? AND owner_id=? AND status='active'",[projectId,userId]))fail(404,'NOT_FOUND');};
+ const owned=async tx=>{await requireProject(tx,projectId,userId,'runChecks');const p=await one(tx,'SELECT status FROM app_projects WHERE id=?',[projectId]);if(p.status!=='active')fail(404,'NOT_FOUND');};
  await owned(db);
  if((await one(db,'SELECT checksum FROM app_migrations WHERE id=?',[id]))?.checksum!==checksum)fail(503,'INTELLIGENCE_NOT_CONFIGURED');
  if(!body||!['analyse','source_review','brand_review'].includes(body.action))fail(422,'VALIDATION_FAILED');
@@ -15,7 +16,7 @@ export async function intelligenceService({db,path,body,userId,env=process.env,n
    if(env.ENTITY_ANALYSIS_ENABLED!=='true')fail(503,'ENTITY_ANALYSIS_NOT_ENABLED');
    const ids=body.evidenceIds;
    if(!Array.isArray(ids)||!ids.length||ids.length>50||new Set(ids).size!==ids.length||ids.some(x=>typeof x!=='string'||!/^[\w-]{1,100}$/.test(x)))fail(422,'VALIDATION_FAILED');
-   const rows=(await exec(tx,`SELECT e.payload,e.run_id,r.snapshot FROM mon_evidence e JOIN mon_runs r ON r.id=e.run_id WHERE r.project_id=? AND r.owner_id=? AND e.id IN (${ids.map(()=>'?').join(',')})`,[projectId,userId,...ids])).rows;
+   const rows=(await exec(tx,`SELECT e.payload,e.run_id,r.snapshot FROM mon_evidence e JOIN mon_runs r ON r.id=e.run_id WHERE r.project_id=? AND e.id IN (${ids.map(()=>'?').join(',')})`,[projectId,...ids])).rows;
    if(rows.length!==ids.length)fail(404,'NOT_FOUND');
    return {status:200,data:{queued:await enqueue(tx,rows,c,now()),updated:false,version:c.version}};
   }
