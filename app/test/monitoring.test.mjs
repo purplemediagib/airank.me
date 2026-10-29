@@ -323,7 +323,7 @@ test('extra models enqueue, reserve budgets, execute and persist independently i
   await f.prompt();const run=await f.run();const calls=[];
   const worker=engine(f,{call:async(p,text,route,timeout,context)=>{
    calls.push(p);assert.equal(route.transport,'openrouter');assert.equal(route.model,models[p]);
-   assert.equal(route.api_budget.maxTokens,p==='mistral'?12000:['deepseek','kimi'].includes(p)?8192:4000);
+   assert.equal(route.api_budget.maxTokens,p==='mistral'?12000:p==='deepseek'?4096:p==='kimi'?8192:4000);
    assert.equal(context.language,'fi');assert.equal(context.market,'FI');
    return success(p,text,route);
   }});

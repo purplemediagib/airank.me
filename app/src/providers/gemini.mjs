@@ -1,4 +1,4 @@
-import { requestJson,urlsUnique,promptContext } from './common.mjs';
+import { requestJson,requestMeta,urlsUnique,promptContext } from './common.mjs';
 import {apiObservation} from '../common/observations.mjs';
 export async function geminiSearch(prompt,{model='gemini-2.5-flash',timeoutMs=60000}={}){
  const j=await requestJson(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,{headers:{'x-goog-api-key':process.env.GEMINI_API_KEY},body:{contents:[{role:'user',parts:[{text:promptContext(prompt)}]}],tools:[{google_search:{}}]},timeoutMs});
@@ -11,6 +11,6 @@ export async function geminiSearch(prompt,{model='gemini-2.5-flash',timeoutMs=60
   return web?.uri?[{url:web.uri,title:web.title,start:s.segment?.startIndex,end:s.segment?.endIndex,provenance:'provider_grounding_support'}]:[];
  }));
  const observation=apiObservation({complete,occurrences,citationObservation:grounding?'observed':'unavailable'});
- if(!grounding || !(grounding.webSearchQueries?.length||grounding.groundingChunks?.length))return {status:complete?'no_grounding':'incomplete',model,answer,citations:[],observation,meta:{usage:j.usageMetadata||null},raw:j};
- return {status:complete?'success':'incomplete',model,answer,citations,observation,meta:{usage:j.usageMetadata||null,searchQueries:grounding.webSearchQueries||[]},raw:j};
+ if(!grounding || !(grounding.webSearchQueries?.length||grounding.groundingChunks?.length))return {status:complete?'no_grounding':'incomplete',model,answer,citations:[],observation,meta:{...requestMeta(j),usage:j.usageMetadata||null},raw:j};
+ return {status:complete?'success':'incomplete',model,answer,citations,observation,meta:{...requestMeta(j),usage:j.usageMetadata||null,searchQueries:grounding.webSearchQueries||[]},raw:j};
 }

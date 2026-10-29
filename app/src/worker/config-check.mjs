@@ -1,3 +1,4 @@
+import {providerConcurrency} from '../monitoring/provider-concurrency.mjs';
 import {monitoringRoutesFromEnv as routesFromEnv,routeAvailable,publicProviders} from '../providers/routing.mjs';
 import {collectionBudget,isCollectorRoute} from '../collectors/config.mjs';
 import {claudeOutputBudget} from '../providers/claude.mjs';
@@ -17,6 +18,7 @@ export function workerConfiguration(env=process.env){
   database_configured:Boolean(env.BUNNY_DATABASE_URL&&env.BUNNY_DATABASE_AUTH_TOKEN),
   public_providers:publicProviders({enabledProviders:Object.keys(routes)}),
   providers:Object.entries(routes).map(([provider,route])=>({provider,...route,credential_present:routeAvailable(provider,route,env),...(isCollectorRoute(route)?{budget_configured:!!collectionBudget(env,provider)}:{}),missing_variables:(route.transport==='dataforseo_scraper'?['DATAFORSEO_LOGIN','DATAFORSEO_PASSWORD']:route.transport==='scrapeless'?['SCRAPELESS_API_TOKEN']:route.transport==='openrouter'?['OPENROUTER_API_KEY']:credentialNames[provider]||[]).filter(k=>!env[k]?.trim())})),
+  provider_concurrency:providerConcurrency(env),
   monitoring_concurrency:Number(env.MONITORING_CONCURRENCY||2),
   monitoring_timeout_ms:Number(env.MONITORING_PROVIDER_TIMEOUT_MS||120000),
   daily_provider_call_limit:providerDailyLimit(env),
