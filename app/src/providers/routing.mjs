@@ -43,11 +43,17 @@ export function routeAvailable(p,route,env=process.env){
 export function compatibleRoute(old,current){return !!current&&old?.transport===current.transport&&old?.model===current.model&&old?.search_engine===current.search_engine&&old?.collection_method===current.collection_method;}
 
 // Expanding authenticated measurement must never add paid calls to guest scans.
+// The free (guest) check measures exactly these providers; paid tracking is unaffected.
+export const PUBLIC_CHECK_PROVIDERS=Object.freeze(['openai','gemini']);
+// Guest Gemini answers via OpenRouter are capped well below the tracking default (8192).
+export const GUEST_OPENROUTER_OUTPUT_TOKENS=2048;
+// Hard per-scan ceiling for guests: 3 confirmed questions x 2 providers.
+export const GUEST_MAX_CALLS_PER_SCAN=6;
 export function publicProviders(config){
- return [...new Set(config.enabledProviders)].filter(p=>['openai','claude'].includes(p));
+ return [...new Set(config.enabledProviders)].filter(p=>PUBLIC_CHECK_PROVIDERS.includes(p));
 }
 
 export function providersForScan({requested,enabled,platform}){
  const selected=[...new Set(requested||enabled)];
- return platform?selected:selected.filter(p=>['openai','claude'].includes(p));
+ return platform?selected:selected.filter(p=>PUBLIC_CHECK_PROVIDERS.includes(p));
 }

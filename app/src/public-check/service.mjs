@@ -1,4 +1,6 @@
 import {randomUUID,randomBytes} from 'node:crypto';
+import {readyPublicProviders} from './guest-budget.mjs';
+import {prepReserver,guestAutofillConfigured} from './prep-budget.mjs';
 import {CONFIG} from '../common/config.mjs';
 import {publicProviders} from '../providers/routing.mjs';
 import {validateProfile} from '../common/scan-profile.mjs';
@@ -51,24 +53,30 @@ async function cachedDraft({db,fingerprint,kind,input,env,now,produce}){
 function previewKey(profile,config){return hash([profile,config.enabledProviders,config.scanPrompts,PUBLIC_METHODOLOGY]);}
 function previewKind(profile){return profile.language==='en'||profile.market==='FI'&&profile.language==='fi'?'questions':'questions-ai';}
 export async function publicCheckService({db,method,path,body={},fingerprint,scanToken,env=process.env,now=Date.now,config=CONFIG,deps={}}){
- config={...config,enabledProviders:publicProviders(config)};
- const ready=await configured(db,env);
+ config={...config,enabledProviders:await readyPublicProviders(db,config,env)};
+ const reportReady=await configured(db,env);
+ const ready=config.enabledProviders.length>0&&reportReady;
  if(method==='GET'&&path==='/v1/public-check/capabilities')return result({
   enabled:ready,emailEnabled:ready&&emailConfigured(env),marketingEnabled:ready&&emailConfigured(env)&&Boolean(env.RESEND_MARKETING_SEGMENT_ID),
-  autofillEnabled:ready&&env.WEBSITE_PROFILE_ENABLED==='true'&&Boolean(env.FIRECRAWL_API_KEY&&env.OPENAI_API_KEY),
+  autofillEnabled:ready&&guestAutofillConfigured(env),
   providers:config.enabledProviders,promptCount:config.scanPrompts,...contextCatalog(),limits:{guestScansPerDay:1,domainScansPerWeek:5}
  });
- if(!ready)fail(503,'APP_NOT_CONFIGURED');
+ if(!reportReady)fail(503,'APP_NOT_CONFIGURED');
+ // Existing token-protected evidence stays readable during provider/budget outages.
+ // Only preparation and new measurement jobs require execution prerequisites.
+ if(method==='POST'&&['/v1/public-check/prepare','/v1/public-check/preview','/v1/public-check/scans'].includes(path)&&!ready)fail(503,'APP_NOT_CONFIGURED');
  if(!/^[a-f0-9]{64}$/.test(fingerprint||''))fail(403,'PROXY_REQUIRED');
  const validate=deps.validateWebsite||assertPublicWebsite;
  if(method==='POST'&&path==='/v1/public-check/prepare'){
-  if(env.WEBSITE_PROFILE_ENABLED!=='true'||!env.FIRECRAWL_API_KEY||!env.OPENAI_API_KEY)fail(503,'AI_UNAVAILABLE');
+  if(!guestAutofillConfigured(env))fail(503,'AI_UNAVAILABLE');
   const site=normalizeWebsite(body.website),context=measurementContext(body);
   await validate(site.website);
   await limits(db,fingerprint,site.domain,env,now);
-  return result(await cachedDraft({db,fingerprint,kind:'identity',input:{...site,...context},env,now,produce:async()=>{
-   const content=await (deps.scrape||scrapeWebsite)({...site,...context},{env});
-   const inferred=await (deps.infer||inferProfile)({...site,...context},content,{env});
+  const input={...site,...context},reserve=prepReserver({db,fingerprint,requestKey:hash([fingerprint,'identity',input,PUBLIC_METHODOLOGY]),env,now});
+  const io={env,reserve,...(deps.fetcher?{fetcher:deps.fetcher}:{})};
+  return result(await cachedDraft({db,fingerprint,kind:'identity',input,env,now,produce:async()=>{
+   const content=await (deps.scrape||scrapeWebsite)(input,io);
+   const inferred=await (deps.infer||inferProfile)(input,content,io);
    return {draft:{domain:site.domain,brand_name:inferred.draft.brandName,aliases:inferred.draft.aliases,category_fi:inferred.draft.categoryFi,...context},
     sources:inferred.sources.map(url=>({url})),model:inferred.model||null};
   }}));
@@ -77,9 +85,10 @@ export async function publicCheckService({db,method,path,body={},fingerprint,sca
   const site=normalizeWebsite(body.domain),profile=validateProfile({...body,domain:site.domain});
   await validate(site.website);
   await limits(db,fingerprint,profile.domain,env,now);
-  const key=previewKey(profile,config);
-  return result(await cachedDraft({db,fingerprint,kind:previewKind(profile),input:{profile,key},env,now,produce:async()=>({
-   profile,...await publicPrompts(profile,config.scanPrompts,env,deps.generate),providers:config.enabledProviders,methodology:PUBLIC_METHODOLOGY,preview_hash:key
+  const key=previewKey(profile,config),kind=previewKind(profile);
+  const reserve=prepReserver({db,fingerprint,requestKey:hash([fingerprint,kind,{profile,key},PUBLIC_METHODOLOGY]),env,now});
+  return result(await cachedDraft({db,fingerprint,kind,input:{profile,key},env,now,produce:async()=>({
+   profile,...await publicPrompts(profile,config.scanPrompts,env,deps.generate,{reserve}),providers:config.enabledProviders,methodology:PUBLIC_METHODOLOGY,preview_hash:key
   })}));
  }
  if(method==='POST'&&path==='/v1/public-check/scans'){

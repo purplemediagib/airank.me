@@ -9,8 +9,9 @@ import { CONFIG,hasDbConfig } from '../common/config.mjs';
 import { sql, one, getDb } from '../common/db.mjs';
 import { inspectWebsite } from '../common/fetch-website.mjs';
 import { promptCandidates,detectEvidence } from '../common/observations.mjs';
-import {routesFromEnv,routeAvailable,providersForScan} from '../providers/routing.mjs';
+import {routesFromEnv,routeAvailable,providersForScan,GUEST_MAX_CALLS_PER_SCAN} from '../providers/routing.mjs';
 import {callRoute} from '../providers/dispatch.mjs';
+import {executeGuestCall} from '../public-check/guest-budget.mjs';
 import {observeProvider,logEvent} from '../providers/diagnostics.mjs';
 import {workerConfiguration} from './config-check.mjs';
 import { scanProfileDDL } from '../migrate.mjs';
@@ -43,7 +44,7 @@ async function recordObservation({scan,prompt,provider,result}){
  if(result.raw){try{rawKey=await storeRawJson(scan.id,provider,prompt.id,result.raw)}catch(err){console.warn('Raw provider storage failed:',errorMessage(err))}}
  await sql(`INSERT INTO observations (id,scan_id,prompt_id,provider,provider_status,model,answer_text,citations_json,own_domain_cited,brand_mentioned,recommended,raw_storage_key,usage_json,observed_at,error) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(scan_id,prompt_id,provider) DO UPDATE SET provider_status=excluded.provider_status,model=excluded.model,answer_text=excluded.answer_text,citations_json=excluded.citations_json,own_domain_cited=excluded.own_domain_cited,brand_mentioned=excluded.brand_mentioned,recommended=excluded.recommended,raw_storage_key=excluded.raw_storage_key,usage_json=excluded.usage_json,observed_at=excluded.observed_at,error=excluded.error`,[uuid(),scan.id,prompt.id,provider,result.status,result.model||models[provider]||'',String(result.answer||'').slice(0,15000),JSON.stringify(citations),+e.ownCitation,+e.mentioned,+e.recommended,rawKey,JSON.stringify({...result.meta,...(scan.profile?{methodology:METHODOLOGY,matched_aliases:e.matched_aliases}:{} )}).slice(0,6000),Date.now(),result.error||null]);
 }
-async function executeOne(provider,prompt,scan){
+async function executeOne(provider,prompt,scan,{guest=false}={}){
  const existing=await one('SELECT provider_status FROM observations WHERE scan_id=? AND prompt_id=? AND provider=?',[scan.id,prompt.id,provider]);
  if(existing)return; // Immutable observations per scan; no silent re-measure on retry.
  const skip=async(status,reason)=>{
@@ -52,8 +53,20 @@ async function executeOne(provider,prompt,scan){
  };
  if(!routes[provider])return skip('unconfigured','PROVIDER_DISABLED');
  if(!routeAvailable(provider,routes[provider]))return skip('unconfigured','MISSING_CREDENTIAL');
- if(!await reserveQuickCall(await getDb(),{scanId:scan.id,provider,daily:CONFIG.maxDailyProviderCalls,perRun:CONFIG.maxProviderCalls}))return skip('budget_blocked','BUDGET_EXHAUSTED');
- const result=await observeProvider({provider,route:routes[provider],timeoutMs:CONFIG.httpTimeoutMs,ids:{scan_id:scan.id,prompt_id:prompt.id},call:()=>callRoute(provider,prompt.prompt_text,routes[provider],CONFIG.httpTimeoutMs,scan.profile||{})});
+ let result;
+ if(guest){
+  // Guests must hold a monetary reservation before any provider request.
+  let refused=null;
+  result=await observeProvider({provider,route:routes[provider],timeoutMs:CONFIG.httpTimeoutMs,ids:{scan_id:scan.id,prompt_id:prompt.id},call:async()=>{
+   const r=await executeGuestCall({db:await getDb(),scanId:scan.id,provider,promptId:prompt.id,prompt:prompt.prompt_text,route:routes[provider],context:scan.profile||{},env:process.env,timeoutMs:CONFIG.httpTimeoutMs,dailyCalls:CONFIG.maxDailyProviderCalls,maxCalls:Math.min(CONFIG.maxProviderCalls,GUEST_MAX_CALLS_PER_SCAN)});
+   if(!r.reserved){refused=r.reason;return {status:'budget_blocked',error:r.reason,meta:{failure_code:r.reason}};}
+   return r.result;
+  }});
+  if(refused)return skip('budget_blocked',refused);
+ }else{
+  if(!await reserveQuickCall(await getDb(),{scanId:scan.id,provider,daily:CONFIG.maxDailyProviderCalls,perRun:CONFIG.maxProviderCalls}))return skip('budget_blocked','BUDGET_EXHAUSTED');
+  result=await observeProvider({provider,route:routes[provider],timeoutMs:CONFIG.httpTimeoutMs,ids:{scan_id:scan.id,prompt_id:prompt.id},call:()=>callRoute(provider,prompt.prompt_text,routes[provider],CONFIG.httpTimeoutMs,scan.profile||{})});
+ }
  // A persistence failure is a scan failure, never a replacement provider failure.
  await recordObservation({scan,prompt,provider,result});
  logEvent('evidence_saved',{scan_id:scan.id,prompt_id:prompt.id,provider});
@@ -86,7 +99,7 @@ async function processJob(scan){
     if(stop)throw new Error('Worker shutdown');
     // Lease is refreshed before every provider call to support long-lived scans.
     await sql('UPDATE scan_jobs SET lease_expires=? WHERE id=? AND lock_owner=?',[Date.now()+CONFIG.leaseMs,scan.id,workerId]);
-    await executeOne(provider,prompt,scan);
+    await executeOne(provider,prompt,scan,{guest:!platform});
   }}
   const success=await one('SELECT COUNT(*) as n FROM observations WHERE scan_id=? AND provider_status=?',[scan.id,'success']);
   const status=Number(success.n)>0?'completed':'no_measurements';

@@ -3,7 +3,7 @@ import http from 'node:http';
 import { appRoute, isAppPath } from '../app/http.mjs';
 import {publicCheckHttp} from '../public-check/http.mjs';
 import { CONFIG, hasDbConfig, providerAvailable } from '../common/config.mjs';
-import {publicProviders} from '../providers/routing.mjs';
+import {readyPublicProviders} from '../public-check/guest-budget.mjs';
 import { scanLimitError } from '../common/scan-limits.mjs';
 import { sql, one, getDb } from '../common/db.mjs';
 import { migrate,scanProfileDDL } from '../migrate.mjs';
@@ -78,18 +78,22 @@ async function route(req,res){
  if(method==='POST' && pathname==='/v1/scans/preview'){
   if(origin && !isAllowedOrigin(origin,CONFIG.allowedOrigins))return json(res,403,{error:'Origin not permitted'});
   if(!String(req.headers['content-type']||'').startsWith('application/json'))return json(res,415,{error:'Content-Type must be application/json'});
+  const providers=await readyPublicProviders(await getDb(),CONFIG,process.env);
+  if(!providers.length)return json(res,503,{error:'Free check temporarily unavailable',code:'PUBLIC_CHECK_UNAVAILABLE'});
   const profile=validateProfile(await readBody(req));
-  return json(res,200,{profile,prompts:confirmedPrompts(profile,CONFIG.scanPrompts),providers:publicProviders(CONFIG),methodology:METHODOLOGY,paid_calls:0});
+  return json(res,200,{profile,prompts:confirmedPrompts(profile,CONFIG.scanPrompts),providers,methodology:METHODOLOGY,paid_calls:0});
  }
  if(method==='POST' && pathname==='/v1/scans'){
   if(!schemaReady)return json(res,503,{error:'Database schema is not ready',code:'SCHEMA_NOT_READY'});
   if(origin && !isAllowedOrigin(origin,CONFIG.allowedOrigins))return json(res,403,{error:'Origin not permitted'});
   if(!String(req.headers['content-type']||'').startsWith('application/json'))return json(res,415,{error:'Content-Type must be application/json'});
   if(!process.env.RATE_LIMIT_SECRET || process.env.RATE_LIMIT_SECRET.length<24)return json(res,503,{error:'RATE_LIMIT_SECRET must be configured before public scans'});
+  const providers=await readyPublicProviders(await getDb(),CONFIG,process.env);
+  if(!providers.length)return json(res,503,{error:'Free check temporarily unavailable',code:'PUBLIC_CHECK_UNAVAILABLE'});
   const body=await readBody(req);
   if(body.profile_confirmed!==true||body.methodology!==METHODOLOGY)return json(res,422,{error:'Confirm your brand, category and question preview before scanning',code:'PROFILE_CONFIRMATION_REQUIRED'});
   const profile=validateProfile(body),domain=profile.domain,brand=profile.brand_name;
-  const snapshot={...profile,providers:publicProviders(CONFIG),prompt_count:CONFIG.scanPrompts,methodology:METHODOLOGY,confirmed_at:Date.now()};
+  const snapshot={...profile,providers,prompt_count:CONFIG.scanPrompts,methodology:METHODOLOGY,confirmed_at:Date.now()};
   const session=await getSession(req);
   const fingerprint=rateFingerprint(req), cutoff24=Date.now()-86400000,cutoff7=Date.now()-7*86400000;
   const recent=await one('SELECT COUNT(*) AS count FROM rate_events WHERE fingerprint=? AND requested_at>?',[fingerprint,cutoff24]);
