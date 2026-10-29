@@ -1,6 +1,7 @@
 import { toHostname, sanitizeText } from './utils.mjs';
 export const collectionMethodVersion = 'complete-answer-visibility-v2';
 export const mistralCollectionMethodVersion = 'mistral-concise-search-v1';
+export const deepseekCollectionMethodVersion = 'deepseek-throughput-4096-v1';
 export const apiObservationVersion = 'api-occurrence-evidence-v1';
 export const legacyMetricVersion = 'neutral-valid-weighted-v2-citation-coverage';
 export const completeAnswerMetricVersion = 'neutral-complete-answer-weighted-v3';
@@ -18,9 +19,9 @@ export const methodFor = (snapshot={}, e={}) => {
  if(collectionSurface(e,snapshot)==='consumer_web')return 'consumer-original-v1';
  // Persist the actual request profile; older evidence without it stays historical.
  const method=e.meta?.collection_method||snapshot.routes?.find(r=>r.provider===e.provider)?.collection_method;
- return method===mistralCollectionMethodVersion?method:snapshot.collectionMethod||'citation-required-v1';
+ return [mistralCollectionMethodVersion,deepseekCollectionMethodVersion].includes(method)?method:snapshot.collectionMethod||'citation-required-v1';
 };
-const completeAnswerMethod=method=>[collectionMethodVersion,mistralCollectionMethodVersion].includes(method);
+const completeAnswerMethod=method=>[collectionMethodVersion,mistralCollectionMethodVersion,deepseekCollectionMethodVersion].includes(method);
 export const metricsFor = (snapshot={}, e={}) => completeAnswerMethod(methodFor(snapshot,e)) ? completeAnswerMetricVersion : legacyMetricVersion;
 
 /** Reconcile only explicitly opted-in API observations. Never upgrade legacy or consumer evidence. */

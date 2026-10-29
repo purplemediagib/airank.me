@@ -11,11 +11,13 @@ import {observeProvider,resultDetails,logEvent} from '../providers/diagnostics.m
 import {isCollectorRoute} from '../collectors/config.mjs';
 import {createCollectionRunner} from '../collectors/runner.mjs';
 import {providerDailyLimit} from '../common/daily-limits.mjs';
+import {providerConcurrency} from './provider-concurrency.mjs';
 
 // Persistent state machine: queued -> executing -> recorded -> done.
 // An expired executing lease WITHOUT a receipt is ambiguous and is NEVER replayed.
 export function createMonitoringEngine({db,env=process.env,now=Date.now,call=callRoute,available=routeAvailable,storeEvidence,logger=logEvent,collectorClient}){
  const concurrency=setting(env,'MONITORING_CONCURRENCY',2,1,8);
+ const providerLimits=providerConcurrency(env);
  const timeout=setting(env,'MONITORING_PROVIDER_TIMEOUT_MS',120000,10,600000);
  const daily=providerDailyLimit(env);
  const buffered=new Map();
@@ -65,9 +67,12 @@ export function createMonitoringEngine({db,env=process.env,now=Date.now,call=cal
   }
  });
  const claim=()=>transaction(db,async tx=>{
-  const running=Number((await one(tx,"SELECT COUNT(*) n FROM mon_tasks WHERE status IN ('executing','collecting')")).n);
+  const active=(await exec(tx,"SELECT provider,COUNT(*) n FROM mon_tasks WHERE status IN ('executing','collecting') GROUP BY provider")).rows;
+  const running=active.reduce((sum,r)=>sum+Number(r.n),0);
   if(running>=concurrency)return null;
-  const t=await one(tx,`SELECT t.*,r.snapshot,r.deadline_at,r.project_id,r.created_at AS run_created_at FROM mon_tasks t JOIN mon_runs r ON r.id=t.run_id WHERE t.status='queued' AND r.deadline_at>? ORDER BY r.created_at,t.id LIMIT 1`,[now()]);
+  const saturated=active.filter(r=>Number(r.n)>=(providerLimits[r.provider]??providerLimits.default)).map(r=>r.provider);
+  const exclude=saturated.length?`AND t.provider NOT IN (${saturated.map(()=>'?').join(',')})`:'';
+  const t=await one(tx,`SELECT t.*,r.snapshot,r.deadline_at,r.project_id,r.created_at AS run_created_at FROM mon_tasks t JOIN mon_runs r ON r.id=t.run_id WHERE t.status='queued' AND r.deadline_at>? ${exclude} ORDER BY r.created_at,t.id LIMIT 1`,[now(),...saturated]);
   if(!t)return null;
   const snapshot=JSON.parse(t.snapshot);
   const project=await one(tx,'SELECT status FROM app_projects WHERE id=?',[t.project_id]);

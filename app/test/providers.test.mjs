@@ -104,7 +104,7 @@ test('Google AI Overview does not retry permanent errors, valid empty SERPs or a
    const r=await googleAioSearch('Kysy',{catalog,sleep:()=>assert.fail('must not wait')});
    assert.equal(calls,1);assert.equal(r.status,code===20000?'no_overview':'failed');
   }
-  for(const status of [401,402,429,503]){
+  for(const status of [401,402,503]){
    let calls=0;globalThis.fetch=async()=>{calls++;return new Response('{}',{status});};
    await assert.rejects(googleAioSearch('Kysy',{catalog,sleep:()=>assert.fail('must not retry HTTP errors')}));
    assert.equal(calls,1);

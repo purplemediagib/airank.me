@@ -1,4 +1,4 @@
-import {requestJson,urlsUnique,promptContext} from './common.mjs';
+import {requestJson,requestMeta,urlsUnique,promptContext} from './common.mjs';
 import {apiObservation,responseOccurrences} from '../common/observations.mjs';
 
 // Only structured, provider-returned evidence is accepted, never URLs inferred
@@ -23,7 +23,7 @@ export function normalizeGroundedResponse(j,{model,surface,searchResults=false})
   model:j.model||model,answer,citations,
   observation:apiObservation({complete:complete&&!!answer,occurrences:responseOccurrences(blocks)}),
   error:!complete?'Provider response did not complete':!answer?'Provider returned no textual answer':null,
-  meta:{response_id:j.id,response_status:j.status,usage:j.usage||null,measurement_surface:surface,
+  meta:{...requestMeta(j),response_id:j.id,response_status:j.status,usage:j.usage||null,measurement_surface:surface,
    citation_scope:searchResults?'provider search results and inline citations':'inline citations'},
   raw:j
  };

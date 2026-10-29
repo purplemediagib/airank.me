@@ -1,4 +1,4 @@
-import { requestJson,urlsUnique,promptContext } from './common.mjs';
+import { requestJson,requestMeta,urlsUnique,promptContext } from './common.mjs';
 import {providerFailure} from './diagnostics.mjs';
 import {apiObservation} from '../common/observations.mjs';
 export function claudeOutputBudget(env=process.env){
@@ -41,5 +41,5 @@ export async function claudeSearch(prompt,{model='claude-sonnet-4-5',timeoutMs=6
  const occurrences=blocks.flatMap((block,blockIndex)=>(block.citations||[]).filter(a=>a.url)
   .map(a=>({url:a.url,title:a.title,blockIndex,provenance:'provider_inline_annotation'})));
  const usage={responses:Object.fromEntries(responses.map((r,i)=>['response_'+i,r.usage||{}]))};
- return {status:!complete?'incomplete':citations.length?'success':'no_grounding',model:j.model||model,answer,citations,observation:apiObservation({complete,occurrences}),meta:{response_id:j.id,usage:responses.length>1?usage:j.usage||null,stop_reason:j.stop_reason,max_tokens_requested:outputLimit,continuations:responses.length-1,...(!complete?{failure_code:continuationFailure||(j.stop_reason==='max_tokens'?'OUTPUT_TOKEN_LIMIT':toolFailed?'WEB_SEARCH_FAILED':j.stop_reason==='pause_turn'?'CONTINUATION_LIMIT':!answer?'EMPTY_ANSWER':'INCOMPLETE_RESPONSE')}:{})},raw:responses.length>1?{responses}:j};
+ return {status:!complete?'incomplete':citations.length?'success':'no_grounding',model:j.model||model,answer,citations,observation:apiObservation({complete,occurrences}),meta:{request_attempts:responses.reduce((n,r)=>n+(requestMeta(r).request_attempts||1),0),rate_limit_retries:responses.reduce((n,r)=>n+(requestMeta(r).rate_limit_retries||0),0),response_id:j.id,usage:responses.length>1?usage:j.usage||null,stop_reason:j.stop_reason,max_tokens_requested:outputLimit,continuations:responses.length-1,...(!complete?{failure_code:continuationFailure||(j.stop_reason==='max_tokens'?'OUTPUT_TOKEN_LIMIT':toolFailed?'WEB_SEARCH_FAILED':j.stop_reason==='pause_turn'?'CONTINUATION_LIMIT':!answer?'EMPTY_ANSWER':'INCOMPLETE_RESPONSE')}:{})},raw:responses.length>1?{responses}:j};
 }

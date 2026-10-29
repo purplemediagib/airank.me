@@ -1,6 +1,6 @@
 import {consumerRoutes} from '../collectors/config.mjs';
 import {isMistral} from './openrouter-policy.mjs';
-import {mistralCollectionMethodVersion} from '../common/observations.mjs';
+import {mistralCollectionMethodVersion,deepseekCollectionMethodVersion} from '../common/observations.mjs';
 // Guest routes stay API-only. Consumer selection is restricted to tracked monitoring.
 export const monitoringRoutesFromEnv=(env=process.env)=>consumerRoutes(env,routesFromEnv(env));
 // No secrets in route descriptors: these are persisted in benchmark snapshots.
@@ -25,7 +25,7 @@ export function routesFromEnv(env=process.env){
  else if(p==='google_aio')routes[p]={transport:'dataforseo',model:'Google AI Overviews / desktop SERP'};
  else{if(p==='copilot')throw Error('Consumer Copilot is deferred; an OpenRouter model is not Copilot');
  const model=map[p];if(!model||!/^[-\w.]+\/[-\w.]+$/.test(model)||/^(openai|anthropic|openrouter)\//.test(model))throw Error('Configure an explicit non-OpenAI/non-Anthropic OpenRouter model for '+p);
- routes[p]={transport:'openrouter',model,search_engine:engines[p]||engine,...(isMistral(model)?{collection_method:mistralCollectionMethodVersion}:{})};}
+ routes[p]={transport:'openrouter',model,search_engine:engines[p]||engine,...(isMistral(model)?{collection_method:mistralCollectionMethodVersion}:/^deepseek\//.test(model)?{collection_method:deepseekCollectionMethodVersion}:{})};}
  }
  if(!enabled.length)throw Error('Enable at least one provider');return routes;
 }

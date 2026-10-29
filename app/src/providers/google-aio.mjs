@@ -1,10 +1,11 @@
-import { requestJson,urlsUnique } from './common.mjs';
+import { requestJson,requestMeta,urlsUnique } from './common.mjs';
 import {apiObservation} from '../common/observations.mjs';
 import {localeCatalog,selectSerpContext} from './dataforseo-context.mjs';
 export const googleAioMaxRequests=2;
 const retryDelayMs=4000;
 // Explicit supplier failures only: never replay ambiguous transport timeouts,
-// authentication/payment/rate limits, invalid input or 50100 (not implemented).
+// authentication/payment/supplier rate limits, invalid input or 50100. Explicit
+// HTTP 429 rejection retries are handled separately by requestJson.
 const transient=code=>[40101,50000,50001,50301,50302,50303,50401,50402].includes(code);
 function extractText(items){
  const buf=[];const visit=(x,depth=0)=>{
@@ -31,18 +32,19 @@ export async function googleAioSearch(prompt,{timeoutMs=60000,context={},catalog
  const model='Google AI Overviews / desktop SERP';
  if(!locale)return {status:'unsupported_context',model,answer:'',citations:[],error:'DataForSEO does not support this requested market/language',meta:{context}};
  const body=[{keyword:prompt,location_code:locale.location_code,language_code:locale.language_code,device:'desktop',depth:10,load_async_ai_overview:true}];
- let attempts=0,cost=null,initialCode=null;
- const attemptMeta=()=>({request_attempts:attempts,cost,...(initialCode!==null?{initial_upstream_error_code:String(initialCode)}:{})});
+ let attempts=0,httpAttempts=0,rateLimitRetries=0,cost=null,initialCode=null;
+ const attemptMeta=()=>({request_attempts:httpAttempts,rate_limit_retries:rateLimitRetries,cost,...(initialCode!==null?{initial_upstream_error_code:String(initialCode)}:{})});
  const call=async()=>{
   const remaining=Math.floor(deadline-now());
   if(remaining<=0)throw new DOMException('Provider deadline reached','TimeoutError');
   attempts++;
   try{
    const result=await requestJson('https://api.dataforseo.com/v3/serp/google/organic/live/advanced',{headers,timeoutMs:remaining,redactErrors:true,body});
+   httpAttempts+=requestMeta(result).request_attempts||1;rateLimitRetries+=requestMeta(result).rate_limit_retries||0;
    const charged=result.tasks?.[0]?.cost??result.cost;
    if(typeof charged==='number'&&Number.isFinite(charged)&&charged>=0)cost=(cost??0)+charged;
    return result;
-  }catch(error){error.providerMeta={...error.providerMeta,...attemptMeta()};throw error;}
+  }catch(error){httpAttempts+=error.providerMeta?.request_attempts||1;rateLimitRetries+=error.providerMeta?.rate_limit_retries||0;error.providerMeta={...error.providerMeta,...attemptMeta()};throw error;}
  };
  let j=await call();
  const code=Number(j.tasks?.[0]?.status_code??j.status_code);

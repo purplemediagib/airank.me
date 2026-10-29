@@ -1,4 +1,4 @@
-import { requestJson,urlsUnique,promptContext } from './common.mjs';
+import { requestJson,requestMeta,urlsUnique,promptContext } from './common.mjs';
 import {apiObservation,responseOccurrences} from '../common/observations.mjs';
 export async function openaiSearch(prompt,{model='gpt-4.1-mini',timeoutMs=60000,context={},budget}={}){
  const j=await requestJson('https://api.openai.com/v1/responses',{headers:{authorization:'Bearer '+process.env.OPENAI_API_KEY},timeoutMs,body:{model,input:promptContext(prompt,context),tools:[{type:'web_search'}],tool_choice:'required',max_output_tokens:budget?.maxTokens??1250,...(budget?{max_tool_calls:budget.maxSearches}:{})}});
@@ -13,5 +13,5 @@ export async function openaiSearch(prompt,{model='gpt-4.1-mini',timeoutMs=60000,
   (j.output||[]).filter(x=>['message','web_search_call'].includes(x.type)).every(x=>!x.status||x.status==='completed')&&!blocks.some(x=>x.type==='refusal');
  return {status:!complete?'incomplete':citations.length?'success':'no_grounding',model:j.model||model,answer,citations,
   observation:apiObservation({complete,occurrences:responseOccurrences(blocks)}),
-  meta:{response_id:j.id,response_status:j.status,tool_calls:searchCalls.length,usage:j.usage||null},raw:j};
+  meta:{...requestMeta(j),response_id:j.id,response_status:j.status,tool_calls:searchCalls.length,usage:j.usage||null},raw:j};
 }

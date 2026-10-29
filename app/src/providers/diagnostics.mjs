@@ -16,7 +16,7 @@ export function safeProviderMeta(meta={}){
  for(const key of ['transport','requested_model','returned_model','upstream_provider','response_id','request_id','task_id','response_status','finish_reason','stop_reason','failure_code','upstream_error_code','initial_upstream_error_code','search_engine_requested','search_engine_actual','measurement_surface','citation_scope','collection_method']){
   const v=text(meta[key]);if(v!==null)out[key]=v;
  }
- for(const key of ['http_status','max_tokens_requested','tool_calls','duration_ms','continuations','cost','request_attempts'])if(Number.isFinite(meta[key]))out[key]=meta[key];
+ for(const key of ['http_status','max_tokens_requested','tool_calls','duration_ms','continuations','cost','request_attempts','rate_limit_retries'])if(Number.isFinite(meta[key]))out[key]=meta[key];
  if(typeof meta.overview_loaded==='boolean')out.overview_loaded=meta.overview_loaded;
  for(const key of ['context','serp_context'])if(meta[key]){
   const context={};for(const field of ['market','language','country_iso_code','language_code','location_name']){const v=text(meta[key][field]);if(v!==null)context[field]=v;}
