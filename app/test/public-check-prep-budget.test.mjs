@@ -17,6 +17,8 @@ import {maxHttpAttempts} from '../src/providers/rate-limit.mjs';
 import {fixtureGuestBudget} from './guest-budget-fixture.mjs';
 import {fixtureBudgetConfig} from './api-budget-fixture.mjs';
 
+const captchaEnv={TURNSTILE_SITE_KEY:'fixture-site',TURNSTILE_SECRET_KEY:'fixture-secret',TURNSTILE_ALLOWED_HOSTNAMES:'app.example.test'};
+const captchaFetch=async()=>new Response(JSON.stringify({success:true,action:'public_check',hostname:'app.example.test',challenge_ts:new Date(1791900000000).toISOString()}));
 const secret='isolated-fixture-secret-never-a-real-credential-48';
 const MODEL='gpt-4.1-mini';
 // Synthetic prices exclusively for offline tests; never production values.
@@ -27,7 +29,7 @@ function budget({preparation={},...caps}={}){
  for(const k of Object.keys(preparation))if(preparation[k]===undefined)delete g.preparation[k];
  return JSON.stringify(g);
 }
-const baseEnv={OPENROUTER_API_KEY:'fixture-only',PUBLIC_CHECK_ENABLED:'true',PUBLIC_CHECK_PROXY_SECRET:secret,RATE_LIMIT_SECRET:secret,WEBSITE_PROFILE_ENABLED:'true',
+const baseEnv={...captchaEnv,OPENROUTER_API_KEY:'fixture-only',PUBLIC_CHECK_ENABLED:'true',PUBLIC_CHECK_PROXY_SECRET:secret,RATE_LIMIT_SECRET:secret,WEBSITE_PROFILE_ENABLED:'true',
  FIRECRAWL_API_KEY:'fixture-only',OPENAI_API_KEY:'fixture-only',ENABLED_PROVIDERS:'openai,gemini'};
 const config={enabledProviders:['openai','gemini'],scanPrompts:3};
 const site={website:'https://www.example.fi',market:'FI',language:'fi'};
@@ -48,7 +50,7 @@ async function fixture(env={}){
  // Mirrors scrapeWebsite's contract (reserve, then one request) without DNS.
  const scrape=async(_input,io)=>{if(io.reserve)await io.reserve({stage:'scrape'});net.scrape++;return {text:'Example Oy provides accounting services for small companies in Finland. '.repeat(3),source:'https://www.example.fi/'};};
  const fetcher=async()=>{net.openai++;return new Response(JSON.stringify({model:MODEL,choices:[{message:{content:JSON.stringify({brandName:'Example',aliases:['Example Oy'],categoryFi:'tilitoimistopalvelut pienyrityksille'})}}],usage:{prompt_tokens:1,completion_tokens:1}}));};
- const call=(method,path,body,extra={})=>publicCheckService({db,env:fullEnv,config,now:()=>time,fingerprint:digest(extra.visitor||'visitor-a'),method,path:'/v1/public-check'+path,body,deps:{validateWebsite:async()=>({}),scrape,fetcher,...extra.deps},...(extra.env?{env:{...fullEnv,...extra.env}}:{})});
+ const call=(method,path,body,extra={})=>publicCheckService({db,env:fullEnv,config,now:()=>time,fingerprint:digest(extra.visitor||'visitor-a'),method,path:'/v1/public-check'+path,body:{captcha_token:'fixture-token',...body},deps:{captchaFetch,validateWebsite:async()=>({}),scrape,fetcher,...extra.deps},...(extra.env?{env:{...fullEnv,...extra.env}}:{})});
  const prepRows=()=>sqlite.prepare('SELECT stage,reserved_nano_usd n FROM public_check_prep_reservations ORDER BY rowid').all();
  return {db,sqlite,net,call,prepRows,env:fullEnv,advance:ms=>{time+=ms;},get time(){return time;},close:()=>sqlite.close()};
 }
@@ -171,7 +173,7 @@ test('unknown preparation context or excessive input fails before provider dispa
   {model:MODEL,inputUsdPerMillion:0.4,outputUsdPerMillion:1.6},
   {model:MODEL,contextWindowTokens:200000,maxInputBytes:1,inputUsdPerMillion:0.4,outputUsdPerMillion:1.6}
  ]){
-  let calls=0;const env={OPENAI_API_KEY:'fixture-only',PUBLIC_CHECK_BUDGET_CONFIG_JSON:budget({preparation:{identity}})};
+  let calls=0;const env={...captchaEnv,OPENAI_API_KEY:'fixture-only',PUBLIC_CHECK_BUDGET_CONFIG_JSON:budget({preparation:{identity}})};
   await assert.rejects(inferProfile({...site,domain:'www.example.fi'},{text:'x'.repeat(100),source:'https://www.example.fi/'},{env,
    reserve:async req=>prepPlan(req,env),fetcher:async()=>{calls++;throw Error('must not fetch');}}));
   assert.equal(calls,0);

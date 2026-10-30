@@ -14,8 +14,10 @@ import {handleDeliveryWebhook,CONSENT_TEXT} from '../src/public-check/delivery.m
 import {renderReportEmail} from '../src/public-check/email.mjs';
 import {fixtureGuestBudget} from './guest-budget-fixture.mjs';
 import {assertPublicWebsite} from '../src/website-profile/providers.mjs';
+const captchaEnv={TURNSTILE_SITE_KEY:'fixture-site',TURNSTILE_SECRET_KEY:'fixture-secret',TURNSTILE_ALLOWED_HOSTNAMES:'app.example.test'};
+const captchaFetch=async()=>new Response(JSON.stringify({success:true,action:'public_check',hostname:'app.example.test',challenge_ts:new Date(1791900000000).toISOString()}));
 const secret='isolated-fixture-secret-never-a-real-credential-48';
-const env={OPENAI_API_KEY:'fixture-only',OPENROUTER_API_KEY:'fixture-only',PUBLIC_CHECK_ENABLED:'true',PUBLIC_CHECK_PROXY_SECRET:secret,RATE_LIMIT_SECRET:secret,RESEND_API_KEY:'fixture-only',PUBLIC_CHECK_EMAIL_FROM:'reports@example.test',PUBLIC_CHECK_PRIVACY_URL:'https://airank.me/privacy',RESEND_MARKETING_SEGMENT_ID:'fixture-segment'};
+const env={...captchaEnv,OPENAI_API_KEY:'fixture-only',OPENROUTER_API_KEY:'fixture-only',PUBLIC_CHECK_ENABLED:'true',PUBLIC_CHECK_PROXY_SECRET:secret,RATE_LIMIT_SECRET:secret,RESEND_API_KEY:'fixture-only',PUBLIC_CHECK_EMAIL_FROM:'reports@example.test',PUBLIC_CHECK_PRIVACY_URL:'https://airank.me/privacy',RESEND_MARKETING_SEGMENT_ID:'fixture-segment'};
 env.PUBLIC_CHECK_BUDGET_CONFIG_JSON=fixtureGuestBudget(env);
 const config={enabledProviders:['openai','gemini'],scanPrompts:3};
 const profile={domain:'www.example.fi',brand_name:'EXAMPLE',aliases:[],category_fi:'business accounting services',market:'FI',language:'en'};
@@ -28,8 +30,8 @@ async function fixture(){
  for(const sql of migrations)sqlite.exec(sql);
  sqlite.exec('CREATE TABLE app_migrations(id TEXT PRIMARY KEY,checksum TEXT NOT NULL,applied_at TEXT NOT NULL)');
  await migratePublicCheck(db);await migratePublicCheckBudget(db);await migratePublicCheckPrepBudget(db);let time=1791900000000;
- const options={db,env,config,now:()=>time,fingerprint:digest('fixture-visitor'),deps:{validateWebsite:async()=>({})}};
- const call=async(method,suffix,body,extra={})=>(await publicCheckService({...options,method,path:'/v1/public-check'+suffix,body,...extra})).data;
+ const options={db,env,config,now:()=>time,fingerprint:digest('fixture-visitor'),deps:{captchaFetch,validateWebsite:async()=>({})}};
+ const call=async(method,suffix,body,extra={})=>(await publicCheckService({...options,method,path:'/v1/public-check'+suffix,body:{captcha_token:'fixture-token',...body},...extra})).data;
  async function start(extra={},identity=profile){
   const preview=await call('POST','/preview',identity,extra);
   const body={...preview.profile,preview_hash:preview.preview_hash,methodology:preview.methodology,profile_confirmed:true,submission_id:randomUUID()};
@@ -158,10 +160,12 @@ test('actual public HTTP entrypoint returns usable preview/start/status without 
  try{
   const base=`http://127.0.0.1:${server.address().port}`;
   const req=async(method,suffix,data,token)=>{
-   const path='/v1/public-check'+suffix,body=data?JSON.stringify(data):'',time=String(Date.now()),address='203.0.113.5',fingerprint=mac(address,secret);
+   const path='/v1/public-check'+suffix,body=data?JSON.stringify({captcha_token:'fixture-token',...data}):'',time=String(Date.now()),address='203.0.113.5',fingerprint=mac(address,secret);
    return fetch(base+path,{method,headers:{'Content-Type':'application/json','X-Check-Address':address,'X-Check-Time':time,'X-Check-Visitor':fingerprint,'X-Check-Proof':mac([method,path,time,fingerprint,digest(body)].join('\n'),secret),...(token?{'X-Scan-Token':token}:{})},...(body?{body}:{})});
   };
   assert.equal((await fetch(base+'/v1/public-check/preview',{method:'POST',body:'{}'})).status,403);
+  const rejected=await req('POST','/preview',{...profile,captcha_token:''});assert.equal(rejected.status,403);assert.equal((await rejected.json()).error.code,'CAPTCHA_REQUIRED');
+  assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM public_check_drafts').get().n,0);
   const previewResponse=await req('POST','/preview',profile);assert.equal(previewResponse.status,200);const preview=await previewResponse.json();
   const start=await req('POST','/scans',{...preview.profile,methodology:preview.methodology,preview_hash:preview.preview_hash,profile_confirmed:true,submission_id:randomUUID()});assert.equal(start.status,202);
   const scan=await start.json(),status=await req('GET','/scans/'+scan.id,null,scan.scan_token);assert.equal(status.status,200);assert.match(status.headers.get('x-robots-tag'),/noindex/);
@@ -185,12 +189,25 @@ test('capabilities disabled when guest budget migration or provider credentials 
 test('existing token-protected results survive provider/budget outage while new jobs fail closed',async()=>{
  const f=await fixture();try{
   const {scan}=await f.start();f.finish(scan);
-  const outage={env:{...env,PUBLIC_CHECK_BUDGET_CONFIG_JSON:'',OPENAI_API_KEY:'',OPENROUTER_API_KEY:''}};
+  const outage={env:{...env,PUBLIC_CHECK_BUDGET_CONFIG_JSON:'',OPENAI_API_KEY:'',OPENROUTER_API_KEY:'',TURNSTILE_SECRET_KEY:''}};
   f.sqlite.prepare("DELETE FROM app_migrations WHERE id IN ('app-023-public-check-api-reservations','app-024-public-check-prep-reservations')").run();
   const report=await f.call('GET','/scans/'+scan.id,undefined,{...outage,scanToken:scan.scan_token});
   assert.equal(report.id,scan.id);
   await assert.rejects(f.call('GET','/scans/'+scan.id,undefined,{...outage,scanToken:'wrong-token'}),e=>[401,403,404].includes(e.status));
   await assert.rejects(f.call('POST','/preview',profile,outage),e=>e.status===503);
   await assert.rejects(f.call('POST','/scans',{},outage),e=>e.status===503);
+ }finally{f.close();}
+});
+
+test('CAPTCHA failure on every preparation and queue route prevents DNS, provider calls and writes',async()=>{
+ const f=await fixture();try{
+  let network=0;
+  const deps={validateWebsite:async()=>{network++;},scrape:async()=>{network++;},generate:async()=>{network++;},captchaFetch:async()=>new Response(JSON.stringify({success:false,'error-codes':['timeout-or-duplicate']}))};
+  for(const suffix of ['/prepare','/preview','/scans'])await assert.rejects(f.call('POST',suffix,{...profile,website:'https://example.fi'},{deps}),e=>e.code==='CAPTCHA_FAILED');
+  assert.equal(network,0);
+  for(const table of ['scan_jobs','public_check_drafts','public_check_prep_reservations'])assert.equal(f.sqlite.prepare(`SELECT COUNT(*) n FROM ${table}`).get().n,0);
+  await assert.rejects(f.call('POST','/preview',{...profile,captcha_token:''}),e=>e.code==='CAPTCHA_REQUIRED');
+  const caps=await f.call('GET','/capabilities',undefined,{env:{...env,TURNSTILE_SECRET_KEY:''}});
+  assert.equal(caps.enabled,false);assert.equal(caps.captcha.siteKey,null);assert(!JSON.stringify(caps).includes(captchaEnv.TURNSTILE_SECRET_KEY));
  }finally{f.close();}
 });
