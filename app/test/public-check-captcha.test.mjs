@@ -32,6 +32,6 @@ test('provider single-use verification rejects replay and is never cached locall
 test('legacy public submission gates queue writes while authenticated app dispatch stays separate',async()=>{
  const source=await readFile(new URL('../src/api/server.mjs',import.meta.url),'utf8');
  const legacy=source.slice(source.indexOf("if(method==='POST' && pathname==='/v1/scans')"));
- assert(legacy.indexOf('await verifyCaptcha')<legacy.indexOf("INSERT INTO scan_jobs"));
+ assert(legacy.indexOf('await verifyCaptcha')<legacy.indexOf('await admitLegacyScan'));
  assert(source.indexOf('return appRoute(req,res,url)')<source.indexOf('await verifyCaptcha'));
 });

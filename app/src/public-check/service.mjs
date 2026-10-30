@@ -8,7 +8,7 @@ import {validateProfile} from '../common/scan-profile.mjs';
 import {measurementContext,contextCatalog} from '../common/measurement-context.mjs';
 import {normalizeWebsite} from '../common/website-url.mjs';
 import {assertPublicWebsite,scrapeWebsite,inferProfile} from '../website-profile/providers.mjs';
-import {scanLimitError} from '../common/scan-limits.mjs';
+import {scanLimitError,GUEST_SCANS_PER_DAY,DOMAIN_SCANS_PER_WEEK} from '../common/scan-limits.mjs';
 import {one,exec,fail,transaction,hash,setting} from '../monitoring/shared.mjs';
 import {id,checksum} from './migration.mjs';
 import {digest,seal,unseal,secretReady} from './security.mjs';
@@ -62,7 +62,7 @@ export async function publicCheckService({db,method,path,body={},fingerprint,sca
   captcha:{provider:'turnstile',siteKey:captcha.ready?captcha.siteKey:null,action:CAPTCHA_ACTION},
   enabled:ready,emailEnabled:ready&&emailConfigured(env),marketingEnabled:ready&&emailConfigured(env)&&Boolean(env.RESEND_MARKETING_SEGMENT_ID),
   autofillEnabled:ready&&guestAutofillConfigured(env),
-  providers:config.enabledProviders,promptCount:config.scanPrompts,...contextCatalog(),limits:{guestScansPerDay:1,domainScansPerWeek:5}
+  providers:config.enabledProviders,promptCount:config.scanPrompts,...contextCatalog(),limits:{guestScansPerDay:GUEST_SCANS_PER_DAY,domainScansPerWeek:DOMAIN_SCANS_PER_WEEK}
  });
  if(!reportReady)fail(503,'APP_NOT_CONFIGURED');
  // Existing token-protected evidence stays readable during provider/budget outages.

@@ -22,7 +22,9 @@ test('authenticated testing bypass never disables anonymous scan caps', () => {
 });
 test('normal guest, authenticated and weekly policies remain intact', () => {
   assert.equal(scanLimitError({recentCount:0, weeklyCount:4}, {}), null);
-  assert.equal(scanLimitError({recentCount:1, weeklyCount:4}, {}).code, 'RATE_LIMIT');
+  assert.equal(scanLimitError({recentCount:1, weeklyCount:4}, {}), null);
+  assert.equal(scanLimitError({recentCount:2, weeklyCount:4}, {}).code, 'RATE_LIMIT');
+  assert.equal(scanLimitError({recentCount:2, weeklyCount:4, authenticated:true}, {}), null);
   assert.equal(scanLimitError({recentCount:1, weeklyCount:4, authenticated:true}, {}), null);
   assert.equal(scanLimitError({recentCount:1, weeklyCount:5, authenticated:true}, {}).code, 'DOMAIN_RATE_LIMIT');
 });
