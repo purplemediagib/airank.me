@@ -13,3 +13,7 @@
 !test_scheduler.py
 !accounting.py
 !test_accounting.py
+
+!qualification.py
+!test_qualification.py
+!manifest_BOOTSTRAP_TEMPLATE.json

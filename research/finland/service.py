@@ -218,6 +218,9 @@ def perform(args):
         return {'initialized':True,'study_id':args.study_id,'remote_marker_verified':True,'paid_calls':0}
     remote.verify_marker(m['study_id'])
     remote.verify_head(args.data_dir)
+    if args.mode=='diagnostic_batch':
+        import qualification
+        return qualification.run(args.data_dir,m,remote)
     if args.mode=='scheduled':
         import scheduler
         return scheduler.run(args.data_dir,m,remote)
@@ -238,7 +241,7 @@ def health_bind():
 
 def main():
     os.umask(0o077)
-    ap=argparse.ArgumentParser();ap.add_argument('mode',choices=['idle','preflight','init','diagnostic','collect','scheduled'],nargs='?',default=os.environ.get('RESEARCH_ACTION','idle'))
+    ap=argparse.ArgumentParser();ap.add_argument('mode',choices=['idle','preflight','init','diagnostic','diagnostic_batch','collect','scheduled'],nargs='?',default=os.environ.get('RESEARCH_ACTION','idle'))
     for flag,env,default in [('data-dir','RESEARCH_DATA_DIR','/data/research'),('study-id','RESEARCH_STUDY_ID',None),('manifest','RESEARCH_MANIFEST_PATH',None),('slot-id','RESEARCH_SLOT_ID',None),('endpoint','RESEARCH_ENDPOINT',None),('intent-id','RESEARCH_INTENT_ID',None),('language','RESEARCH_LANGUAGE',None),('action-id','RESEARCH_ACTION_ID',None)]:
         ap.add_argument('--'+flag,default=os.environ.get(env,default))
     ap.add_argument('--then-idle',action='store_true',default=os.environ.get('RESEARCH_THEN_IDLE')=='1');args=ap.parse_args()
