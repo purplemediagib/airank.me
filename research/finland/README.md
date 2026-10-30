@@ -92,3 +92,8 @@ Implementation/start-tomorrow approval is recorded; it does not prove model bill
 ## Owner budget allocation update — 30 October 20:49 UTC
 
 Owner explicitly approved **$40 total = $38 provider usage + $2 Bunny hosting/storage**. This supersedes earlier $40-provider/separate-hosting text above. Shared StudyLedger is now $38; no old allowance stacks. Owner will enter existing provider keys directly in the research container secure settings. Stop collection and verify private backup at the final block November 6; undeploy compute after verified export. Retained/detached volumes continue charging, so agree retention/deletion after backup rather than leave monthly storage unbounded. Account UI minimum allocation and actual cost must fit the $2 allowance; ask before any higher commitment. No resources provisioned yet.
+
+
+## Bootstrap update
+
+Default Docker command is now the safe, long-running idle service, not tests. Run tests explicitly with `python -m unittest -v`. `service.py init` explicitly provisions an identified mounted ledger; `service.execute_one` binds diagnostic/collection gates to budget, singleflight and backup persistence. No paid CLI or scheduler is enabled. See DEPLOYMENT.md.

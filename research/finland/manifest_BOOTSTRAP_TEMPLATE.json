@@ -1,0 +1,89 @@
+{
+  "study_id": "finland-language-v02",
+  "provider_budget_usd": 38,
+  "hosting_budget_usd": 2,
+  "input_hashes": {
+    "BUDGET.md": "ca96b961d0f26729eb29d42929214746c216ed6961cb82c26ef7b562ed4022a1",
+    "PROTOCOL.md": "afcb94af988b4662f1f4982af9d62b1d78e225eaa88a5c09c9661c8e276a52ef",
+    "budget_assumptions.json": "b128561c0aabe02c82d47cbe0a5f72531a805208950a5137b2525481683982a7",
+    "prompt_pairs.json": "61f92a7e39f94e97913aebec3767ef43e1d790cc19573fbe6ac17dace6c50fb8",
+    "proposed_schedule.json": "13c3f3ff304c43d5d38d0049d78ec9bf741ec08040856c42602468e0d91dc8df",
+    "schedule_v02_openai_kimi_DRAFT.json": "e49a9b367f4558ef2ab2c7e9f3002a4e3f73dd43a4e7f4b75345b30a7b82ad4c"
+  },
+  "owner_execution_approved": true,
+  "diagnostics_approved": true,
+  "storage_access_approved": false,
+  "secure_host_verified": false,
+  "durable_storage_verified": false,
+  "private_backup_verified": false,
+  "all_billable_bounds_verified": true,
+  "finnish_review_signed": false,
+  "protocol_frozen": false,
+  "models_qualified": false,
+  "providers": {
+    "kimi_candidate": {
+      "qualified": false,
+      "all_billable_bound_verified": true,
+      "route": "openrouter",
+      "model": "moonshotai/kimi-k3.1-pro",
+      "provider": "moonshotai/mxfp4",
+      "native_tool_loop_required": false,
+      "reviewed_request_parameters": {
+        "tools": [
+          {
+            "type": "openrouter:web_search",
+            "parameters": {
+              "engine": "exa",
+              "mode": "auto",
+              "max_uses": 2,
+              "max_results": 3,
+              "max_total_results": 6,
+              "max_characters": 1000
+            }
+          }
+        ],
+        "tool_choice": "required",
+        "max_tool_calls": 2,
+        "max_tokens": 1500,
+        "reasoning": {
+          "effort": "low"
+        }
+      },
+      "warning": "Use API alias with recorded canonical endpoint version and pinned moonshotai/mxfp4. Qualification must confirm route, returned identifiers and usage.cost. Never silently switch model/provider; alias alone does not guarantee immutable weights.",
+      "canonical_model_version": "moonshotai/kimi-k3.1-pro-20261023",
+      "qualification_reservation_micro_usd": 35000000,
+      "post_qualification_reservation_micro_usd": 7000000,
+      "diagnostic_route_approved": true,
+      "usage_cost_verified_all_in": true,
+      "bound_evidence": {
+        "endpoint_context_tokens": 1048576,
+        "endpoint_max_completion_tokens": 943718,
+        "max_model_passes": 3,
+        "input_usd_per_million": 2,
+        "output_usd_per_million": 10,
+        "cache_write_usd": 0,
+        "max_search_calls": 2,
+        "search_auto_usd_per_call": 0.007,
+        "initial_envelope_usd": 34.616996,
+        "operational_envelope_usd": 6.350456,
+        "operational_requires_live_qualification": true
+      }
+    },
+    "openai_responses": {
+      "qualified": false,
+      "all_billable_bound_verified": false,
+      "model": "gpt-4.1-mini-2025-04-14",
+      "max_tool_calls": 2,
+      "max_output_tokens": 1500,
+      "tool_choice": "required"
+    }
+  },
+  "verified_bounds": {
+    "kimi_candidate": {
+      "verified": true,
+      "micro_usd": 35000000,
+      "evidence": "OpenRouter endpoint context/max completion and3passes; free Moonshotcachewrites; see provider_candidates_DRAFT sources"
+    }
+  },
+  "frozen_manifest_sha256": "4de7e0c8626dad9ce6e1a5627fca4418cfc3f2d1316884c148119a84bb253786"
+}

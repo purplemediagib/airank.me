@@ -10,9 +10,9 @@
   },
   "kimi_candidate": {
     "qualified": false,
-    "all_billable_bound_verified": false,
+    "all_billable_bound_verified": true,
     "route": "openrouter",
-    "model": "moonshotai/kimi-k3.1-pro-20261023",
+    "model": "moonshotai/kimi-k3.1-pro",
     "provider": "moonshotai/mxfp4",
     "native_tool_loop_required": false,
     "reviewed_request_parameters": {
@@ -36,10 +36,32 @@
         "effort": "low"
       }
     },
-    "warning": "Server-managed Exa loop. Aggregate token cap/loop billing not proven. Field name reviewed_request_parameters is adapter contract, not evidence of qualification."
+    "warning": "Use API alias with recorded canonical endpoint version and pinned moonshotai/mxfp4. Qualification must confirm route, returned identifiers and usage.cost. Never silently switch model/provider; alias alone does not guarantee immutable weights.",
+    "canonical_model_version": "moonshotai/kimi-k3.1-pro-20261023",
+    "qualification_reservation_micro_usd": 35000000,
+    "post_qualification_reservation_micro_usd": 7000000,
+    "diagnostic_route_approved": true,
+    "usage_cost_verified_all_in": true,
+    "bound_evidence": {
+      "endpoint_context_tokens": 1048576,
+      "endpoint_max_completion_tokens": 943718,
+      "max_model_passes": 3,
+      "input_usd_per_million": 2,
+      "output_usd_per_million": 10,
+      "cache_write_usd": 0,
+      "max_search_calls": 2,
+      "search_auto_usd_per_call": 0.007,
+      "initial_envelope_usd": 34.616996,
+      "operational_envelope_usd": 6.350456,
+      "operational_requires_live_qualification": true
+    }
   },
   "sources": [
-    "https://openrouter.ai/docs/guides/features/server-tools/web-search"
+    "https://openrouter.ai/docs/guides/features/server-tools/web-search",
+    "https://platform.kimi.ai/docs/api/chat",
+    "https://openrouter.ai/api/v1/models/moonshotai/kimi-k3.1-pro/endpoints",
+    "https://openrouter.ai/docs/guides/best-practices/prompt-caching#moonshot-ai",
+    "https://openrouter.ai/docs/cookbook/administration/usage-accounting"
   ],
-  "bound_status": "Unknown: no provider marked verified; StudyLedger refuses paid reservation."
+  "bound_status": "Kimi initial35 reserve supported by endpoint maximum and documented fees; operational7 only after qualification; secure host and backup still closed."
 }

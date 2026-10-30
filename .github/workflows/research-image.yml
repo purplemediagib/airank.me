@@ -35,7 +35,7 @@ jobs:
           printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
           trap 'docker logout ghcr.io' EXIT
           docker build --platform linux/amd64 --label "org.opencontainers.image.revision=$REVISION" --tag "$image" research/finland
-          docker run --rm --network none "$image"
+          docker run --rm --network none "$image" python -m unittest -v
           docker push "$image"
           printf '### Research image (offline default; not collection-ready)\n\n`%s`\n' "$image" >> "$GITHUB_STEP_SUMMARY"
 # No cache export, Actions artifact uploads, provider credentials, Bunny deployment,

@@ -5,3 +5,7 @@
 !test_runner.py
 !inputs/
 !inputs/**
+!service.py
+!test_service.py
+!storage.py
+!test_storage.py
