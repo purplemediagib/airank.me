@@ -5,15 +5,19 @@ import {createServer} from 'node:http';
 import {randomUUID,createHmac} from 'node:crypto';
 import {migrations} from '../src/migrate.mjs';
 import {migratePublicCheck} from '../src/public-check/migration.mjs';
+import {migratePublicCheckBudget} from '../src/public-check/budget-migration.mjs';
+import {migratePublicCheckPrepBudget} from '../src/public-check/prep-migration.mjs';
 import {publicCheckService} from '../src/public-check/service.mjs';
 import {publicCheckHttp} from '../src/public-check/http.mjs';
 import {digest,mac,verifyProxy,unseal} from '../src/public-check/security.mjs';
 import {handleDeliveryWebhook,CONSENT_TEXT} from '../src/public-check/delivery.mjs';
 import {renderReportEmail} from '../src/public-check/email.mjs';
+import {fixtureGuestBudget} from './guest-budget-fixture.mjs';
 import {assertPublicWebsite} from '../src/website-profile/providers.mjs';
 const secret='isolated-fixture-secret-never-a-real-credential-48';
-const env={PUBLIC_CHECK_ENABLED:'true',PUBLIC_CHECK_PROXY_SECRET:secret,RATE_LIMIT_SECRET:secret,RESEND_API_KEY:'fixture-only',PUBLIC_CHECK_EMAIL_FROM:'reports@example.test',PUBLIC_CHECK_PRIVACY_URL:'https://airank.me/privacy',RESEND_MARKETING_SEGMENT_ID:'fixture-segment'};
-const config={enabledProviders:['openai','claude'],scanPrompts:3};
+const env={OPENAI_API_KEY:'fixture-only',OPENROUTER_API_KEY:'fixture-only',PUBLIC_CHECK_ENABLED:'true',PUBLIC_CHECK_PROXY_SECRET:secret,RATE_LIMIT_SECRET:secret,RESEND_API_KEY:'fixture-only',PUBLIC_CHECK_EMAIL_FROM:'reports@example.test',PUBLIC_CHECK_PRIVACY_URL:'https://airank.me/privacy',RESEND_MARKETING_SEGMENT_ID:'fixture-segment'};
+env.PUBLIC_CHECK_BUDGET_CONFIG_JSON=fixtureGuestBudget(env);
+const config={enabledProviders:['openai','gemini'],scanPrompts:3};
 const profile={domain:'www.example.fi',brand_name:'EXAMPLE',aliases:[],category_fi:'business accounting services',market:'FI',language:'en'};
 async function fixture(){
  const sqlite=new DatabaseSync(':memory:');sqlite.exec('PRAGMA foreign_keys=ON');
@@ -23,7 +27,7 @@ async function fixture(){
  const db={execute,transaction:async()=>{sqlite.exec('BEGIN IMMEDIATE');return {execute,commit:async()=>sqlite.exec('COMMIT'),rollback:async()=>sqlite.exec('ROLLBACK'),close(){}};}};
  for(const sql of migrations)sqlite.exec(sql);
  sqlite.exec('CREATE TABLE app_migrations(id TEXT PRIMARY KEY,checksum TEXT NOT NULL,applied_at TEXT NOT NULL)');
- await migratePublicCheck(db);let time=1791900000000;
+ await migratePublicCheck(db);await migratePublicCheckBudget(db);await migratePublicCheckPrepBudget(db);let time=1791900000000;
  const options={db,env,config,now:()=>time,fingerprint:digest('fixture-visitor'),deps:{validateWebsite:async()=>({})}};
  const call=async(method,suffix,body,extra={})=>(await publicCheckService({...options,method,path:'/v1/public-check'+suffix,body,...extra})).data;
  async function start(extra={},identity=profile){
@@ -46,7 +50,7 @@ test('expanded dashboard providers do not expand guest preview, queue snapshot o
  const f=await fixture();try{
   const extra={config:{enabledProviders:['openai','claude','gemini','grok','perplexity','google_aio'],scanPrompts:3}};
   const caps=await f.call('GET','/capabilities',undefined,extra);
-  assert.deepEqual(caps.providers,['openai','claude']);
+  assert.deepEqual(caps.providers,['openai','gemini']);
   assert.deepEqual(caps.limits,{guestScansPerDay:1,domainScansPerWeek:5});
   const {scan,preview}=await f.start(extra);
   assert.deepEqual(preview.providers,caps.providers);
@@ -162,4 +166,31 @@ test('actual public HTTP entrypoint returns usable preview/start/status without 
   const start=await req('POST','/scans',{...preview.profile,methodology:preview.methodology,preview_hash:preview.preview_hash,profile_confirmed:true,submission_id:randomUUID()});assert.equal(start.status,202);
   const scan=await start.json(),status=await req('GET','/scans/'+scan.id,null,scan.scan_token);assert.equal(status.status,200);assert.match(status.headers.get('x-robots-tag'),/noindex/);
  }finally{await new Promise(r=>server.close(r));f.close();}
+});
+
+test('capabilities disabled when guest budget migration or provider credentials are missing',async()=>{
+ const f=await fixture();try{
+  assert.equal((await f.call('GET','/capabilities')).enabled,true);
+  const missing={env:{...env,OPENAI_API_KEY:'',OPENROUTER_API_KEY:''}};
+  let caps=await f.call('GET','/capabilities',undefined,missing);
+  assert.equal(caps.enabled,false);assert.deepEqual(caps.providers,[]);
+  await assert.rejects(f.call('POST','/preview',profile,missing),e=>e.status===503);
+  f.sqlite.prepare("DELETE FROM app_migrations WHERE id='app-023-public-check-api-reservations'").run();
+  caps=await f.call('GET','/capabilities');
+  assert.equal(caps.enabled,false);assert.deepEqual(caps.providers,[]);
+  await assert.rejects(f.call('POST','/preview',profile),e=>e.status===503);
+ }finally{f.close();}
+});
+
+test('existing token-protected results survive provider/budget outage while new jobs fail closed',async()=>{
+ const f=await fixture();try{
+  const {scan}=await f.start();f.finish(scan);
+  const outage={env:{...env,PUBLIC_CHECK_BUDGET_CONFIG_JSON:'',OPENAI_API_KEY:'',OPENROUTER_API_KEY:''}};
+  f.sqlite.prepare("DELETE FROM app_migrations WHERE id IN ('app-023-public-check-api-reservations','app-024-public-check-prep-reservations')").run();
+  const report=await f.call('GET','/scans/'+scan.id,undefined,{...outage,scanToken:scan.scan_token});
+  assert.equal(report.id,scan.id);
+  await assert.rejects(f.call('GET','/scans/'+scan.id,undefined,{...outage,scanToken:'wrong-token'}),e=>[401,403,404].includes(e.status));
+  await assert.rejects(f.call('POST','/preview',profile,outage),e=>e.status===503);
+  await assert.rejects(f.call('POST','/scans',{},outage),e=>e.status===503);
+ }finally{f.close();}
 });

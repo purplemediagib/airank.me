@@ -6,12 +6,14 @@ import {googleAioSearch} from './google-aio.mjs';
 import {measurementContext} from '../common/measurement-context.mjs';
 import {isCollectorRoute} from '../collectors/config.mjs';
 import {enforceBudgetInput} from './budget-config.mjs';
-export async function callRoute(provider,prompt,route,timeoutMs,context={}){
+import {GUEST_OPENROUTER_OUTPUT_TOKENS} from './routing.mjs';
+export async function callRoute(provider,prompt,route,timeoutMs,context={},{guest=false}={}){
  if(isCollectorRoute(route))throw Error('Consumer routes require durable monitoring execution');
  context=measurementContext(context);
  const budget=route.api_budget;
  enforceBudgetInput(budget,provider,route,prompt,context);
- const limits=budget?{budget,maxTokens:budget.maxTokens}:{};
+ // Guest scans carry no monetary reservation, so they get a fixed, smaller output cap.
+ const limits=budget?{budget,maxTokens:budget.maxTokens}:guest&&route.transport==='openrouter'?{maxTokens:GUEST_OPENROUTER_OUTPUT_TOKENS}:{};
  if(route.transport==='openrouter')return openrouterSearch(prompt,{model:route.model,searchEngine:route.search_engine,timeoutMs,context,...limits});
  if(route.transport==='dataforseo'&&provider==='google_aio'){
   const r=await googleAioSearch(prompt,{timeoutMs,context,budget});

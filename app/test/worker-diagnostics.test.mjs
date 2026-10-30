@@ -7,7 +7,7 @@ import {workerConfiguration} from '../src/worker/config-check.mjs';
 
 test('public queued snapshots cannot execute extra platforms, authenticated snapshots retain all providers',()=>{
  const providers=['openai','claude','gemini','grok','perplexity','google_aio'];
- assert.deepEqual(providersForScan({requested:providers,enabled:providers,platform:false}),['openai','claude']);
+ assert.deepEqual(providersForScan({requested:providers,enabled:providers,platform:false}),['openai','gemini']);
  assert.deepEqual(providersForScan({requested:providers,enabled:providers,platform:true}),providers);
 });
 test('configuration reveals missing variable names without leaking secrets or database addresses',()=>{

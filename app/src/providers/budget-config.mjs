@@ -20,7 +20,8 @@ export function completionLimit(provider,route,env){
 
 // A full model context allowance includes server-added search content and replay.
 // Prices and that model-specific context ceiling are operator supplied, never inferred.
-export function apiBudgetPlan({provider,route,prompt,context,env}){
+export function apiBudgetPlan({provider,route,prompt,context,env,guest=null}){
+ if(guest)return guestBudgetPlan({provider,route,prompt,context,env,guest});
  const outputTokens=completionLimit(provider,route,env);
  if(!env.API_BUDGET_CONFIG_JSON){
   if(provider==='claude'&&route.transport==='direct'&&outputTokens<=1400)
@@ -70,6 +71,29 @@ export function apiBudgetPlan({provider,route,prompt,context,env}){
  return {version:1,mode:'monetary_reserved',provider,transport:route.transport,model:route.model,
   ...(route.search_engine?{searchEngine:route.search_engine}:{}),dailyNano,reservedNano,
   maxTokens:outputTokens,maxRequests,maxInputBytes,...limits};
+}
+
+// Free (guest) checks use their own operator-supplied price table and caps in
+// PUBLIC_CHECK_BUDGET_CONFIG_JSON. Paid tracking never reads it, and guests never
+// read API_BUDGET_CONFIG_JSON. Missing/invalid config fails closed.
+export function guestBudgetConfig(env){
+ if(!env.PUBLIC_CHECK_BUDGET_CONFIG_JSON)throw Error('PUBLIC_CHECK_BUDGET_NOT_CONFIGURED');
+ let config;try{config=JSON.parse(env.PUBLIC_CHECK_BUDGET_CONFIG_JSON);}catch{invalid();}
+ if(!config||typeof config!=='object'||Array.isArray(config)||!config.routes||typeof config.routes!=='object'||Array.isArray(config.routes))invalid();
+ // Both guest caps are mandatory monetary ceilings; null/zero is never "unlimited".
+ const perScanNano=Math.floor(rate(config.perScanUsd)*NANO_USD),dailyNano=Math.floor(rate(config.dailyUsd)*NANO_USD);
+ if(!Number.isSafeInteger(perScanNano)||perScanNano<=0||!Number.isSafeInteger(dailyNano)||dailyNano<=0||perScanNano>dailyNano)invalid();
+ return {config,perScanNano,dailyNano};
+}
+function guestBudgetPlan({provider,route,prompt,context,env,guest}){
+ if(!guest.providers.includes(provider))throw Error('API_BUDGET_UNBOUNDED_ROUTE');
+ const {config,perScanNano,dailyNano}=guestBudgetConfig(env);
+ const outputTokens=route.transport==='openrouter'?guest.openrouterOutputTokens:completionLimit(provider,route,env);
+ const plan=apiBudgetPlan({provider,route,prompt,context,env:{...env,API_BUDGET_CONFIG_JSON:JSON.stringify({dailyUsd:null,routes:config.routes}),
+  ...(route.transport==='openrouter'?{OPENROUTER_MAX_TOKENS:String(outputTokens)}:{})}});
+ if(plan.mode!=='monetary_reserved')throw Error('API_BUDGET_NOT_CONFIGURED');
+ if(plan.reservedNano>perScanNano)throw Error('API_BUDGET_EXHAUSTED');
+ return {...plan,scope:'public_check',dailyNano,perScanNano};
 }
 
 export function enforceBudgetInput(budget,provider,route,prompt,context){

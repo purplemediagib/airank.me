@@ -3,7 +3,7 @@ import {contextCatalog,measurementContext} from '../common/measurement-context.m
 import {generateContextQuestions} from '../common/context-prompts.mjs';
 import {fail} from '../monitoring/shared.mjs';
 export const PUBLIC_METHODOLOGY='public-confirmed-mentions-v1';
-export async function publicPrompts(profile,count,env,generate=generateContextQuestions){
+export async function publicPrompts(profile,count,env,generate=generateContextQuestions,opts={}){
  const context=measurementContext(profile),market=contextCatalog().markets.find(m=>m.code===context.market).name,c=profile.category_fi;
  let texts;
  if(context.market==='FI'&&context.language==='fi')texts=confirmedPrompts(profile,6);
@@ -16,7 +16,7 @@ export async function publicPrompts(profile,count,env,generate=generateContextQu
   `Which alternatives for ${c} suit a customer in ${market} who prioritizes ease of use?`
  ];
  else{
-  texts=await generate({brandName:profile.brand_name,aliases:profile.aliases,ownedDomains:[profile.domain],categoryFi:c},context,env);
+  texts=await generate({brandName:profile.brand_name,aliases:profile.aliases,ownedDomains:[profile.domain],categoryFi:c},context,env,opts);
  }
  if(!Array.isArray(texts)||texts.length!==6||new Set(texts).size!==6||texts.some(t=>typeof t!=='string'||t.length<8||t.length>1000||/[<>\r]/.test(t)||[profile.brand_name,...profile.aliases,profile.domain].some(n=>containsName(t,n))))fail(503,'AI_UNAVAILABLE');
  return {prompts:texts.slice(0,count),paid_calls:context.language==='en'||context.market==='FI'&&context.language==='fi'?0:1};

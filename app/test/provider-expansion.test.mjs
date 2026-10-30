@@ -19,7 +19,8 @@ test('Grok can explicitly use OpenRouter with its own credential while direct de
  assert.equal(routesFromEnv({...env,OPENROUTER_SEARCH_ENGINES_JSON:'{"grok":"exa"}'}).grok.search_engine,'exa');
  for(const model of ['grok-4.7','google/gemini-2.5-flash','x-ai/not-grok','x-ai/grok-4.7:online','x-ai/grok-4.7 '])assert.throws(()=>routesFromEnv({...env,OPENROUTER_GROK_MODEL:model}),/OPENROUTER_GROK_MODEL/);
  assert.throws(()=>routesFromEnv({...base,OPENROUTER_SEARCH_ENGINES_JSON:'{"grok":"native"}'}),/search engine mapping/);
- assert.deepEqual(publicProviders({enabledProviders:['openai','claude','grok']}),['openai','claude']);
+ assert.deepEqual(publicProviders({enabledProviders:['openai','claude','grok']}),['openai']);
+ assert.deepEqual(publicProviders({enabledProviders:['openai','claude','gemini','grok']}),['openai','gemini']);
 });
 test('Grok OpenRouter rollout removes only Grok from collection selection and retains Perplexity',()=>{
  const env={ENABLED_PROVIDERS:'grok,perplexity',OPENROUTER_GROK_MODEL:'x-ai/grok-4.7',CONSUMER_COLLECTION_PROVIDERS:'perplexity'};
@@ -40,7 +41,7 @@ test('configured extra providers have valid routes and require their OpenRouter 
  assert.equal(providerAvailable('grok',{...env,OPENROUTER_API_KEY:'fixture'}),false);
  assert.equal(providerAvailable('grok',{...env,XAI_API_KEY:'fixture'}),true);
  assert.equal(providerAvailable('deepseek',{...env,OPENROUTER_MODELS_JSON:'broken',OPENROUTER_API_KEY:'fixture'}),false);
- assert.deepEqual(publicProviders({enabledProviders:Object.keys(routes)}),['openai','claude']);
+ assert.deepEqual(publicProviders({enabledProviders:Object.keys(routes)}),['openai','gemini']);
 });
 test('per-provider search engines preserve Gemini and Meta native search while grounding other models with Exa',()=>{
  const env={ENABLED_PROVIDERS:['gemini',...Object.keys(extraModels)].join(','),OPENROUTER_MODELS_JSON:JSON.stringify(extraModels),OPENROUTER_SEARCH_ENGINES_JSON:JSON.stringify({deepseek:'exa',meta_ai:'native',mistral:'exa',kimi:'exa'})};
@@ -76,7 +77,7 @@ test('six sources have explicit transports, own credentials, immutable routes an
  assert.equal(compatibleRoute({...routes.google_aio,transport:'openrouter'},routes.google_aio),false);
  assert.throws(()=>routesFromEnv({ENABLED_PROVIDERS:'copilot'}),/deferred/);
  assert.throws(()=>routesFromEnv({OPENROUTER_MODELS_JSON:'{"grok":"x-ai/grok"}'}),/reserved/);
- assert.deepEqual(publicProviders({enabledProviders:names}),['openai','claude']);
+ assert.deepEqual(publicProviders({enabledProviders:names}),['openai','gemini']);
 });
 test('Grok requires web search, bounded output and independent language/market without paid retries',async()=>{
  await mock(async calls=>{
