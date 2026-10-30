@@ -4,6 +4,7 @@ import {observeProvider,providerFailure,safeProviderMeta} from '../src/providers
 import {requestJson} from '../src/providers/common.mjs';
 import {providersForScan} from '../src/providers/routing.mjs';
 import {workerConfiguration} from '../src/worker/config-check.mjs';
+import {CONFIG} from '../src/common/config.mjs';
 
 test('public queued snapshots cannot execute extra platforms, authenticated snapshots retain all providers',()=>{
  const providers=['openai','claude','gemini','grok','perplexity','google_aio'];
@@ -34,4 +35,14 @@ test('unknown exceptions cannot leak prompts or secrets; timeouts remain uncerta
  assert.equal(providerFailure(new DOMException('hidden','TimeoutError')).status,'timeout_unknown');
  const meta=safeProviderMeta({usage:{input_tokens:20,cost:{total_cost:0.01},private_text:'secret'},headers:{authorization:'secret'},response_id:'resp-test',failure_code:'Bearer sk-secret'});
  assert.deepEqual(meta,{response_id:'resp-test',usage:{input_tokens:20,cost:{total_cost:0.01}}});
+});
+
+test('startup metadata identifies the build without exposing invalid revision values',()=>{
+ const revision='9beabc30c6e2db2b09d2c3ccdede6e3d64e0f5a0';
+ const config=workerConfiguration({AIRANK_BUILD_REVISION:revision});
+ assert.equal(config.service,'airank-worker');assert.equal(config.revision,revision);assert.equal(config.version,CONFIG.version);
+ for(const value of [undefined,'',revision+'\n',123,'Bearer private-fixture','private-fixture-with-newline\n','9beabc3']){
+  const out=workerConfiguration({AIRANK_BUILD_REVISION:value});assert.equal(out.revision,null);
+  assert.equal(JSON.stringify(out).includes('private-fixture'),false);
+ }
 });
