@@ -1,4 +1,5 @@
 import {randomUUID,randomBytes} from 'node:crypto';
+import {captchaConfig,CAPTCHA_ACTION,verifyCaptcha} from './captcha.mjs';
 import {readyPublicProviders} from './guest-budget.mjs';
 import {prepReserver,guestAutofillConfigured} from './prep-budget.mjs';
 import {CONFIG} from '../common/config.mjs';
@@ -55,8 +56,10 @@ function previewKind(profile){return profile.language==='en'||profile.market==='
 export async function publicCheckService({db,method,path,body={},fingerprint,scanToken,env=process.env,now=Date.now,config=CONFIG,deps={}}){
  config={...config,enabledProviders:await readyPublicProviders(db,config,env)};
  const reportReady=await configured(db,env);
- const ready=config.enabledProviders.length>0&&reportReady;
+ const captcha=captchaConfig(env);
+ const ready=config.enabledProviders.length>0&&reportReady&&captcha.ready;
  if(method==='GET'&&path==='/v1/public-check/capabilities')return result({
+  captcha:{provider:'turnstile',siteKey:captcha.ready?captcha.siteKey:null,action:CAPTCHA_ACTION},
   enabled:ready,emailEnabled:ready&&emailConfigured(env),marketingEnabled:ready&&emailConfigured(env)&&Boolean(env.RESEND_MARKETING_SEGMENT_ID),
   autofillEnabled:ready&&guestAutofillConfigured(env),
   providers:config.enabledProviders,promptCount:config.scanPrompts,...contextCatalog(),limits:{guestScansPerDay:1,domainScansPerWeek:5}
@@ -66,6 +69,7 @@ export async function publicCheckService({db,method,path,body={},fingerprint,sca
  // Only preparation and new measurement jobs require execution prerequisites.
  if(method==='POST'&&['/v1/public-check/prepare','/v1/public-check/preview','/v1/public-check/scans'].includes(path)&&!ready)fail(503,'APP_NOT_CONFIGURED');
  if(!/^[a-f0-9]{64}$/.test(fingerprint||''))fail(403,'PROXY_REQUIRED');
+ if(method==='POST'&&['/v1/public-check/prepare','/v1/public-check/preview','/v1/public-check/scans'].includes(path))await verifyCaptcha({token:body.captcha_token,env,now,fetcher:deps.captchaFetch});
  const validate=deps.validateWebsite||assertPublicWebsite;
  if(method==='POST'&&path==='/v1/public-check/prepare'){
   if(!guestAutofillConfigured(env))fail(503,'AI_UNAVAILABLE');

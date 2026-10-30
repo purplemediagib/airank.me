@@ -1,3 +1,4 @@
+import {verifyCaptcha} from '../public-check/captcha.mjs';
 import {scanReadAllowed} from '../common/access.mjs';
 import http from 'node:http';
 import { appRoute, isAppPath } from '../app/http.mjs';
@@ -90,7 +91,7 @@ async function route(req,res){
   if(!process.env.RATE_LIMIT_SECRET || process.env.RATE_LIMIT_SECRET.length<24)return json(res,503,{error:'RATE_LIMIT_SECRET must be configured before public scans'});
   const providers=await readyPublicProviders(await getDb(),CONFIG,process.env);
   if(!providers.length)return json(res,503,{error:'Free check temporarily unavailable',code:'PUBLIC_CHECK_UNAVAILABLE'});
-  const body=await readBody(req);
+  const body=await readBody(req,16384);
   if(body.profile_confirmed!==true||body.methodology!==METHODOLOGY)return json(res,422,{error:'Confirm your brand, category and question preview before scanning',code:'PROFILE_CONFIRMATION_REQUIRED'});
   const profile=validateProfile(body),domain=profile.domain,brand=profile.brand_name;
   const snapshot={...profile,providers,prompt_count:CONFIG.scanPrompts,methodology:METHODOLOGY,confirmed_at:Date.now()};
@@ -100,6 +101,9 @@ async function route(req,res){
   const weekly=await one('SELECT COUNT(*) AS count FROM rate_events WHERE domain=? AND requested_at>?',[domain,cutoff7]);
   const limitError=scanLimitError({recentCount:recent?.count,weeklyCount:weekly?.count,authenticated:!!session});
   if(limitError)return json(res,429,limitError);
+  // This legacy route must not bypass the public checker CAPTCHA. Signed-in app
+  // tracking is routed through appRoute above and keeps its existing entitlements.
+  await verifyCaptcha({token:body.captcha_token});
   const id=uuid(), guestToken=session?null:randomToken();
   const db=await getDb();await db.batch([
    {sql:'INSERT INTO scan_jobs (id,domain,brand_name,owner_id,guest_token_hash,status,requested_at) VALUES (?,?,?,?,?,?,?)',args:[id,domain,brand,session?.user_id||null,guestToken?hashToken(guestToken):null,'queued',Date.now()]},
