@@ -334,3 +334,39 @@ test('per-brand metrics use frozen identities and selected comparable real evide
   assert.deepEqual((await f.get()).data.competitors,[]);
  } finally { f.sql.close(); }
 });
+
+test('overview parallel reads preserve exact results and query populations with bounded concurrency',async()=>{
+ const f=fixture(),stamp=Date.parse('2026-04-05T00:00:00Z');
+ f.add('current',stamp);f.add('other-setup',stamp+1000,{...snapshot,identityVersion:2});
+ f.add('previous',stamp-86400000);f.add('diagnostic',stamp+2000,{...snapshot,kind:'diagnostic'});
+ const query=new URLSearchParams('from=2026-04-05&to=2026-04-05');
+ const call=db=>analyticsService({db,userId:'alice',path:'/v1/projects/project/analytics',query});
+ const expected=await call(f.db);
+ let active=0,peak=0;const queries=[];
+ const delayed={execute:async q=>{
+  queries.push(q);active++;peak=Math.max(peak,active);
+  try {await new Promise(resolve=>setTimeout(resolve,1));return await f.db.execute(q);}
+  finally {active--;}
+ }};
+ assert.deepEqual(await call(delayed),expected);
+ assert.equal(peak,5,'only five independent read branches are started together');
+ assert.ok(queries.every(q=>/^SELECT\b/.test(q.sql)),'page viewing never writes');
+ assert.equal(queries.filter(q=>q.sql.includes('SELECT t.* FROM mon_tasks')).length,1);
+ assert.equal(queries.filter(q=>q.sql.includes('SELECT e.payload FROM mon_evidence')).length,1);
+ f.sql.close();
+});
+
+test('overview never starts parallel data reads before authorization and rejects partial failures',async()=>{
+ const f=fixture();const queries=[];
+ const db={execute:async q=>{queries.push(q.sql);return f.db.execute(q);}};
+ await assert.rejects(()=>analyticsService({db,userId:'outsider',path:'/v1/projects/project/analytics'}),e=>e.status===404);
+ assert.ok(!queries.some(sql=>/mon_runs|mon_tasks|mon_evidence|app_identity_versions/.test(sql)));
+ queries.length=0;
+ await assert.rejects(()=>analyticsService({db,userId:'alice',path:'/v1/projects/project/analytics',query:new URLSearchParams('from=invalid')}),e=>e.status===422);
+ assert.ok(!queries.some(sql=>/mon_runs|mon_tasks|mon_evidence|app_identity_versions/.test(sql)));
+ const failing={execute:async q=>{if(q.sql.includes('SELECT e.payload'))throw Error('offline');return f.db.execute(q);}};
+ await assert.rejects(()=>analyticsService({db:failing,userId:'alice',path:'/v1/projects/project/analytics'}),/offline/);
+ const metadataFailure={execute:async q=>{if(q.sql.includes('SELECT * FROM app_audit_events'))throw Error('metadata offline');return f.db.execute(q);}};
+ await assert.rejects(()=>analyticsService({db:metadataFailure,userId:'alice',path:'/v1/projects/project/analytics'}),/metadata offline/);
+ f.sql.close();
+});
