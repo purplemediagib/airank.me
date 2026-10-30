@@ -71,11 +71,31 @@
     },
     "openai_responses": {
       "qualified": false,
-      "all_billable_bound_verified": false,
+      "all_billable_bound_verified": true,
       "model": "gpt-4.1-mini-2025-04-14",
       "max_tool_calls": 2,
       "max_output_tokens": 1500,
-      "tool_choice": "required"
+      "tool_choice": "required",
+      "diagnostic_route_approved": true,
+      "usage_upper_bound_accounting_verified": true,
+      "qualification_reservation_micro_usd": 1500000,
+      "operational_reservation_micro_usd": 1500000,
+      "allowed_returned_models": [
+        "gpt-4.1-mini-2025-04-14"
+      ],
+      "bound_evidence": {
+        "context_tokens": 1047576,
+        "max_endpoint_output_tokens": 32768,
+        "engineering_max_passes": 3,
+        "max_tool_calls": 2,
+        "input_usd_per_million": 0.4,
+        "output_usd_per_million": 1.6,
+        "fixed_search_input_tokens": 8000,
+        "search_fee_usd": 0.01,
+        "conservative_envelope_usd": 1.4407776,
+        "interpretation": "3input/outputpasses is conservative engineering inference from2builtintoolcalls+final; no arbitrary-provider-misbilling guarantee",
+        "price_checked_at": "2026-10-30"
+      }
     }
   },
   "verified_bounds": {
@@ -83,7 +103,16 @@
       "verified": true,
       "micro_usd": 35000000,
       "evidence": "OpenRouter endpoint context/max completion and3passes; free Moonshotcachewrites; see provider_candidates_DRAFT sources"
+    },
+    "openai_responses": {
+      "verified": true,
+      "micro_usd": 1500000,
+      "evidence": "Frozen2026-10-30 GPT4.1mini fullmodelcontext/output\u00d73 +2searchfees/fixedblocks =1.4407776; reserve1.50. See provider_candidates_DRAFT sources."
     }
   },
-  "frozen_manifest_sha256": "4de7e0c8626dad9ce6e1a5627fca4418cfc3f2d1316884c148119a84bb253786"
+  "frozen_manifest_sha256": "b1efec8aa34cec5efa8b9f9b77a634974dd73b69720f38a7219eceba9a519d61",
+  "schedule_enabled": false,
+  "block_start_grace_seconds": 600,
+  "max_block_duration_seconds": 7200,
+  "timing_policy_status": "PROPOSED_REQUIRES_FREEZE"
 }

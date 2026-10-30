@@ -1,11 +1,12 @@
 """Private Bunny Storage backup adapter; explicit setup only, no import-time I/O."""
-import hashlib,json,os,pathlib,re
+import hashlib,json,os,pathlib,re,sqlite3,tempfile
 from urllib.request import Request,build_opener
 from urllib.error import HTTPError
 from adapters import NoRedirect
 ALLOWED={'storage.bunnycdn.com','uk.storage.bunnycdn.com','se.storage.bunnycdn.com'}
 class StorageError(RuntimeError):pass
 class BunnyBackup:
+    delete_local_after_verified=True
     def __init__(self,host,zone,key,study_id,transport=None):
         if host not in ALLOWED:raise StorageError('Storage endpoint must be an approved European Bunny endpoint')
         if not all(re.fullmatch(r'[A-Za-z0-9_-]+',x or '') for x in (zone,study_id)) or not key:raise StorageError('Explicit zone, study identity and storage credential required')
@@ -52,10 +53,41 @@ class BunnyBackup:
         try:identity=json.loads(data)
         except ValueError:raise StorageError('Remote marker corrupt') from None
         if identity.get('study_id')!=study_id or identity.get('provider_cap_micro_usd')!=38_000_000:raise StorageError('Remote marker identity mismatch')
+    def ledger_fingerprint(self,root):
+        path=pathlib.Path(root)/'ledger.sqlite'
+        if not path.exists():raise StorageError('Ledger missing for remote-head verification')
+        with sqlite3.connect(path) as db:data='\n'.join(db.iterdump()).encode()
+        return hashlib.sha256(data).hexdigest()
+    def head(self):
+        status,data=self.transport('GET',self.base+'latest-backup.json')
+        if status==404:return None
+        if status!=200:raise StorageError('Remote head unavailable')
+        try:return json.loads(data)
+        except ValueError:raise StorageError('Remote head corrupt') from None
+    def verify_head(self,root):
+        root=pathlib.Path(root);head=self.head()
+        try:local=json.loads((root/'remote-head.json').read_text())
+        except (FileNotFoundError,ValueError):raise StorageError('Local backup head missing; manual restore verification required') from None
+        if head!=local or head.get('ledger_fingerprint')!=self.ledger_fingerprint(root):raise StorageError('Stale/restored ledger differs from latest remote state; manual reconciliation required')
+    def advance_head(self,root,ack,initial=False):
+        root=pathlib.Path(root);prior=self.head()
+        try:local=json.loads((root/'remote-head.json').read_text())
+        except FileNotFoundError:local=None
+        if prior!=local or (prior is None and not initial):raise StorageError('Remote/local head mismatch; never overwrite unknown newer state')
+        head={'sequence':(prior['sequence']+1 if prior else 1),'archive':ack['reference'],'sha256':ack['sha256'],'ledger_fingerprint':self.ledger_fingerprint(root)}
+        data=json.dumps(head,sort_keys=True).encode()
+        status,_=self.transport('PUT',self.base+'latest-backup.json',data)
+        if status!=201 or self.head()!=head:raise StorageError('Latest backup pointer not verified')
+        temp=root/'remote-head.json.tmp'
+        with temp.open('wb') as f:f.write(data);f.flush();os.fsync(f.fileno())
+        os.replace(temp,root/'remote-head.json')
+        return head
     def __call__(self,path,digest):
         data=pathlib.Path(path).read_bytes()
         if hashlib.sha256(data).hexdigest()!=digest:raise StorageError('Local backup hash mismatch')
-        return self.put_verified(pathlib.Path(path).name,data)
+        ack=self.put_verified(pathlib.Path(path).name,data)
+        self.advance_head(pathlib.Path(path).parent.parent,ack,initial=pathlib.Path(path).name.startswith('initial-'))
+        return ack
 
 def from_env(study_id):
     return BunnyBackup(os.environ.get('RESEARCH_STORAGE_HOST',''),os.environ.get('RESEARCH_STORAGE_ZONE',''),os.environ.get('RESEARCH_STORAGE_ACCESS_KEY',''),study_id)

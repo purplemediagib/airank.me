@@ -133,3 +133,40 @@ For ONE Kimi qualification request: `RESEARCH_ACTION=diagnostic`, `RESEARCH_ENDP
 `RESEARCH_ACTION=collect` requires `RESEARCH_SLOT_ID` exactly matching the frozen schedule and all stronger collection gates. There is still no autonomous schedule in this bootstrap. Primary responses with an unexpected returned model are retained but marked fatal and halt the ledger. Provider aliases/allowed returned versions must be frozen by qualification.
 
 Backup immutability uses GET-before-PUT and is NOT a distributed lock. Exactly one replica/region is required. The local file lock prevents concurrent execution only on that mounted ledger. Never deploy a second replica with a fresh disk under the same study identity.
+
+## Offline-prepared autonomous scheduler (not yet published/activated)
+
+A subsequent local revision adds `RESEARCH_ACTION=scheduled`. It waits for all six frozen blocks and processes their 48 slots in frozen order, retaining each adjacent FI/EN pair. Owner does not manually trigger 288 slots. Default remains idle, and `schedule_enabled` must explicitly be true in the signed manifest alongside collection/Finnish/model/secure-host/billing/backup gates.
+
+Timing policy must be explicitly frozen: proposed block-start grace 600 seconds and maximum active-block duration 7,200 seconds. These are implementation proposals, not silently approved amendments. A late initial start marks a block missed with no automatic backfill; an active block exceeding its window expires. Restart resumes completed/remaining slots without repeating completed answers; uncertain requests or costs halt. Reconciled transport failures may receive one retry after at least60seconds/provider Retry-After, within active block. An unpriced timeout is not blindly retried. Pair span uses first attempt start through last completion; >600seconds is marked paired_late for exclusion from primary comparisons.
+
+Scheduler block/pair state lives in the same persistent SQLite ledger and is included in consistent backup archives. The scheduler revalidates execution gates per attempt. Any model drift, budget exhaustion, unknown charge or backup failure stops dispatch. It does not silently backfill missed dates or increase allowance. After all blocks become terminal it returns to idle. No startup action has been set remotely and no paid call was made during development.
+
+## Conservative OpenAI accounting (local scheduler revision)
+
+OpenAI Responses does not expose an authoritative per-response invoice cost here. The new accounting module therefore keeps `actual` **null**, and records a separate `accounted` value with basis `conservative_usage_upper_bound`. Formula in micro-USD for the qualified fixed GPT4.1mini configuration: `ceil(0.4*input_tokens + 1.6*output_tokens + 26400)`. The26400 includes the full configured2searches, each with8000inputtokens at$0.40/M plus$0.01 fee. No cached-token discount and no missing-tool discount. Because official docs do not resolve whether input usage already incorporates the fixed block, any possible double-count remains charged to our internal budget; do not refund it or call the estimate invoice actual.
+
+This is conservative recognized spend, **not an enforceable per-request bound**. Admission still needs separately verified request bounds. Missing/invalid usage, model mismatch, output-cap deviation, unrecognized pricing or uncertain transport retains the full reservation and stops further calls. OpenRouter Kimi uses verified authoritative `usage.cost`; non-finite/negative/bool values are rejected.
+
+Source: https://developers.openai.com/api/docs/pricing . Rates are frozen evidence, not dynamically silently updated. Any change requires a new reviewed manifest.
+
+Scheduler liveness starts concurrently before long waits. Health returns only sanitized action state (`idle`, `scheduled`, etc.) and `management_api:false`, not raw data or credentials. Pair span uses actual request dispatch start/response end rather than reservation/backup timestamps. Scheduler state transitions are snapshot-backed before waiting/finishing; backup failure stops execution.
+
+## Latest-checkpoint recovery and initial OpenAI reservation
+
+Private backups now advance a verified remote `latest-backup.json` containing sequence, archive hash/reference and canonical SQLite state fingerprint. Startup and each actual dispatch compare the local head AND current ledger fingerprint against it. A stale restored ledger, missing head, unknown later remote checkpoint or failed head update halts for manual recovery; no automatic reset/replay. Reservation backup/head is verified before HTTP. This remains a **singleton** design, not distributed compare-and-swap; never run two research replicas. Manual recovery must use the latest verified archive and reconcile all unknown attempts before replacing a missing head.
+
+Initial OpenAI qualification reserves **$1.50**, conservatively above $1.4407776 from full context1,047,576 and full endpoint output32,768 across three passes at$0.40/$1.60 per million plus two fixed8Ksearch-input blocks and two$0.01searchfees. Three passes is an engineering upper-envelope interpretation of two built-in tool calls plus final answer, not a quoted vendor loop guarantee. Actual request still sets output1500 and tools2; no other paid facilities. Keep the1.50 reservation rather than silently shrinking it after successful responses. Reconcile to conservative accounted usage, never invoice actual. Model availability remains unverified/deprecated until qualification.
+
+Official sources: https://developers.openai.com/api/docs/models/gpt-4.1-mini ; https://developers.openai.com/api/docs/pricing ; https://developers.openai.com/api/reference/cli/resources/responses/methods/create . Candidate/template gates for secure host/private storage/collection remain closed.
+
+### Local disk pressure control
+
+After private remote archive readback/hash and latest-head verification succeed, the real Bunny adapter removes only the newly created redundant local snapshot `.sqlite`/`.tar.gz` files. It retains local immutable raw evidence, live ledger, frozen manifests and receipt JSON, and retains remote archives. This avoids quadratic local disk growth across hundreds of snapshots on a small volume. A failed upload/head never removes its local snapshot. Primary evidence is not deleted.
+
+### Scheduler regression coverage
+
+The local revision includes an offline full six-block run:288 distinct response slots,144 matched language pairs, no duplicate submissions. Integration tests use the actual Bunny backup adapter against an in-memory HTTP fake and actual gated execution against synthetic model transport; future wait/schema creation, adjacent providers, latest-head updates, and stale financial-state rollback rejection are covered. Tests do not imply live endpoint qualification.
+
+## Optional internal health probe
+Default binding remains `127.0.0.1:8080`. For Bunny internal HTTP probes only, explicitly set `RESEARCH_HEALTH_BIND=0.0.0.0`, port `8080`, path `/healthz`; keep the research app without a public CDN route. No management, secrets, raw data or ledger fields are exposed. Other bind values fail closed. Old fec3 image does not support this option: leave research HTTP/TCP probes disabled there, especially any inherited port 3007 probe. Never change production app probes.

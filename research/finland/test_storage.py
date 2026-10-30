@@ -1,4 +1,4 @@
-import unittest,storage
+import unittest,storage,tempfile,pathlib,service,runner,sqlite3
 class StorageTests(unittest.TestCase):
     def setUp(self):
         self.files={}
@@ -10,6 +10,25 @@ class StorageTests(unittest.TestCase):
         identity={'study_id':'study','provider_cap_micro_usd':38000000}
         self.s.ensure_marker(identity);self.s.ensure_marker(identity)
         with self.assertRaises(storage.StorageError):self.s.ensure_marker({**identity,'other':'different'})
+    def test_remote_head_detects_stale_ledger(self):
+        with tempfile.TemporaryDirectory() as t:
+            root=pathlib.Path(t)/'data';service.initialize(root,'study');l=service.open_study(root,'study',{})
+            service.backup(root,l,'initial-test',self.s);self.s.verify_head(root)
+            old=root/'old.sqlite'
+            with sqlite3.connect(old) as d:l.db.backup(d)
+            l.db.execute("INSERT INTO config VALUES ('new_request_evidence','must_not_disappear')")
+            with self.assertRaises(storage.StorageError):self.s.verify_head(root)
+            service.backup(root,l,'after-request',self.s);self.s.verify_head(root)
+            with sqlite3.connect(old) as olddb:olddb.backup(l.db)
+            with self.assertRaises(storage.StorageError):self.s.verify_head(root)
+            l.db.close()
+    def test_remote_head_mismatch_blocks_advance(self):
+        with tempfile.TemporaryDirectory() as t:
+            root=pathlib.Path(t)/'data';service.initialize(root,'study');l=service.open_study(root,'study',{})
+            service.backup(root,l,'initial-test',self.s)
+            (root/'remote-head.json').write_text('{}')
+            with self.assertRaises(storage.StorageError):service.backup(root,l,'bad-next',self.s)
+            l.db.close()
     def test_verified_upload(self):self.assertTrue(self.s.put_verified('a.json',b'hello')['verified'])
     def test_immutable_remote(self):
         self.s.put_verified('a',b'a')

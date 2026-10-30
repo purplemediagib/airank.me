@@ -36,6 +36,14 @@ class ServiceTests(unittest.TestCase):
         slot=runner.load_inputs(endpoint='kimi_candidate')[1][0]
         x=service.execute_one(self.root,m,slot,transport=lambda *a:{'model':'changed','usage':{'cost':.01},'choices':[{'finish_reason':'stop'}]},backup_hook=lambda p,h:{'verified':True,'sha256':h,'reference':'synthetic://backup'},key_loader=lambda n:'fake')
         self.assertEqual(x['status'],'fatal')
+    def test_openai_accounted_upper_bound_allows_safe_next(self):
+        service.initialize(self.root,'test-study');m=self.manifest()
+        m['providers']['openai_responses']={'model':runner.MODEL,'qualified':False,'diagnostic_route_approved':True,'all_billable_bound_verified':True,'usage_upper_bound_accounting_verified':True,'max_tool_calls':2,'max_output_tokens':1500,'tool_choice':'required'}
+        m['verified_bounds']['openai_responses']={'verified':True,'micro_usd':1000000,'evidence':'synthetic bound'};m['frozen_manifest_sha256']=service.manifest_hash(m)
+        for i in range(2):
+            slot={'slot_id':f'diagnostic:openai_responses:{i}','endpoint':'openai_responses','intent_id':'IT01','language':'fi'}
+            x=service.execute_one(self.root,m,slot,'diagnostic',transport=lambda *a:{'model':runner.MODEL,'status':'completed','usage':{'input_tokens':1000,'output_tokens':1500}},backup_hook=lambda p,h:{'verified':True,'sha256':h,'reference':'synthetic://backup'},key_loader=lambda n:'fake')
+            self.assertEqual(x['status'],'complete');self.assertIsNone(x['provider_actual_cost_micro_usd']);self.assertEqual(x['conservative_accounted_micro_usd'],29200)
     def test_init_once(self):
         service.initialize(self.root,'test-study')
         with self.assertRaises(RuntimeError):service.initialize(self.root,'test-study')
@@ -75,3 +83,16 @@ class ServiceTests(unittest.TestCase):
         self.assertNotIn('SYNTHETIC_KEY',next((self.root/'raw').iterdir()).read_text())
 
 if __name__=='__main__':unittest.main()
+
+class HealthBindTests(unittest.TestCase):
+    def test_default_loopback(self):
+        from unittest.mock import patch
+        with patch.dict(service.os.environ,{},clear=True):self.assertEqual(service.health_bind(),'127.0.0.1')
+    def test_explicit_internal_probe_bind(self):
+        from unittest.mock import patch
+        with patch.dict(service.os.environ,{'RESEARCH_HEALTH_BIND':'0.0.0.0'},clear=True):self.assertEqual(service.health_bind(),'0.0.0.0')
+    def test_other_bind_rejected(self):
+        from unittest.mock import patch
+        for value in ('example.com','::','127.0.0.2',''):
+            with patch.dict(service.os.environ,{'RESEARCH_HEALTH_BIND':value},clear=True):
+                with self.assertRaises(RuntimeError):service.health_bind()

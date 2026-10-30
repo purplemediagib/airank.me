@@ -60,6 +60,7 @@ class Ledger:
         self.db.execute('PRAGMA synchronous=FULL')
         self.db.executescript('''CREATE TABLE IF NOT EXISTS config(k TEXT PRIMARY KEY,v TEXT);
         CREATE TABLE IF NOT EXISTS attempts(id TEXT PRIMARY KEY,slot TEXT,kind TEXT,n INTEGER,parent TEXT,status TEXT,reserved INTEGER,actual INTEGER,start REAL,end REAL,error TEXT,raw TEXT,UNIQUE(slot,n));''')
+        self.db.execute('CREATE TABLE IF NOT EXISTS accounting(attempt_id TEXT PRIMARY KEY,accounted INTEGER NOT NULL,basis TEXT NOT NULL)')
         self.db.execute('INSERT OR IGNORE INTO config VALUES (?,?)',('ceiling',str(ceiling)))
         self.db.execute('INSERT OR IGNORE INTO config VALUES (?,?)',('primary_limit',str(primary_limit)))
         if int(self.db.execute("SELECT v FROM config WHERE k='primary_limit'").fetchone()[0])!=primary_limit: raise ValueError('Cannot change primary limit')
@@ -77,7 +78,7 @@ class Ledger:
                 if kind!='primary' or p['kind']!=kind or n>2 or p['status']!='retryable' or now<float((self.db.execute('SELECT v FROM config WHERE k=?',('retry_at:'+p['id'],)).fetchone() or [p['end']+60])[0]): raise RuntimeError('Retry ineligible or too early')
             if kind=='diagnostic' and self.db.execute("SELECT COUNT(*) FROM attempts WHERE kind='diagnostic'").fetchone()[0]>=20: raise RuntimeError('Diagnostic allowance exhausted')
             if kind=='primary' and not prior and self.db.execute("SELECT COUNT(DISTINCT slot) FROM attempts WHERE kind='primary'").fetchone()[0]>=int(self.db.execute("SELECT v FROM config WHERE k='primary_limit'").fetchone()[0]): raise RuntimeError('Primary allowance exhausted')
-            used=self.db.execute('SELECT COALESCE(SUM(COALESCE(actual,reserved)),0) FROM attempts').fetchone()[0]
+            used=self.db.execute('SELECT COALESCE(SUM(COALESCE((SELECT accounted FROM accounting WHERE attempt_id=attempts.id),actual,reserved)),0) FROM attempts').fetchone()[0]
             cap=int(self.db.execute("SELECT v FROM config WHERE k='ceiling'").fetchone()[0])
             if used+bound>cap: raise RuntimeError('Budget reservation refused')
             aid=f'{slot}:a{n}'
@@ -85,9 +86,11 @@ class Ledger:
             self.db.execute('COMMIT'); return aid
         except Exception:
             self.db.execute('ROLLBACK'); raise
-    def finish(self,aid,status,raw,actual=None,error=None,end=None,retry_after=60):
+    def finish(self,aid,status,raw,actual=None,error=None,end=None,retry_after=60,accounted=None,accounting_basis=None):
         if status not in ('complete','incomplete','retryable','fatal','unknown'): raise ValueError('Invalid status')
         if actual is not None and (type(actual)!=int or actual<0): raise ValueError('Invalid actual cost')
+        if accounted is not None and (type(accounted)!=int or accounted<0 or accounting_basis!='conservative_usage_upper_bound'):raise ValueError('Invalid accounted upper bound')
+        if actual is not None and accounted is not None:raise ValueError('Use either invoice cost or conservative accounting')
         if status=='retryable' and error not in ('timeout','429','5xx'): raise ValueError('Only transport failures retry')
         self.db.execute('BEGIN IMMEDIATE')
         try:
@@ -98,12 +101,14 @@ class Ledger:
             if status=='retryable':self.db.execute('INSERT OR REPLACE INTO config VALUES (?,?)',('retry_at:'+aid,str(end+max(60,retry_after))))
             eligible_end=end
             self.db.execute('UPDATE attempts SET status=?,actual=?,end=?,error=?,raw=? WHERE id=?',(status,actual,eligible_end,error,json.dumps(sanitize(raw),ensure_ascii=False),aid))
-            if status in ('fatal','unknown') or (actual is not None and actual>row['reserved']):
+            if accounted is not None:self.db.execute('INSERT INTO accounting VALUES (?,?,?)',(aid,accounted,accounting_basis))
+            recognized=actual if actual is not None else accounted
+            if status in ('fatal','unknown') or (recognized is not None and recognized>row['reserved']):
                 self.db.execute("INSERT OR REPLACE INTO config VALUES ('halt','cost/transport/configuration uncertainty')")
             self.db.execute('COMMIT')
         except Exception:
             self.db.execute('ROLLBACK'); raise
-    def rows(self): return [dict(x) for x in self.db.execute('SELECT * FROM attempts ORDER BY start,id')]
+    def rows(self): return [dict(x) for x in self.db.execute('SELECT attempts.*,accounting.accounted,accounting.basis AS accounting_basis FROM attempts LEFT JOIN accounting ON accounting.attempt_id=attempts.id ORDER BY start,id')]
 
 class StudyLedger(Ledger):
     """One shared $38 ledger. Unverified bounds cannot authorize a reservation."""
@@ -126,7 +131,7 @@ class StudyLedger(Ledger):
         raise RuntimeError('Use reserve_study with verified endpoint bound')
     def summary(self):
         rows=self.rows()
-        return {'approved_total_usd':38,'committed_or_held_micro_usd':sum(x['actual'] if x['actual'] is not None else x['reserved'] for x in rows),'uncertain_charge_hold_micro_usd':sum(x['reserved'] for x in rows if x['actual'] is None),'attempts':len(rows),'diagnostic_attempts':sum(x['kind']=='diagnostic' for x in rows),'primary_slots':len({x['slot'] for x in rows if x['kind']=='primary'})}
+        return {'approved_total_usd':38,'committed_or_held_micro_usd':sum(x['accounted'] if x['accounted'] is not None else x['actual'] if x['actual'] is not None else x['reserved'] for x in rows),'uncertain_charge_hold_micro_usd':sum(x['reserved'] for x in rows if x['actual'] is None and x['accounted'] is None),'attempts':len(rows),'diagnostic_attempts':sum(x['kind']=='diagnostic' for x in rows),'primary_slots':len({x['slot'] for x in rows if x['kind']=='primary'})}
 
 def parse_response(raw):
     output=raw.get('output',[])
