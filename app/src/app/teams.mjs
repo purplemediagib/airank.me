@@ -2,6 +2,7 @@ import {one,exec,fail,transaction} from '../monitoring/shared.mjs';
 import {uuid,randomToken,hashToken} from '../common/utils.mjs';
 import {RANK,requireProject,projectRole} from '../common/access.mjs';
 import {id,checksum} from './team-migration.mjs';
+import {assertTeamCapacity,teamSeatUsage} from './team-plans.mjs';
 const roles=['viewer','member','admin'];
 const object=(b,keys)=>{if(!b||typeof b!=='object'||Array.isArray(b)||Object.keys(b).some(k=>!keys.includes(k)))fail(422,'VALIDATION_FAILED');};
 const json=r=>JSON.parse(r.project_ids_json);
@@ -66,6 +67,9 @@ export async function teamsService({db,method,path,body,userId,now=Date.now}){
     else for(const p of ids)await add('app_project_guests','project_id',p);
    }
    await exec(tx,'UPDATE app_invites SET accepted_at=? WHERE id=?',[now(),r.id]);
+   // Check the resulting membership atomically: accepting consumes the reserved
+   // invite entry, and a downgrade must not allow a stale invite past its cap.
+   await assertTeamCapacity(tx,r.workspace_id,{scope:r.scope,stamp:now()});
    await audit(tx,c,userId,'team.accepted',u,{inviteId:r.id,scope:r.scope,role:r.role,projectIds:ids},now());
    return {status:200,data:{projectId:ids[0]}};
   });
@@ -111,6 +115,7 @@ export async function teamsService({db,method,path,body,userId,now=Date.now}){
       if(complete)fail(409,'ALREADY_MEMBER');
      }
     }
+    await assertTeamCapacity(tx,c.w.id,{scope:body.scope,adding:1,stamp});
     await rate(tx,c,stamp);
     const token='airank_inv_'+randomToken(),r={id:uuid(),workspace_id:c.w.id,email,role:body.role,scope:body.scope,project_ids_json:JSON.stringify(ids),invited_by:userId};
     await exec(tx,'INSERT INTO app_invites VALUES (?,?,?,?,?,?,?,?,?,?,NULL,NULL)',[r.id,hashToken(token),c.w.id,email,r.role,r.scope,r.project_ids_json,userId,stamp,stamp+7*86400000]);
@@ -122,6 +127,7 @@ export async function teamsService({db,method,path,body,userId,now=Date.now}){
    await authorizeScope(tx,c,userId,r.scope,json(r));
    if(operation==='revoke'){await exec(tx,'UPDATE app_invites SET revoked_at=? WHERE id=?',[stamp,r.id]);await audit(tx,c,userId,'team.invite_revoked',{email:r.email},{inviteId:r.id},stamp);return reply({ok:true});}
    if(operation==='resend'){
+    await assertTeamCapacity(tx,c.w.id,{scope:r.scope,stamp});
     await rate(tx,c,stamp);const token='airank_inv_'+randomToken();
     await exec(tx,'UPDATE app_invites SET token_hash=?,expires_at=?,invited_by=? WHERE id=?',[hashToken(token),stamp+7*86400000,userId,r.id]);
     await audit(tx,c,userId,'team.invited',{email:r.email},{inviteId:r.id,resend:true},stamp);
@@ -142,8 +148,12 @@ export async function teamsService({db,method,path,body,userId,now=Date.now}){
    if(c.w.owner_id!==userId&&(wm?.role==='admin'||affected.some(g=>g.role==='admin')))fail(403,'ROLE_FORBIDDEN');
    const target=await one(tx,'SELECT * FROM users WHERE id=?',[targetId]);
    if(method==='PATCH'){
+    const seatsBefore=await teamSeatUsage(tx,c.w.id);
     if(wm)await exec(tx,'UPDATE app_workspace_members SET role=? WHERE workspace_id=? AND user_id=?',[body.role,c.w.id,targetId]);
     else for(const g of affected)await exec(tx,'UPDATE app_project_guests SET role=? WHERE project_id=? AND user_id=?',[body.role,g.project_id,targetId]);
+    // A project-only role edit can split a guest's user+role group, creating
+    // an additional counted entry. Do not block neutral/reducing cleanup.
+    if(await teamSeatUsage(tx,c.w.id)>seatsBefore)await assertTeamCapacity(tx,c.w.id,{stamp});
    }else{
     if(wm)await exec(tx,'DELETE FROM app_workspace_members WHERE workspace_id=? AND user_id=?',[c.w.id,targetId]);
     for(const g of affected){await exec(tx,'DELETE FROM app_project_guests WHERE project_id=? AND user_id=?',[g.project_id,targetId]);await exec(tx,'DELETE FROM content_members WHERE project_id=? AND user_id=?',[g.project_id,targetId]);}
@@ -160,10 +170,13 @@ export async function teamsService({db,method,path,body,userId,now=Date.now}){
    const m=await one(tx,'SELECT role FROM app_workspace_members WHERE workspace_id=? AND user_id=?',[c.w.id,body.userId]);
    if(m?.role!=='admin')fail(422,'WORKSPACE_ADMIN_REQUIRED');
    if(await one(tx,'SELECT id FROM app_workspaces WHERE owner_id=?',[body.userId]))fail(409,'TARGET_ALREADY_WORKSPACE_OWNER');
+   const seatsBefore=await teamSeatUsage(tx,c.w.id);
    await exec(tx,'UPDATE app_workspaces SET owner_id=? WHERE id=?',[body.userId,c.w.id]);
    await exec(tx,'UPDATE app_projects SET owner_id=? WHERE workspace_id=?',[body.userId,c.w.id]);
    await exec(tx,'DELETE FROM app_workspace_members WHERE workspace_id=? AND user_id=?',[c.w.id,body.userId]);
    await exec(tx,"INSERT INTO app_workspace_members VALUES (?,?,'admin',?) ON CONFLICT(workspace_id,user_id) DO UPDATE SET role='admin'",[c.w.id,userId,stamp]);
+   // Existing guest grants excluded for the old owner can become counted.
+   if(await teamSeatUsage(tx,c.w.id)>seatsBefore)await assertTeamCapacity(tx,c.w.id,{stamp});
    await audit(tx,c,userId,'team.ownership_transferred',await one(tx,'SELECT * FROM users WHERE id=?',[body.userId]),{previousOwner:userId},stamp);
    return reply({ok:true});
   }
