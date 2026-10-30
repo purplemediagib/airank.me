@@ -142,17 +142,58 @@ class Health(http.server.BaseHTTPRequestHandler):
         self.send_response(200);self.send_header('Content-Type','application/json');self.send_header('Content-Length',str(len(body)));self.end_headers();self.wfile.write(body)
     def log_message(self,*args):pass
 
+INIT_STAGE='not_started'
+def init_stage(value):
+    global INIT_STAGE
+    INIT_STAGE=value
+
+def safe_failure(exc,args):
+    # Only fixed codes, booleans and nonsecret inline-manifest length; never exception strings.
+    inline=os.environ.get('RESEARCH_MANIFEST_JSON','')
+    out={'failure_stage':INIT_STAGE,'failure_code':'unclassified','environment_present':{name:bool(os.environ.get(name)) for name in ('RESEARCH_MANIFEST_JSON','RESEARCH_MANIFEST_PATH','RESEARCH_STUDY_ID','RESEARCH_STORAGE_HOST','RESEARCH_STORAGE_ZONE','RESEARCH_STORAGE_ACCESS_KEY')},'manifest_json_length':len(inline)}
+    if isinstance(exc,json.JSONDecodeError):out['failure_code']='manifest_json_invalid'
+    elif isinstance(exc,PermissionError):out['failure_code']='filesystem_permission_denied'
+    elif isinstance(exc,FileNotFoundError):out['failure_code']='required_file_missing'
+    elif isinstance(exc,sqlite3.Error):out['failure_code']='sqlite_failure'
+    try:
+        m=json.loads(inline)
+        out['manifest_hash_matches']=isinstance(m,dict) and m.get('frozen_manifest_sha256')==manifest_hash(m)
+        out['study_id_matches']=isinstance(m,dict) and args.study_id==m.get('study_id')
+        value=m.get('study_id') if isinstance(m,dict) else None
+        out['study_id_valid']=isinstance(value,str) and bool(value) and all(c.isalnum() or c in '-_.' for c in value)
+        out['storage_access_approved']=isinstance(m,dict) and m.get('storage_access_approved') is True
+    except Exception:out['manifest_hash_matches']=False
+    import storage
+    if isinstance(exc,storage.StorageError):
+        out['failure_code']='private_storage_failure'
+        if exc.http_status is not None:out['storage_http_status']=exc.http_status
+        if exc.operation is not None:out['storage_operation']=exc.operation
+    return out
+
 def perform(args):
+    init_stage('manifest_load')
     if args.manifest:m=json.loads(pathlib.Path(args.manifest).read_text())
     elif os.environ.get('RESEARCH_MANIFEST_JSON'):m=json.loads(os.environ['RESEARCH_MANIFEST_JSON'])
     else:raise RuntimeError('Explicit reviewed manifest required')
+    init_stage('manifest_validation')
     if m.get('storage_access_approved') is not True:raise RuntimeError('Private storage access not approved')
     if m.get('frozen_manifest_sha256')!=manifest_hash(m):raise RuntimeError('Manifest hash mismatch')
     import storage
+    init_stage('storage_configuration')
     remote=storage.from_env(m['study_id'])
-    if args.mode=='init':
+    if args.mode=='preflight':
+        init_stage('study_id_validation')
         if args.study_id!=m['study_id']:raise RuntimeError('Study ID differs from manifest')
-        root=pathlib.Path(args.data_dir);prior=remote.read_marker()
+        init_stage('remote_marker_read')
+        prior=remote.read_marker()
+        root=pathlib.Path(args.data_dir)
+        return {'status':'preflight_passed','paid_calls':0,'storage_writes':0,'local_writes':0,'remote_marker_present':prior is not None,'local_identity_present':(root/'identity.json').is_file(),'local_ledger_present':(root/'ledger.sqlite').is_file(),'local_head_present':(root/'remote-head.json').is_file(),'note':'Read-only checks only; not initialization or durability proof'}
+    if args.mode=='init':
+        init_stage('study_id_validation')
+        if args.study_id!=m['study_id']:raise RuntimeError('Study ID differs from manifest')
+        root=pathlib.Path(args.data_dir)
+        init_stage('remote_marker_read');prior=remote.read_marker()
+        init_stage('local_identity_check')
         if (root/'identity.json').exists():
             ledger=open_study(root,args.study_id,{})
             try:
@@ -160,14 +201,18 @@ def perform(args):
             finally:ledger.db.close()
         else:
             if prior is not None:raise RuntimeError('Remote study exists but local identity absent; restore backup')
+            init_stage('local_ledger_initialize')
             initialize(root,args.study_id)
         identity=json.loads((root/'identity.json').read_text())
+        init_stage('remote_marker_verify')
         remote.ensure_marker(identity)
+        init_stage('remote_head_check')
         if (root/'remote-head.json').exists():remote.verify_head(root)
         else:
             if remote.head() is not None:raise RuntimeError('Remote backup exists but local head absent; manual restore required')
             import uuid
             ledger=open_study(root,args.study_id,{})
+            init_stage('initial_backup_verify')
             try:backup(root,ledger,'initial-'+uuid.uuid4().hex,remote)
             finally:ledger.db.close()
         return {'initialized':True,'study_id':args.study_id,'remote_marker_verified':True,'paid_calls':0}
@@ -193,7 +238,7 @@ def health_bind():
 
 def main():
     os.umask(0o077)
-    ap=argparse.ArgumentParser();ap.add_argument('mode',choices=['idle','init','diagnostic','collect','scheduled'],nargs='?',default=os.environ.get('RESEARCH_ACTION','idle'))
+    ap=argparse.ArgumentParser();ap.add_argument('mode',choices=['idle','preflight','init','diagnostic','collect','scheduled'],nargs='?',default=os.environ.get('RESEARCH_ACTION','idle'))
     for flag,env,default in [('data-dir','RESEARCH_DATA_DIR','/data/research'),('study-id','RESEARCH_STUDY_ID',None),('manifest','RESEARCH_MANIFEST_PATH',None),('slot-id','RESEARCH_SLOT_ID',None),('endpoint','RESEARCH_ENDPOINT',None),('intent-id','RESEARCH_INTENT_ID',None),('language','RESEARCH_LANGUAGE',None),('action-id','RESEARCH_ACTION_ID',None)]:
         ap.add_argument('--'+flag,default=os.environ.get(env,default))
     ap.add_argument('--then-idle',action='store_true',default=os.environ.get('RESEARCH_THEN_IDLE')=='1');args=ap.parse_args()
@@ -205,9 +250,9 @@ def main():
     if args.mode!='idle':
         Health.state=args.mode
         try:print(json.dumps(perform(args)),flush=True)
-        except Exception:
+        except Exception as exc:
             # No raw exception, provider body or secret can reach container logs.
-            print(json.dumps({'status':'blocked','action':args.mode,'paid_execution_enabled':False,'instruction':'Inspect private manifest/ledger; do not change action ID to bypass an unresolved attempt'}),flush=True)
+            print(json.dumps({'status':'blocked','action':args.mode,'paid_execution_enabled':False,'instruction':'Inspect private manifest/ledger; do not change action ID to bypass an unresolved attempt',**(safe_failure(exc,args) if args.mode in ('init','preflight') else {})}),flush=True)
             if not args.then_idle:raise SystemExit(2) from None
         Health.state='idle'
         if not args.then_idle:return

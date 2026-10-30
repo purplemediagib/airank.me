@@ -4,7 +4,11 @@ from urllib.request import Request,build_opener
 from urllib.error import HTTPError
 from adapters import NoRedirect
 ALLOWED={'storage.bunnycdn.com','uk.storage.bunnycdn.com','se.storage.bunnycdn.com'}
-class StorageError(RuntimeError):pass
+class StorageError(RuntimeError):
+    def __init__(self,message,http_status=None,operation=None):
+        super().__init__(message)
+        self.http_status=http_status if type(http_status) is int and 100<=http_status<=599 else None
+        self.operation=operation if operation in ('GET','PUT') else None
 class BunnyBackup:
     delete_local_after_verified=True
     def __init__(self,host,zone,key,study_id,transport=None):
@@ -18,7 +22,7 @@ class BunnyBackup:
             with build_opener(NoRedirect).open(Request(url,data,headers,method=method),timeout=60) as r:return r.status,r.read()
         except HTTPError as e:
             if e.code==404 and method=='GET':return 404,b''
-            raise StorageError('Storage request rejected; no credential/body logged') from None
+            raise StorageError('Storage request rejected; no credential/body logged',e.code,method) from None
         except Exception:raise StorageError('Storage request failed; no credential/body logged') from None
     def put_verified(self,name,data):
         if not re.fullmatch(r'[A-Za-z0-9_.-]+',name):raise StorageError('Unsafe artifact name')

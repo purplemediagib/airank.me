@@ -96,3 +96,41 @@ class HealthBindTests(unittest.TestCase):
         for value in ('example.com','::','127.0.0.2',''):
             with patch.dict(service.os.environ,{'RESEARCH_HEALTH_BIND':value},clear=True):
                 with self.assertRaises(RuntimeError):service.health_bind()
+
+class SafeFailureTests(unittest.TestCase):
+    def test_no_secrets_or_exception_text(self):
+        from unittest.mock import patch
+        from types import SimpleNamespace
+        import storage
+        with patch.dict(service.os.environ,{'RESEARCH_STORAGE_ACCESS_KEY':'TOP-SECRET-NEVER-LOG','RESEARCH_MANIFEST_JSON':'{'},clear=True):
+            x=service.safe_failure(storage.StorageError('TOP-SECRET-EXCEPTION',403,'GET'),SimpleNamespace(study_id='study'))
+        text=json.dumps(x)
+        self.assertNotIn('TOP-SECRET',text);self.assertEqual(x['storage_http_status'],403)
+        self.assertTrue(x['environment_present']['RESEARCH_STORAGE_ACCESS_KEY'])
+        self.assertNotIn('secret_length',text);self.assertFalse(x['manifest_hash_matches'])
+    def test_manifest_checks_only_booleans(self):
+        from unittest.mock import patch
+        from types import SimpleNamespace
+        m={'study_id':'study','storage_access_approved':True};m['frozen_manifest_sha256']=service.manifest_hash(m)
+        with patch.dict(service.os.environ,{'RESEARCH_MANIFEST_JSON':json.dumps(m)},clear=True):
+            x=service.safe_failure(RuntimeError('private'),SimpleNamespace(study_id='study'))
+        self.assertTrue(x['manifest_hash_matches']);self.assertTrue(x['study_id_matches']);self.assertTrue(x['study_id_valid'])
+    def test_permission_code(self):
+        from types import SimpleNamespace
+        x=service.safe_failure(PermissionError('private path'),SimpleNamespace(study_id='study'))
+        self.assertEqual(x['failure_code'],'filesystem_permission_denied')
+
+class PreflightTests(unittest.TestCase):
+    def test_read_only_no_directory_creation(self):
+        from unittest.mock import patch
+        from types import SimpleNamespace
+        import storage
+        with tempfile.TemporaryDirectory() as d:
+            root=pathlib.Path(d)/'absent';calls=[]
+            def fake(method,url,data=None):
+                calls.append(method);return 404,b''
+            b=storage.BunnyBackup('se.storage.bunnycdn.com','fake-zone','FAKE','study',fake)
+            m={'study_id':'study','storage_access_approved':True};m['frozen_manifest_sha256']=service.manifest_hash(m)
+            args=SimpleNamespace(manifest=None,mode='preflight',study_id='study',data_dir=str(root))
+            with patch.dict(service.os.environ,{'RESEARCH_MANIFEST_JSON':json.dumps(m)},clear=True),patch.object(storage,'from_env',return_value=b):x=service.perform(args)
+            self.assertEqual(calls,['GET']);self.assertFalse(root.exists());self.assertEqual(x['storage_writes'],0);self.assertEqual(x['status'],'preflight_passed')

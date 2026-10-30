@@ -170,3 +170,7 @@ The local revision includes an offline full six-block run:288 distinct response 
 
 ## Optional internal health probe
 Default binding remains `127.0.0.1:8080`. For Bunny internal HTTP probes only, explicitly set `RESEARCH_HEALTH_BIND=0.0.0.0`, port `8080`, path `/healthz`; keep the research app without a public CDN route. No management, secrets, raw data or ledger fields are exposed. Other bind values fail closed. Old fec3 image does not support this option: leave research HTTP/TCP probes disabled there, especially any inherited port 3007 probe. Never change production app probes.
+
+## Read-only preflight and sanitized initialization failures
+The diagnostic revision adds `RESEARCH_ACTION=preflight`: validates the nonsecret manifest and study identity, checks the storage marker using GET only, and reports local identity/ledger/head presence. It creates no local files, performs no storage PUT, and makes no provider call. `preflight_passed` is NOT initialization, persistence, or paid readiness proof. Restore `RESEARCH_ACTION=idle` after the result. Existing volume/identity must never be deleted to clear a failure.
+Initialization/preflight errors report only fixed stage/code, named env-presence booleans, inline nonsecret manifest character count, manifest hash-match and study-match booleans, and storage HTTP status/method when available. No exception string, response body, credential value, credential length or credential hash is logged.
