@@ -1,3 +1,4 @@
+import {sessionContext} from './session-context.mjs';
 import {internalPlanService} from './plans.mjs';
 import {assertBrandCapacity,assertPlanAccess} from '../common/plans.mjs';
 import {accessibleProject,requireProject,visibleProjects,teamsEnabled,ensureWorkspace,reportProjectAllowed} from '../common/access.mjs';
@@ -152,7 +153,7 @@ export function createAppService({ db, clients, env = process.env, now = Date.no
     // Session/CSRF/signup state is cookie-only. Bearer callers get the anonymous
     // session response, without consuming signup flags or creating a browser session.
     const auth = hasReportAuthorization&&sessionRead?null:machineAuth||await session(headers);
-    if (method === 'GET' && path === '/v1/app/session') return result({ authenticated: !!auth, user: auth?.user || null, csrfToken: auth ? csrfFor(auth.token) : null, loginAvailable, emailLoginAvailable: await emailAuthAvailable(db,env),accountCreated:auth?await claimNewGoogleSignup(db,env,hashToken(auth.token)):false });
+    if (method === 'GET' && path === '/v1/app/session') return result({ authenticated: !!auth, user: auth?.user || null, csrfToken: auth ? csrfFor(auth.token) : null, loginAvailable, emailLoginAvailable: await emailAuthAvailable(db,env),accountCreated:auth?await claimNewGoogleSignup(db,env,hashToken(auth.token)):false, lifecycle:auth?await sessionContext(db,auth.user.id,now()):null });
     if (!auth) fail(401, 'AUTH_REQUIRED');
     const userId = auth.user.id;
     if (method !== 'GET') {
