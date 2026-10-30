@@ -1,0 +1,40 @@
+{
+  "study_version": "v0.2-DRAFT",
+  "status": "PREPARATION_ONLY",
+  "scope": "OpenAI + Kimi; Gemini superseded; public checker unchanged",
+  "endpoints": [
+    {
+      "endpoint": "openai_responses",
+      "candidate_model": "gpt-4.1-mini-2025-04-14",
+      "qualified": false
+    },
+    {
+      "endpoint": "kimi_candidate",
+      "candidate_model": null,
+      "route": null,
+      "qualified": false
+    }
+  ],
+  "primary_slots_per_endpoint": 144,
+  "primary_slots_total": 288,
+  "diagnostic_attempts_total_maximum": 20,
+  "retry_maximum_per_primary_slot": 1,
+  "approved_combined_budget_usd": 40,
+  "finnish_reviewer": null,
+  "finnish_review_signed_at": null,
+  "execution_host": null,
+  "credential_reference": null,
+  "scheduler_authorized": false,
+  "collection_authorized": false,
+  "freeze_hashes": null,
+  "note": "Owner approved implementation and intended collection starting tomorrow; actual release gated on secure host/credential, verified request bounds, model qualification and Finnish review. $40 is the single combined allowance; no stacking prior allowances.",
+  "budget_includes": [
+    "both endpoints",
+    "qualification",
+    "all retries"
+  ],
+  "scope_implementation_approved": true,
+  "desired_collection_start": "2026-10-31",
+  "approved_provider_budget_usd": 38,
+  "approved_hosting_storage_budget_usd": 2
+}

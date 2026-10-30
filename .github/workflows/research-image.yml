@@ -1,0 +1,42 @@
+name: Publish isolated Finland research image
+on:
+  push:
+    branches: [research/finland-pilot-v02]
+    paths: [research/finland/**, .github/workflows/research-image.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: finland-research-image-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  offline-test-and-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Offline research tests (no provider credentials)
+        working-directory: research/finland
+        run: python3 -m unittest -v
+      - name: Build and publish research image only
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+          REPOSITORY: ${{ github.repository }}
+          REVISION: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          image="ghcr.io/${REPOSITORY,,}/finland-research:sha-$REVISION"
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
+          trap 'docker logout ghcr.io' EXIT
+          docker build --platform linux/amd64 --label "org.opencontainers.image.revision=$REVISION" --tag "$image" research/finland
+          docker run --rm --network none "$image"
+          docker push "$image"
+          printf '### Research image (offline default; not collection-ready)\n\n`%s`\n' "$image" >> "$GITHUB_STEP_SUMMARY"
+# No cache export, Actions artifact uploads, provider credentials, Bunny deployment,
+# public research endpoint, production target builds, or schedule activation.

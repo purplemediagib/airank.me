@@ -1,0 +1,98 @@
+[
+  {
+    "intent_id": "ACC01",
+    "sector": "Accounting",
+    "intent": "General shortlist",
+    "en": "Which accounting firms would you recommend to a small business operating in Finland? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
+    "fi": "Mitä tilitoimistoja suosittelisit Suomessa toimivalle pienyritykselle? Suosittele enintään viittä sopivaa palveluntarjoajaa ja perustele jokainen suositus lyhyesti. Liitä mukaan lähteet, jos niitä on saatavilla. Älä keksi palveluntarjoajia. Jos et pysty suosittelemaan yhtäkään, kerro se. Vastaa suomeksi.",
+    "review_status": "REQUIRES_FLUENT_FINNISH_HUMAN_REVIEW"
+  },
+  {
+    "intent_id": "ACC02",
+    "sector": "Accounting",
+    "intent": "Business size",
+    "en": "Which accounting firms would you recommend to a company with 10 employees operating in Finland that needs outsourced bookkeeping and payroll? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
+    "fi": "Mitä tilitoimistoja suosittelisit Suomessa toimivalle 10 työntekijän yritykselle, joka tarvitsee ulkoistettua kirjanpitoa ja palkanlaskentaa? Suosittele enintään viittä sopivaa palveluntarjoajaa ja perustele jokainen suositus lyhyesti. Liitä mukaan lähteet, jos niitä on saatavilla. Älä keksi palveluntarjoajia. Jos et pysty suosittelemaan yhtäkään, kerro se. Vastaa suomeksi.",
+    "review_status": "REQUIRES_FLUENT_FINNISH_HUMAN_REVIEW"
+  },
+  {
+    "intent_id": "ACC03",
+    "sector": "Accounting",
+    "intent": "Specific service",
+    "en": "Which accounting firms would you recommend to an online retailer operating in Finland that needs bookkeeping integrated with its online store? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
+    "fi": "Mitä tilitoimistoja suosittelisit Suomessa toimivalle verkkokaupalle, joka tarvitsee verkkokauppaansa integroitua kirjanpitoa? Suosittele enintään viittä sopivaa palveluntarjoajaa ja perustele jokainen suositus lyhyesti. Liitä mukaan lähteet, jos niitä on saatavilla. Älä keksi palveluntarjoajia. Jos et pysty suosittelemaan yhtäkään, kerro se. Vastaa suomeksi.",
+    "review_status": "REQUIRES_FLUENT_FINNISH_HUMAN_REVIEW"
+  },
+  {
+    "intent_id": "ACC04",
+    "sector": "Accounting",
+    "intent": "Location",
+    "en": "Which accounting firms would you recommend to a small business in Tampere, Finland, that wants the option of in-person meetings? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
+    "fi": "Mitä tilitoimistoja suosittelisit Tampereella Suomessa toimivalle pienyritykselle, joka haluaa mahdollisuuden tavata palveluntarjoajan kasvokkain? Suosittele enintään viittä sopivaa palveluntarjoajaa ja perustele jokainen suositus lyhyesti. Liitä mukaan lähteet, jos niitä on saatavilla. Älä keksi palveluntarjoajia. Jos et pysty suosittelemaan yhtäkään, kerro se. Vastaa suomeksi.",
+    "review_status": "REQUIRES_FLUENT_FINNISH_HUMAN_REVIEW"
+  },
+  {
+    "intent_id": "IT01",
+    "sector": "Managed IT",
+    "intent": "General shortlist",
+    "en": "Which managed IT service providers would you recommend to a small business operating in Finland? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
+    "fi": "Mitä jatkuvien IT-palveluiden tarjoajia suosittelisit Suomessa toimivalle pienyritykselle? Suosittele enintään viittä sopivaa palveluntarjoajaa ja perustele jokainen suositus lyhyesti. Liitä mukaan lähteet, jos niitä on saatavilla. Älä keksi palveluntarjoajia. Jos et pysty suosittelemaan yhtäkään, kerro se. Vastaa suomeksi.",
+    "review_status": "REQUIRES_FLUENT_FINNISH_HUMAN_REVIEW"
+  },
+  {
+    "intent_id": "IT02",
+    "sector": "Managed IT",
+    "intent": "Business size",
+    "en": "Which IT service providers would you recommend to a company with 20 employees operating in Finland that needs outsourced day-to-day IT support? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
+    "fi": "Mitä IT-palveluntarjoajia suosittelisit Suomessa toimivalle 20 työntekijän yritykselle, joka tarvitsee ulkoistettua päivittäistä IT-tukea? Suosittele enintään viittä sopivaa palveluntarjoajaa ja perustele jokainen suositus lyhyesti. Liitä mukaan lähteet, jos niitä on saatavilla. Älä keksi palveluntarjoajia. Jos et pysty suosittelemaan yhtäkään, kerro se. Vastaa suomeksi.",
+    "review_status": "REQUIRES_FLUENT_FINNISH_HUMAN_REVIEW"
+  },
+  {
+    "intent_id": "IT03",
+    "sector": "Managed IT",
+    "intent": "Specific service",
+    "en": "Which IT service providers would you recommend to a small business operating in Finland that needs ongoing Microsoft 365 administration and employee device management? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
+    "fi": "Mitä IT-palveluntarjoajia suosittelisit Suomessa toimivalle pienyritykselle, joka tarvitsee jatkuvaa Microsoft 365 -ympäristön ylläpitoa ja työntekijöiden laitteiden hallintaa? Suosittele enintään viittä sopivaa palveluntarjoajaa ja perustele jokainen suositus lyhyesti. Liitä mukaan lähteet, jos niitä on saatavilla. Älä keksi palveluntarjoajia. Jos et pysty suosittelemaan yhtäkään, kerro se. Vastaa suomeksi.",
+    "review_status": "REQUIRES_FLUENT_FINNISH_HUMAN_REVIEW"
+  },
+  {
+    "intent_id": "IT04",
+    "sector": "Managed IT",
+    "intent": "Location",
+    "en": "Which managed IT service providers would you recommend to a small business in Turku, Finland, that needs on-site support when necessary? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
+    "fi": "Mitä jatkuvien IT-palveluiden tarjoajia suosittelisit Turussa Suomessa toimivalle pienyritykselle, joka tarvitsee tarvittaessa paikan päällä annettavaa IT-tukea? Suosittele enintään viittä sopivaa palveluntarjoajaa ja perustele jokainen suositus lyhyesti. Liitä mukaan lähteet, jos niitä on saatavilla. Älä keksi palveluntarjoajia. Jos et pysty suosittelemaan yhtäkään, kerro se. Vastaa suomeksi.",
+    "review_status": "REQUIRES_FLUENT_FINNISH_HUMAN_REVIEW"
+  },
+  {
+    "intent_id": "MKT01",
+    "sector": "Marketing agencies",
+    "intent": "General shortlist",
+    "en": "Which digital marketing agencies would you recommend to a small business operating in Finland? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
+    "fi": "Mitä digimarkkinointitoimistoja suosittelisit Suomessa toimivalle pienyritykselle? Suosittele enintään viittä sopivaa palveluntarjoajaa ja perustele jokainen suositus lyhyesti. Liitä mukaan lähteet, jos niitä on saatavilla. Älä keksi palveluntarjoajia. Jos et pysty suosittelemaan yhtäkään, kerro se. Vastaa suomeksi.",
+    "review_status": "REQUIRES_FLUENT_FINNISH_HUMAN_REVIEW"
+  },
+  {
+    "intent_id": "MKT02",
+    "sector": "Marketing agencies",
+    "intent": "Business size",
+    "en": "Which digital marketing agencies would you recommend to a company with 20 employees operating in Finland that needs an outsourced marketing partner? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
+    "fi": "Mitä digimarkkinointitoimistoja suosittelisit Suomessa toimivalle 20 työntekijän yritykselle, joka tarvitsee ulkoistetun markkinointikumppanin? Suosittele enintään viittä sopivaa palveluntarjoajaa ja perustele jokainen suositus lyhyesti. Liitä mukaan lähteet, jos niitä on saatavilla. Älä keksi palveluntarjoajia. Jos et pysty suosittelemaan yhtäkään, kerro se. Vastaa suomeksi.",
+    "review_status": "REQUIRES_FLUENT_FINNISH_HUMAN_REVIEW"
+  },
+  {
+    "intent_id": "MKT03",
+    "sector": "Marketing agencies",
+    "intent": "Specific service",
+    "en": "Which marketing agencies would you recommend to a B2B software company operating in Finland that needs search engine optimization and content marketing? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
+    "fi": "Mitä markkinointitoimistoja suosittelisit Suomessa toimivalle B2B-ohjelmistoyritykselle, joka tarvitsee hakukoneoptimointia ja sisältömarkkinointia? Suosittele enintään viittä sopivaa palveluntarjoajaa ja perustele jokainen suositus lyhyesti. Liitä mukaan lähteet, jos niitä on saatavilla. Älä keksi palveluntarjoajia. Jos et pysty suosittelemaan yhtäkään, kerro se. Vastaa suomeksi.",
+    "review_status": "REQUIRES_FLUENT_FINNISH_HUMAN_REVIEW"
+  },
+  {
+    "intent_id": "MKT04",
+    "sector": "Marketing agencies",
+    "intent": "Location",
+    "en": "Which digital marketing agencies would you recommend to a small business in Helsinki, Finland, that wants the option of in-person planning meetings? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
+    "fi": "Mitä digimarkkinointitoimistoja suosittelisit Helsingissä Suomessa toimivalle pienyritykselle, joka haluaa mahdollisuuden pitää suunnittelupalavereita kasvokkain? Suosittele enintään viittä sopivaa palveluntarjoajaa ja perustele jokainen suositus lyhyesti. Liitä mukaan lähteet, jos niitä on saatavilla. Älä keksi palveluntarjoajia. Jos et pysty suosittelemaan yhtäkään, kerro se. Vastaa suomeksi.",
+    "review_status": "REQUIRES_FLUENT_FINNISH_HUMAN_REVIEW"
+  }
+]

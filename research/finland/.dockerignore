@@ -1,0 +1,7 @@
+*
+!Dockerfile
+!runner.py
+!adapters.py
+!test_runner.py
+!inputs/
+!inputs/**

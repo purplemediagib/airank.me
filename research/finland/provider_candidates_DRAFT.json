@@ -1,0 +1,45 @@
+{
+  "status": "UNQUALIFIED_DO_NOT_EXECUTE",
+  "openai_responses": {
+    "qualified": false,
+    "all_billable_bound_verified": false,
+    "model": "gpt-4.1-mini-2025-04-14",
+    "max_tool_calls": 2,
+    "max_output_tokens": 1500,
+    "tool_choice": "required"
+  },
+  "kimi_candidate": {
+    "qualified": false,
+    "all_billable_bound_verified": false,
+    "route": "openrouter",
+    "model": "moonshotai/kimi-k3.1-pro-20261023",
+    "provider": "moonshotai/mxfp4",
+    "native_tool_loop_required": false,
+    "reviewed_request_parameters": {
+      "tools": [
+        {
+          "type": "openrouter:web_search",
+          "parameters": {
+            "engine": "exa",
+            "mode": "auto",
+            "max_uses": 2,
+            "max_results": 3,
+            "max_total_results": 6,
+            "max_characters": 1000
+          }
+        }
+      ],
+      "tool_choice": "required",
+      "max_tool_calls": 2,
+      "max_tokens": 1500,
+      "reasoning": {
+        "effort": "low"
+      }
+    },
+    "warning": "Server-managed Exa loop. Aggregate token cap/loop billing not proven. Field name reviewed_request_parameters is adapter contract, not evidence of qualification."
+  },
+  "sources": [
+    "https://openrouter.ai/docs/guides/features/server-tools/web-search"
+  ],
+  "bound_status": "Unknown: no provider marked verified; StudyLedger refuses paid reservation."
+}

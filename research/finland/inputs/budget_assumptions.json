@@ -1,0 +1,51 @@
+{
+  "as_of": "2026-10-30",
+  "currency": "USD",
+  "approval_status": "UNAPPROVED",
+  "openai": {
+    "model": "gpt-4.1-mini-2025-04-14",
+    "input_per_million": 0.4,
+    "output_per_million": 1.6,
+    "prompt_token_cap": 1000,
+    "output_token_cap": 1500,
+    "max_search_calls": 2,
+    "search_content_tokens_per_call": 8000,
+    "search_fee_per_call": 0.01,
+    "primary_slots": 144,
+    "max_retries": 144,
+    "diagnostics_separate": 20,
+    "proposed_usage_approval_ceiling": 12,
+    "excludes": [
+      "tax",
+      "currency_conversion",
+      "new_credit_purchase",
+      "human_review",
+      "hosting"
+    ],
+    "gates": [
+      "model availability: catalog marks deprecated",
+      "tool compatibility and caps verified",
+      "own research authorization"
+    ],
+    "per_attempt_cost_estimate_assuming_caps": 0.0292,
+    "primary_cost_estimate": 4.2048,
+    "max_retry_cost_estimate": 4.2048,
+    "diagnostic_cost_estimate": 0.584,
+    "total_cost_estimate": 8.9936,
+    "estimate_is_enforceable_cap": false,
+    "additional_context_billing_requires_verification": true
+  },
+  "gemini": {
+    "model": "google/gemini-2.5-flash",
+    "input_per_million": 0.3,
+    "output_per_million": 2.5,
+    "primary_slots_if_qualified": 144,
+    "max_retries_if_qualified": 144,
+    "route_all_in_budget_status": "BLOCKED_PENDING_NATIVE_GROUNDING_AND_SEARCH_BILLING_VERIFICATION",
+    "no_free_grounding_allowance_assumed": true,
+    "no_fallback_allowed": true,
+    "direct_google_native_search_reference_per_grounded_prompt": 0.035,
+    "openrouter_standard_credit_purchase_fee_fraction": 0.055,
+    "openrouter_business_credit_purchase_fee_fraction": 0.08
+  }
+}
