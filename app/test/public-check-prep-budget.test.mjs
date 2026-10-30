@@ -179,3 +179,13 @@ test('unknown preparation context or excessive input fails before provider dispa
   assert.equal(calls,0);
  }
 });
+test('guest PDF without parsed markdown stops before paid identity inference',async()=>{
+ const f=await fixture();let fetches=0;
+ try{
+  await assert.rejects(f.call('POST','/prepare',site,{deps:{scrape:scrapeWebsite,fetcher:async(url,options)=>{
+   fetches++;assert.equal(url,'https://api.firecrawl.dev/v2/scrape');assert.deepEqual(JSON.parse(options.body).parsers,[]);
+   return new Response(JSON.stringify({success:true,data:{rawHtml:'JVBERi0xLjQ='}}),{status:200});
+  }}}),/WEBSITE_UNAVAILABLE/);
+  assert.equal(fetches,1);assert.deepEqual(f.prepRows().map(row=>row.stage),['scrape']);
+ }finally{f.close();}
+});
