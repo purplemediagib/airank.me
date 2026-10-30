@@ -31,7 +31,8 @@ export function prepPlan({stage,model,body,maxTokens},env){
  let reservedNano,limits;
  if(stage==='scrape'){
   // One Firecrawl /v2/scrape request, never retried here. requestUsd is the
-  // operator's worst-case price for one scrape on their plan (incl. any
+  // operator's worst-case price for one scrape with automatic document parsers
+  // disabled by the guest adapter, on their plan (incl. any
   // enhanced-proxy surcharge Firecrawl may apply).
   reservedNano=nano(price.requestUsd);limits={requests:1,requestUsd:price.requestUsd};
  }else{

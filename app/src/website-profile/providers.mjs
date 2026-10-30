@@ -13,8 +13,11 @@ async function jsonResponse(r){
 export async function scrapeWebsite(site,{env=process.env,fetcher=fetch,reserve=null}={}){
  if(!env.FIRECRAWL_API_KEY)throw Error('WEBSITE_PROFILE_DISABLED');
  // Guest callers must hold a monetary reservation before the paid request.
+ // Disable automatic document parsers for that bounded guest scrape: a PDF
+ // otherwise costs one credit per page before our response-size guard runs.
+ // Regular signed-in website profiles retain the provider's existing defaults.
  if(reserve)await reserve({stage:'scrape'});
- const result=await jsonResponse(await fetcher('https://api.firecrawl.dev/v2/scrape',{method:'POST',headers:{Authorization:`Bearer ${env.FIRECRAWL_API_KEY}`,'Content-Type':'application/json'},body:JSON.stringify({url:site.website,formats:['markdown'],onlyMainContent:true,timeout:20000}),signal:AbortSignal.timeout(25000)}));
+ const result=await jsonResponse(await fetcher('https://api.firecrawl.dev/v2/scrape',{method:'POST',headers:{Authorization:`Bearer ${env.FIRECRAWL_API_KEY}`,'Content-Type':'application/json'},body:JSON.stringify({url:site.website,formats:['markdown'],onlyMainContent:true,timeout:20000,...(reserve?{parsers:[]}:{})}),signal:AbortSignal.timeout(25000)}));
  if(!result.success||typeof result.data?.markdown!=='string'||result.data.markdown.trim().length<40)throw Error('WEBSITE_UNAVAILABLE');
  const final=result.data.metadata?.sourceURL||site.website;
  const finalSite=await assertPublicWebsite(final);

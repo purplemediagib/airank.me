@@ -47,3 +47,17 @@ test('OpenAI structured output is capped and cannot add invented owned domains o
  await assert.rejects(inferProfile({website:'https://site.fi/',domain:'site.fi'},{text:'test'},{env:{OPENAI_API_KEY:'fixture'},fetcher:async()=>Response.json({choices:[]})}),/AI_UNAVAILABLE/);
  await assert.rejects(scrapeWebsite({website:'https://site.fi/',domain:'site.fi'},{env:{}}),/DISABLED/);
 });
+
+test('guest scrape disables automatic document parsers after reservation; regular profiles keep defaults',async()=>{
+ for(const guest of [true,false]){
+  const events=[],stop=Error('OFFLINE_REQUEST_CAPTURE');let request;
+  await assert.rejects(scrapeWebsite({website:'https://example.fi/',domain:'example.fi'},{
+   env:{FIRECRAWL_API_KEY:'fixture-only'},
+   ...(guest?{reserve:async input=>{assert.deepEqual(input,{stage:'scrape'});events.push('reserve');}}:{}),
+   fetcher:async(url,options)=>{events.push('fetch');request=JSON.parse(options.body);assert.equal(url,'https://api.firecrawl.dev/v2/scrape');throw stop;}
+  }),error=>error===stop);
+  assert.deepEqual(events,guest?['reserve','fetch']:['fetch']);
+  assert.deepEqual(request,{url:'https://example.fi/',formats:['markdown'],onlyMainContent:true,timeout:20000,...(guest?{parsers:[]}:{})});
+  assert.equal(Object.hasOwn(request,'parsers'),guest);
+ }
+});
