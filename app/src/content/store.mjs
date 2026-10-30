@@ -28,14 +28,9 @@ export async function put(db,p,kind,id,value,expected,actor,now=Date.now()){
 }
 export const event=(db,p,actor,kind,payload,now=Date.now())=>exec(db,'INSERT INTO content_events VALUES (?,?,?,?,?,?)',[uid(),p,actor,kind,JSON.stringify(payload),now]);
 export const jobView=r=>({...r,input:JSON.parse(r.input),checkpoint:JSON.parse(r.checkpoint),result:r.result?JSON.parse(r.result):null,claim_token:undefined,lease_until:undefined});
-export async function enqueue(db,p,actor,kind,input,submissionId,now=Date.now()){
- if(typeof submissionId!=='string'||! /^[A-Za-z0-9_-]{8,100}$/.test(submissionId))fail(422,'SUBMISSION_ID_REQUIRED');
- const h=hash({kind,input});const old=await one(db,'SELECT * FROM content_jobs WHERE project_id=? AND submission_id=?',[p,submissionId]);
- if(old){if(old.input_hash!==h)fail(409,'SUBMISSION_CONFLICT');return jobView(old);}
- const n=await one(db,"SELECT COUNT(*) n FROM content_jobs WHERE project_id=? AND status IN ('queued','running')",[p]);
- if(Number(n.n)>=1000)fail(429,'CONTENT_QUEUE_FULL');
- const id=uid();await exec(db,`INSERT INTO content_jobs(id,project_id,actor,submission_id,input_hash,kind,input,status,available_at,created_at,updated_at) VALUES (?,?,?,?,?,?,?,'queued',?,?,?)`,[id,p,actor,submissionId,h,kind,JSON.stringify(input),now,now,now]);
- return jobView(await one(db,'SELECT * FROM content_jobs WHERE id=?',[id]));
+export async function enqueue(){
+ // No API, scheduler, sitemap child, or direct internal caller can admit work.
+ fail(410,'LEGACY_CONTENT_RETIRED');
 }
 function key(env){if(!/^[a-f0-9]{64}$/i.test(env.CONTENT_ENCRYPTION_KEY||''))fail(503,'CONTENT_ENCRYPTION_NOT_CONFIGURED');return Buffer.from(env.CONTENT_ENCRYPTION_KEY,'hex');}
 export function seal(value,p,env){const iv=randomBytes(12),c=createCipheriv('aes-256-gcm',key(env),iv);c.setAAD(Buffer.from(p));const body=Buffer.concat([c.update(JSON.stringify(value)),c.final()]);return Buffer.concat([iv,c.getAuthTag(),body]).toString('base64');}

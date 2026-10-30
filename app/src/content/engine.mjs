@@ -18,6 +18,8 @@ async function modelContext(ctx,project,doc){
   ownedPages:(await list(ctx.db,ctx.job.project_id,'document')).filter(d=>d.sourceUrl).slice(0,100).map(d=>({title:d.title,url:d.sourceUrl})),sources:fetched.filter(s=>!s.error).map(s=>({id:s.id,url:s.url,title:s.title,markdown:s.markdown.slice(0,6000),contentHash:s.contentHash,fetchedAt:s.fetchedAt,truncated:s.markdown.length>6000})),sourceErrors:fetched.filter(s=>s.error),evidence:ev,monitoringGroup:a.selectedGroup};
 }
 export async function runJob(ctx){
+ // Defence in depth for any stale internal dispatcher; never call a provider.
+ fail(410,'LEGACY_CONTENT_RETIRED');
  const {db,job,input}=ctx,p=job.project_id;const project=await access(db,p,job.actor,job.kind==='publish'?'review':'edit');
  const doc=input.documentId?await get(db,p,'document',input.documentId):null;
  if(input.documentId&&(!doc||doc.version!==input.documentVersion)&&!['impact'].includes(job.kind))fail(409,'REVISION_CHANGED');

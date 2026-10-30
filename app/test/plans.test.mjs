@@ -207,11 +207,11 @@ test('billing endpoint fails closed without a configured shared secret',withFixt
  assert.equal((await projectPlan(f.db,p.id)).status,'trialing');
 }));
 
-test('content automation does not enqueue after trial expiry and resumes after activation',withFixture(async f=>{
+test('retired content automation remains quiescent after trial expiry and activation',withFixture(async f=>{
  const p=await f.create();
  f.sql.prepare('INSERT INTO content_records VALUES(?,?,?,?,?,?)').run(p.id,'settings','automation',1,JSON.stringify({enabled:true,nextRunAt:f.now(),refreshHours:24,locale:'en'}),f.now());
  f.advance(TRIAL_MS);await scheduleContent(f.db,f.now());assert.equal(f.sql.prepare('SELECT COUNT(*) n FROM content_jobs').get().n,0);
- await f.push(p.workspaceId,'pro');await scheduleContent(f.db,f.now());assert.equal(f.sql.prepare('SELECT COUNT(*) n FROM content_jobs').get().n,1);
+ await f.push(p.workspaceId,'pro');await scheduleContent(f.db,f.now());assert.equal(f.sql.prepare('SELECT COUNT(*) n FROM content_jobs').get().n,0);
 }));
 
 test('weekly neutral and diagnostic sets both run once per seven days without starving either kind',withFixture(async f=>{
@@ -231,4 +231,11 @@ test('weekly reservations serialize concurrent checks and tolerate a backwards a
  const results=await Promise.allSettled([run(f,p.id,'weekly-concurrent-submission-one'),run(f,p.id,'weekly-concurrent-submission-two')]);
  assert.equal(results.filter(r=>r.status==='fulfilled').length,1);assert.equal(results.find(r=>r.status==='rejected').reason.code,'PLAN_LIMIT');
  f.advance(-100);await denied(run(f,p.id,'weekly-skewed-clock-submission'),402);
+}));
+
+test('active subscription cannot bypass permanent legacy retirement through app routes while reads survive',withFixture(async f=>{
+ const p=await f.create();await f.push(p.workspaceId,'pro');
+ for(const suffix of ['/content/jobs','/content/documents','/content/bulk'])await denied(f.call('POST',`/v1/projects/${p.id}${suffix}`,{kind:'create',input:{topic:'Retired'}}),410,'LEGACY_CONTENT_RETIRED');
+ assert.equal((await f.call('GET',`/v1/projects/${p.id}/content`)).status,200);
+ assert.equal((await f.call('GET',`/v1/projects/${p.id}/analytics`)).status,200);
 }));
