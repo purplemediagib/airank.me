@@ -28,9 +28,7 @@ test('0.21 migration sequence upgrades additively and content can read current a
   await migrateContent(db);await migrateContent(db);
   assert.deepEqual(sql.prepare("SELECT id,checksum FROM app_migrations WHERE id<>? ORDER BY id").all(id),before);
   const a=await analyticsService({db,path:'/v1/projects/project/analytics',userId:'alice',env:{}});assert.ok(Array.isArray(a.data.evidence));
-  let received;
-  await runJob({db,job:{id:'job',project_id:'project',actor:'alice',kind:'research'},input:{locale:'en',topic:'Example'},env:{},step:async(_key,fn)=>fn(),commit:fn=>fn(db),generateFn:async({input})=>{received=input;return {output:{}};}});
-  assert.equal(received.brand.brandName,'Example');assert.deepEqual(received.evidence,[]);
+  await assert.rejects(runJob({db}),e=>e.code==='LEGACY_CONTENT_RETIRED');
   // Later additive releases must still run after the existing content upgrade.
   for(const name of calls.slice(contentIndex+1))await apply(name);
   assert.equal(sql.prepare('SELECT COUNT(*) n FROM app_migrations').get().n,calls.length);

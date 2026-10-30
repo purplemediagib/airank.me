@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
+import {put as putContent} from '../src/content/store.mjs';
 import {readFileSync} from 'node:fs';
 import {migrations} from '../src/migrate.mjs';
 import {migrateTeams,checksum} from '../src/app/team-migration.mjs';
@@ -78,7 +79,8 @@ test('viewer reads analytics and downloads, member edits prompts but cannot chan
  for(const [method,path] of [['POST','research'],['POST','suggestions'],['POST','intelligence'],['POST','sentiment-backfill'],['POST','opportunities'],['POST','content/documents']])await denied(f.call('viewer',method,'/v1/projects/brand-one/'+path),403,'ROLE_FORBIDDEN');
  assert.equal((await f.call('admin','PATCH','/v1/projects/brand-one/measurement-settings',{providers:['openai'],expectedVersion:0})).status,200);
  assert.equal((await f.call('member','GET','/v1/projects/brand-one/content')).data.role,'editor');
- const doc=(await f.call('member','POST','/v1/projects/brand-one/content/documents',{title:'Example',markdown:'A reviewed document.',locale:'en'})).data;
+ await denied(f.call('member','POST','/v1/projects/brand-one/content/documents',{title:'Example',markdown:'A reviewed document.',locale:'en'}),410,'LEGACY_CONTENT_RETIRED');
+ const doc=await putContent(f.db,'brand-one','document','historical-document',{title:'Example',markdown:'A reviewed document.',locale:'en'},0,'owner');
  assert.equal((await f.call('viewer','GET',`/v1/projects/brand-one/content/documents/${doc.id}/export`)).status,200);
  await denied(f.call('admin','PUT','/v1/projects/brand-one/content/access',{expectedVersion:0,role:'editor',email:'outsider@example.test'}),410,'USE_TEAM_INVITES');
 }));
