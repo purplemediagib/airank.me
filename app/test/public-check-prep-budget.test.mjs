@@ -189,3 +189,11 @@ test('guest PDF without parsed markdown stops before paid identity inference',as
   assert.equal(fetches,1);assert.deepEqual(f.prepRows().map(row=>row.stage),['scrape']);
  }finally{f.close();}
 });
+
+test('two completed guest admissions block a third website preparation before provider expense',async()=>{
+ const f=await fixture();try{
+  for(let i=0;i<2;i++)f.sqlite.prepare('INSERT INTO rate_events VALUES (?,?,?,?)').run('quota-'+i,digest('visitor-a'),'example.fi',f.time);
+  await assert.rejects(f.call('POST','/prepare',site),e=>e.code==='RATE_LIMIT');
+  assert.deepEqual(f.net,{scrape:0,openai:0});assert.equal(f.prepRows().length,0);
+ }finally{f.close();}
+});

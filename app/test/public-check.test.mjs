@@ -7,6 +7,7 @@ import {migrations} from '../src/migrate.mjs';
 import {migratePublicCheck} from '../src/public-check/migration.mjs';
 import {migratePublicCheckBudget} from '../src/public-check/budget-migration.mjs';
 import {migratePublicCheckPrepBudget} from '../src/public-check/prep-migration.mjs';
+import {admitLegacyScan} from '../src/common/legacy-scan-admission.mjs';
 import {publicCheckService} from '../src/public-check/service.mjs';
 import {publicCheckHttp} from '../src/public-check/http.mjs';
 import {digest,mac,verifyProxy,unseal} from '../src/public-check/security.mjs';
@@ -26,7 +27,8 @@ async function fixture(){
  const execute=async q=>{const s=typeof q==='string'?q:q.sql,args=typeof q==='string'?[]:q.args||[],stmt=sqlite.prepare(s);
   if(/^\s*(SELECT|PRAGMA)|RETURNING/i.test(s))return {rows:stmt.all(...args)};
   return {rows:[],rowsAffected:Number(stmt.run(...args).changes)};};
- const db={execute,transaction:async()=>{sqlite.exec('BEGIN IMMEDIATE');return {execute,commit:async()=>sqlite.exec('COMMIT'),rollback:async()=>sqlite.exec('ROLLBACK'),close(){}};}};
+ let tail=Promise.resolve();
+ const db={execute,transaction:async()=>{let release;const next=new Promise(r=>release=r),previous=tail;tail=next;await previous;sqlite.exec('BEGIN IMMEDIATE');return {execute,commit:async()=>sqlite.exec('COMMIT'),rollback:async()=>sqlite.exec('ROLLBACK'),close:release};}};
  for(const sql of migrations)sqlite.exec(sql);
  sqlite.exec('CREATE TABLE app_migrations(id TEXT PRIMARY KEY,checksum TEXT NOT NULL,applied_at TEXT NOT NULL)');
  await migratePublicCheck(db);await migratePublicCheckBudget(db);await migratePublicCheckPrepBudget(db);let time=1791900000000;
@@ -53,7 +55,7 @@ test('expanded dashboard providers do not expand guest preview, queue snapshot o
   const extra={config:{enabledProviders:['openai','claude','gemini','grok','perplexity','google_aio'],scanPrompts:3}};
   const caps=await f.call('GET','/capabilities',undefined,extra);
   assert.deepEqual(caps.providers,['openai','gemini']);
-  assert.deepEqual(caps.limits,{guestScansPerDay:1,domainScansPerWeek:5});
+  assert.deepEqual(caps.limits,{guestScansPerDay:2,domainScansPerWeek:5});
   const {scan,preview}=await f.start(extra);
   assert.deepEqual(preview.providers,caps.providers);
   const saved=JSON.parse(f.sqlite.prepare('SELECT profile_json FROM scan_profiles WHERE scan_id=?').get(scan.id).profile_json);
@@ -62,14 +64,14 @@ test('expanded dashboard providers do not expand guest preview, queue snapshot o
 });
 test('guest preview/start use existing queue, preserve context, casing and quotas; retries reuse token and scan',async()=>{
  const f=await fixture();try{
-  const caps=await f.call('GET','/capabilities');assert.equal(caps.enabled,true);assert.deepEqual(caps.limits,{guestScansPerDay:1,domainScansPerWeek:5});assert(!caps.markets.some(m=>m.code==='RU'));
+  const caps=await f.call('GET','/capabilities');assert.equal(caps.enabled,true);assert.deepEqual(caps.limits,{guestScansPerDay:2,domainScansPerWeek:5});assert(!caps.markets.some(m=>m.code==='RU'));
   const {scan,body,preview}=await f.start();assert.equal(preview.paid_calls,0);assert(preview.prompts.every(t=>t.includes('Finland')&&!t.includes('EXAMPLE')));
   const retry=await f.call('POST','/scans',body);assert.deepEqual(retry,scan);
   const duplicate=await f.call('POST','/scans',{...body,submission_id:randomUUID()});assert.deepEqual(duplicate,scan);
   assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM scan_jobs').get().n,1);
   const frozenProfile=JSON.parse(f.sqlite.prepare('SELECT profile_json FROM scan_profiles').get().profile_json);
   assert.equal(frozenProfile.market,'FI');assert.equal(frozenProfile.language,'en');assert.equal(frozenProfile.brand_name,'EXAMPLE');
-  await assert.rejects(f.call('POST','/preview',{...profile,domain:'different.fi'}),e=>e.code==='RATE_LIMIT');
+  await f.call('POST','/preview',{...profile,domain:'different.fi'}); // The second guest allowance is available.
   await assert.rejects(f.call('POST','/preview',{...profile,market:'RU'}),e=>e.code==='MARKET_EXCLUDED');
   await assert.rejects(f.call('POST','/scans',{...body,profile_confirmed:false}),e=>e.code==='CONFIRMATION_REQUIRED');
  }finally{f.close();}
@@ -209,5 +211,88 @@ test('CAPTCHA failure on every preparation and queue route prevents DNS, provide
   await assert.rejects(f.call('POST','/preview',{...profile,captcha_token:''}),e=>e.code==='CAPTCHA_REQUIRED');
   const caps=await f.call('GET','/capabilities',undefined,{env:{...env,TURNSTILE_SECRET_KEY:''}});
   assert.equal(caps.enabled,false);assert.equal(caps.captcha.siteKey,null);assert(!JSON.stringify(caps).includes(captchaEnv.TURNSTILE_SECRET_KEY));
+ }finally{f.close();}
+});
+
+test('two guest scans share a rolling visitor allowance across languages; third preview is blocked',async()=>{
+ const f=await fixture();try{
+  await f.start();
+  await f.start({}, {...profile,language:'fi'});
+  assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM scan_jobs').get().n,2);
+  await assert.rejects(f.call('POST','/preview',{...profile,domain:'other.fi'}),e=>e.code==='RATE_LIMIT');
+  const {body}=await (async()=>{const preview=JSON.parse(f.sqlite.prepare("SELECT payload FROM public_check_drafts WHERE kind='questions' LIMIT 1").get().payload);return {body:{...preview.profile,preview_hash:preview.preview_hash,methodology:preview.methodology,profile_confirmed:true,submission_id:randomUUID()}};})();
+  const retry=await f.call('POST','/scans',body);assert(retry.id,'identical accepted work remains idempotent without consuming a slot');
+  assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM rate_events').get().n,2);
+  f.sqlite.prepare('UPDATE rate_events SET requested_at=?').run(f.options.now()-86400000);
+  await f.call('POST','/preview',{...profile,domain:'other.fi'}); // exact rolling boundary expires old visitor events
+ }finally{f.close();}
+});
+
+test('concurrent distinct submissions cannot exceed two guest jobs and rejected queues add no rate event',async()=>{
+ const f=await fixture();try{
+  const bodies=[];
+  for(const domain of ['first.fi','second.fi','third.fi']){
+   const p=await f.call('POST','/preview',{...profile,domain});
+   bodies.push({...p.profile,preview_hash:p.preview_hash,methodology:p.methodology,profile_confirmed:true,submission_id:randomUUID()});
+  }
+  await f.call('POST','/scans',bodies[0]);
+  const outcomes=await Promise.allSettled(bodies.slice(1).map(b=>f.call('POST','/scans',b)));
+  assert.equal(outcomes.filter(r=>r.status==='fulfilled').length,1);
+  const rejected=outcomes.find(r=>r.status==='rejected');assert.equal(rejected.reason.code,'RATE_LIMIT');
+  assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM scan_jobs').get().n,2);
+  assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM rate_events').get().n,2);
+ }finally{f.close();}
+});
+
+test('domain still admits at most five weekly scans across concurrent visitors/contexts',async()=>{
+ const f=await fixture();try{
+  for(let i=0;i<4;i++)f.sqlite.prepare('INSERT INTO rate_events VALUES (?,?,?,?)').run(randomUUID(),digest('other-'+i),'example.fi',f.options.now());
+  const bodies=[];
+  for(const language of ['en','fi']){
+   const p=await f.call('POST','/preview',{...profile,language});
+   bodies.push({...p.profile,preview_hash:p.preview_hash,methodology:p.methodology,profile_confirmed:true,submission_id:randomUUID()});
+  }
+  const outcomes=await Promise.allSettled(bodies.map(b=>f.call('POST','/scans',b)));
+  assert.equal(outcomes.filter(r=>r.status==='fulfilled').length,1);
+  assert.equal(outcomes.find(r=>r.status==='rejected').reason.code,'DOMAIN_RATE_LIMIT');
+  assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM rate_events').get().n,5);
+ }finally{f.close();}
+});
+
+test('legacy concurrent admissions serialize the final visitor slot and persist no rejected job/profile',async()=>{
+ const f=await fixture();try{
+  const admit=domain=>admitLegacyScan({db:f.db,snapshot:{...profile,domain},fingerprint:f.options.fingerprint,env,now:f.options.now});
+  await admit('first.fi');
+  const outcomes=await Promise.allSettled([admit('second.fi'),admit('third.fi')]);
+  assert.equal(outcomes.filter(r=>r.status==='fulfilled').length,1);
+  assert.equal(outcomes.find(r=>r.status==='rejected').reason.code,'RATE_LIMIT');
+  for(const table of ['rate_events','scan_jobs','scan_profiles'])assert.equal(f.sqlite.prepare(`SELECT COUNT(*) n FROM ${table}`).get().n,2);
+ }finally{f.close();}
+});
+
+test('legacy and public admissions share the same atomic visitor and domain quota boundary',async()=>{
+ for(const boundary of ['visitor','domain']){
+  const f=await fixture();try{
+   const identity={...profile,domain:'example.fi'},p=await f.call('POST','/preview',identity);
+   const body={...p.profile,preview_hash:p.preview_hash,methodology:p.methodology,profile_confirmed:true,submission_id:randomUUID()};
+   const count=boundary==='visitor'?1:4;
+   for(let i=0;i<count;i++)f.sqlite.prepare('INSERT INTO rate_events VALUES (?,?,?,?)').run(randomUUID(),boundary==='visitor'?f.options.fingerprint:digest('other-'+i),boundary==='domain'?'example.fi':'another.fi',f.options.now());
+   const outcomes=await Promise.allSettled([
+    admitLegacyScan({db:f.db,snapshot:identity,fingerprint:f.options.fingerprint,env,now:f.options.now}),
+    f.call('POST','/scans',body)
+   ]);
+   assert.equal(outcomes.filter(r=>r.status==='fulfilled').length,1);
+   assert.equal(outcomes.find(r=>r.status==='rejected').reason.code,boundary==='visitor'?'RATE_LIMIT':'DOMAIN_RATE_LIMIT');
+   assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM rate_events').get().n,count+1);
+   assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM scan_jobs').get().n,1);
+  }finally{f.close();}
+ }
+});
+
+test('legacy admission rolls back queue/profile writes when any insert fails',async()=>{
+ const f=await fixture();try{
+  f.sqlite.exec("CREATE TRIGGER fixture_reject_rate BEFORE INSERT ON rate_events BEGIN SELECT RAISE(ABORT,'offline fixture'); END;");
+  await assert.rejects(admitLegacyScan({db:f.db,snapshot:{...profile,domain:'example.fi'},fingerprint:f.options.fingerprint,env,now:f.options.now}),/offline fixture/);
+  for(const table of ['rate_events','scan_jobs','scan_profiles'])assert.equal(f.sqlite.prepare(`SELECT COUNT(*) n FROM ${table}`).get().n,0);
  }finally{f.close();}
 });

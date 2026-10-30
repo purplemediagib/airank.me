@@ -5,7 +5,7 @@ import { appRoute, isAppPath } from '../app/http.mjs';
 import {publicCheckHttp} from '../public-check/http.mjs';
 import { CONFIG, hasDbConfig, providerAvailable } from '../common/config.mjs';
 import {readyPublicProviders} from '../public-check/guest-budget.mjs';
-import { scanLimitError } from '../common/scan-limits.mjs';
+import {admitLegacyScan} from '../common/legacy-scan-admission.mjs';
 import { sql, one, getDb } from '../common/db.mjs';
 import { migrate,scanProfileDDL } from '../migrate.mjs';
 import { randomToken, hashToken, hmac, uuid, toHostname, parseCookie, isAllowedOrigin, errorMessage, sanitizeText, eqString } from '../common/utils.mjs';
@@ -93,23 +93,13 @@ async function route(req,res){
   if(!providers.length)return json(res,503,{error:'Free check temporarily unavailable',code:'PUBLIC_CHECK_UNAVAILABLE'});
   const body=await readBody(req,16384);
   if(body.profile_confirmed!==true||body.methodology!==METHODOLOGY)return json(res,422,{error:'Confirm your brand, category and question preview before scanning',code:'PROFILE_CONFIRMATION_REQUIRED'});
-  const profile=validateProfile(body),domain=profile.domain,brand=profile.brand_name;
+  const profile=validateProfile(body),domain=profile.domain;
   const snapshot={...profile,providers,prompt_count:CONFIG.scanPrompts,methodology:METHODOLOGY,confirmed_at:Date.now()};
   const session=await getSession(req);
-  const fingerprint=rateFingerprint(req), cutoff24=Date.now()-86400000,cutoff7=Date.now()-7*86400000;
-  const recent=await one('SELECT COUNT(*) AS count FROM rate_events WHERE fingerprint=? AND requested_at>?',[fingerprint,cutoff24]);
-  const weekly=await one('SELECT COUNT(*) AS count FROM rate_events WHERE domain=? AND requested_at>?',[domain,cutoff7]);
-  const limitError=scanLimitError({recentCount:recent?.count,weeklyCount:weekly?.count,authenticated:!!session});
-  if(limitError)return json(res,429,limitError);
   // This legacy route must not bypass the public checker CAPTCHA. Signed-in app
   // tracking is routed through appRoute above and keeps its existing entitlements.
   await verifyCaptcha({token:body.captcha_token});
-  const id=uuid(), guestToken=session?null:randomToken();
-  const db=await getDb();await db.batch([
-   {sql:'INSERT INTO scan_jobs (id,domain,brand_name,owner_id,guest_token_hash,status,requested_at) VALUES (?,?,?,?,?,?,?)',args:[id,domain,brand,session?.user_id||null,guestToken?hashToken(guestToken):null,'queued',Date.now()]},
-   {sql:'INSERT INTO scan_profiles (scan_id,profile_json,created_at) VALUES (?,?,?)',args:[id,JSON.stringify(snapshot),Date.now()]},
-   {sql:'INSERT INTO rate_events (id,fingerprint,domain,requested_at) VALUES (?,?,?,?)',args:[uuid(),fingerprint,domain,Date.now()]}
-  ],'write');
+  const {id,guestToken}=await admitLegacyScan({db:await getDb(),snapshot,fingerprint:rateFingerprint(req),session});
   return json(res,202,{id,status:'queued',domain,scan_token:guestToken,results_endpoint:'/v1/scans/'+id,message:'Actual provider evidence is collected asynchronously; no estimated scores are generated.'});
  }
  const match=pathname.match(/^\/v1\/scans\/([0-9a-f-]{36})$/i);
