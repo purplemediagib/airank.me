@@ -128,7 +128,7 @@ test('one invalid competitor assessment does not discard the target score; diagn
   assert.equal(r.brandSentiments[brandKey(other)].score,null);
   assert.equal(r.brandSentiments[brandKey(other)].validationReason,'NO_VALID_QUOTES');
   assert.equal((await f.backfill('partial')).data.queued,0);assert.equal(calls,1);
-  const saved=f.logs.find(x=>x.event==='sentiment_saved');assert.equal(saved.status,'done');
+  const saved=f.logs.find(x=>x.event==='sentiment_saved');assert.equal(saved.status,'done');assert.equal(Object.hasOwn(saved,'error'),false);
   assert.deepEqual(saved.validation_issues,[{brand_id:brandKey(other),reason:'NO_VALID_QUOTES'}]);
   assert.equal(JSON.stringify(f.logs).includes('luotettava'),false);
   assert.equal(JSON.stringify(f.logs).includes('Other is expensive'),false);
@@ -140,7 +140,7 @@ test('structural failures log the validation reason without logging provider tex
   const w=f.worker({call:async(e,s,c)=>{calls++;return analyse(e,s,c,{env:f.env,fetcher:async()=>response({assessments:[]})});}});
   await w.tick();await w.tick();
   const saved=f.logs.find(x=>x.event==='sentiment_saved');
-  assert.equal(saved.error,'INVALID_SENTIMENT_OUTPUT');assert.equal(saved.validation_reason,'ASSESSMENT_COUNT');assert.equal(calls,1);
+  assert.equal(saved.status,'failed');assert.equal(saved.error,'INVALID_SENTIMENT_OUTPUT');assert.equal(saved.validation_reason,'ASSESSMENT_COUNT');assert.equal(calls,1);
   assert.equal((await f.results()).data.items[0].sentiment.score,null);
  }finally{f.close();}
 });
@@ -263,5 +263,12 @@ test('explicit unlimited sentiment calls process past the default daily count',a
   f.add('next');await f.worker().tick();
   assert.equal(f.sql.prepare("SELECT status FROM sentiment_jobs WHERE evidence_id='next'").get().status,'done');
   assert.throws(()=>config({...f.env,SENTIMENT_MAX_DAILY_CALLS:'unlimted'}),/APP_NOT_CONFIGURED/);
+ }finally{f.close();}
+});
+test('successful sentiment logging has no error key while persisted status stays done',async()=>{
+ const f=await fixture();try{
+  f.add();await f.worker().tick();
+  const saved=f.logs.find(x=>x.event==='sentiment_saved');assert.equal(saved.status,'done');assert.equal(Object.hasOwn(saved,'error'),false);
+  assert.equal((await f.results()).data.items[0].sentiment.status,'assessed');
  }finally{f.close();}
 });

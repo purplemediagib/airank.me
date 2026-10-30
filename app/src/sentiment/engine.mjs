@@ -18,7 +18,7 @@ export function createSentimentEngine({db,env=process.env,now=Date.now,call=anal
  const store=async(job,result,error=null,validationReason=null)=>{
   await exec(db,`UPDATE sentiment_jobs SET status=?,result_json=?,error=?,finished_at=?,lease_until=NULL WHERE evidence_id=? AND analysis_version=? AND claim_token=? AND status IN ('running','interrupted_unknown')`,[result?'done':'failed',result?JSON.stringify(result):null,error,now(),job.evidence_id,c.version,job.claim_token]);
   const issues=(result?.assessments||[]).filter(a=>validationReasons.has(a.validationReason)).map(a=>({brand_id:a.brandId,reason:a.validationReason}));
-  logger('sentiment_saved',{evidence_id:job.evidence_id,analysis_version:c.version,status:result?'done':'failed',error,...(validationReason?{validation_reason:validationReason}:{}),...(issues.length?{validation_issues:issues}: {})});
+  logger('sentiment_saved',{evidence_id:job.evidence_id,analysis_version:c.version,status:result?'done':'failed',...(error?{error}:{}),...(validationReason?{validation_reason:validationReason}:{}),...(issues.length?{validation_issues:issues}: {})});
  };
  const seed=()=>transaction(db,async tx=>{
   // Start with new evidence only. Historical processing is an explicit owner request.
