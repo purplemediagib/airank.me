@@ -191,3 +191,23 @@ class DiagnosticPreflightTests(unittest.TestCase):
             x=service.safe_failure(caught.exception,SimpleNamespace(study_id='study'))
             self.assertEqual(x['failure_stage'],'probe_local_head_read')
             self.assertEqual(x['failure_code'],'required_file_missing')
+
+class RecoveryRouteTests(unittest.TestCase):
+    def test_recovery_action_never_dispatches_or_initializes(self):
+        from unittest.mock import patch
+        from types import SimpleNamespace
+        import storage
+        with tempfile.TemporaryDirectory() as d:
+            root=pathlib.Path(d)
+            for name in ('runner.lock','qualification.lock'):(root/name).touch()
+            m={'study_id':'study','storage_access_approved':True,'singleton_deployment_confirmed':True}
+            m['frozen_manifest_sha256']=service.manifest_hash(m)
+            args=SimpleNamespace(mode='checkpoint_reconcile',manifest=None,study_id='study',data_dir=str(root))
+            with patch.dict(service.os.environ,{'RESEARCH_MANIFEST_JSON':json.dumps(m)},clear=True),patch.object(storage,'from_env',return_value=object()),patch.object(storage,'reconcile_checkpoint',return_value={'paid_calls':0}) as repair,patch.object(service,'execute_one',side_effect=AssertionError('no paid dispatch')),patch.object(service,'initialize',side_effect=AssertionError('no initialize')):
+                self.assertEqual(service.perform(args),{'paid_calls':0})
+                repair.assert_called_once()
+    def test_filesystem_error_code_no_private_message(self):
+        from types import SimpleNamespace
+        x=service.safe_failure(OSError(28,'PRIVATE PATH'),SimpleNamespace(study_id='study'))
+        self.assertEqual(x['filesystem_errno'],28)
+        self.assertNotIn('PRIVATE',json.dumps(x))

@@ -177,6 +177,9 @@ def safe_failure(exc,args):
     elif isinstance(exc,PermissionError):out['failure_code']='filesystem_permission_denied'
     elif isinstance(exc,FileNotFoundError):out['failure_code']='required_file_missing'
     elif isinstance(exc,sqlite3.Error):out['failure_code']='sqlite_failure'
+    elif isinstance(exc,OSError):
+        out['failure_code']='filesystem_failure'
+        if type(exc.errno) is int:out['filesystem_errno']=exc.errno
     try:
         m=json.loads(inline)
         out['manifest_hash_matches']=isinstance(m,dict) and m.get('frozen_manifest_sha256')==manifest_hash(m)
@@ -186,6 +189,7 @@ def safe_failure(exc,args):
         out['storage_access_approved']=isinstance(m,dict) and m.get('storage_access_approved') is True
     except Exception:out['manifest_hash_matches']=False
     import storage
+    out['last_storage_stage']=storage.LAST_STAGE
     if isinstance(exc,storage.StorageError):
         out['failure_code']='private_storage_failure'
         out['storage_stage']=storage.LAST_STAGE
@@ -267,6 +271,14 @@ def perform(args):
     import storage
     init_stage('storage_configuration')
     remote=storage.from_env(m['study_id'])
+    if args.mode=='checkpoint_reconcile':
+        if args.study_id!=m['study_id'] or m.get('singleton_deployment_confirmed') is not True:raise RuntimeError('Recovery identity/singleton confirmation required')
+        init_stage('recovery_existing_locks')
+        with contextlib.ExitStack() as stack:
+            for name in ('runner.lock','qualification.lock'):
+                handle=stack.enter_context((pathlib.Path(args.data_dir)/name).open('rb'))
+                fcntl.flock(handle,fcntl.LOCK_EX|fcntl.LOCK_NB)
+            return storage.reconcile_checkpoint(args.data_dir,remote,m['study_id'])
     if args.mode=='diagnostic_preflight':
         if args.study_id!=m['study_id']:raise RuntimeError('Study ID differs from manifest')
         return diagnostic_preflight(args.data_dir,m,remote)
@@ -330,7 +342,7 @@ def health_bind():
 
 def main():
     os.umask(0o077)
-    ap=argparse.ArgumentParser();ap.add_argument('mode',choices=['idle','preflight','diagnostic_preflight','init','diagnostic','diagnostic_batch','collect','scheduled'],nargs='?',default=os.environ.get('RESEARCH_ACTION','idle'))
+    ap=argparse.ArgumentParser();ap.add_argument('mode',choices=['idle','preflight','diagnostic_preflight','checkpoint_reconcile','init','diagnostic','diagnostic_batch','collect','scheduled'],nargs='?',default=os.environ.get('RESEARCH_ACTION','idle'))
     for flag,env,default in [('data-dir','RESEARCH_DATA_DIR','/data/research'),('study-id','RESEARCH_STUDY_ID',None),('manifest','RESEARCH_MANIFEST_PATH',None),('slot-id','RESEARCH_SLOT_ID',None),('endpoint','RESEARCH_ENDPOINT',None),('intent-id','RESEARCH_INTENT_ID',None),('language','RESEARCH_LANGUAGE',None),('action-id','RESEARCH_ACTION_ID',None)]:
         ap.add_argument('--'+flag,default=os.environ.get(env,default))
     ap.add_argument('--then-idle',action='store_true',default=os.environ.get('RESEARCH_THEN_IDLE')=='1');args=ap.parse_args()
@@ -344,7 +356,7 @@ def main():
         try:print(json.dumps(perform(args)),flush=True)
         except Exception as exc:
             # No raw exception, provider body or secret can reach container logs.
-            print(json.dumps({'status':'blocked','action':args.mode,'paid_execution_enabled':False,'instruction':'Inspect private manifest/ledger; do not change action ID to bypass an unresolved attempt',**(safe_failure(exc,args) if args.mode in ('init','preflight','diagnostic_preflight','diagnostic_batch') else {})}),flush=True)
+            print(json.dumps({'status':'blocked','action':args.mode,'paid_execution_enabled':False,'instruction':'Inspect private manifest/ledger; do not change action ID to bypass an unresolved attempt',**(safe_failure(exc,args) if args.mode in ('init','preflight','diagnostic_preflight','checkpoint_reconcile','diagnostic_batch') else {})}),flush=True)
             if not args.then_idle:raise SystemExit(2) from None
         Health.state='idle'
         if not args.then_idle:return

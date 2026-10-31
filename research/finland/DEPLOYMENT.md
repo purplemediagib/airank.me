@@ -205,3 +205,23 @@ exception text, credentials, raw answers or private storage URLs. Head mismatche
 are reported, never repaired. The probe cannot become paid execution if the
 original error disappears. Keep THEN_IDLE=1; further execution remains a separate
 explicit owner action. No automatic storage or provider retry was added.
+
+## Reviewed checkpoint31 reconciliation (local candidate)
+The runtime read-only probe proved current ledger fingerprint equals remote
+checkpoint31 but the local pointer is stale. This does not identify whether the
+original failure was remote-head GET/readback or local write/fsync/replace.
+RESEARCH_ACTION=checkpoint_reconcile is explicitly restricted in code to the
+reviewed sequence31, archive928eacc929719bd300ae3a71c6447dd6491384a885c85af99910f7baf021774f
+and ledger40e88820451bbe0ed5fe550e731a25bbdf66ecf382b73f9f63b50d64e06cd3c5.
+It requires existing exclusive locks, singleton confirmation, matching identity,
+GET-verified archive checksum and archived SQLite integrity/fingerprint, all raw
+checksums matching archive AND retained local evidence, unchanged current ledger,
+and a repeated unchanged remote head. It preserves the old local pointer under
+its checksum name, then atomically fsyncs/replaces only local checkpoint metadata
+and fsyncs the directory. An already-current pointer succeeds idempotently.
+It never changes ledger/attempts/budget/raw answers, deletes local snapshots,
+uploads anything or calls models. No automatic paid resume follows recovery.
+Same study/manifest/keys/volume remain. This action must be explicitly selected
+after publication/owner approval; use THEN_IDLE=1 and review checkpoint_reconciled
+before a separately chosen continuation. Any mismatched evidence stops repair.
+Filesystem error reporting is numeric errno plus fixed stages, never raw paths.
