@@ -8,7 +8,7 @@ class ServiceTests(unittest.TestCase):
     def manifest(self):
         endpoint='kimi_candidate'
         m={k:True for k in ['owner_execution_approved','secure_host_verified','durable_storage_verified','private_backup_verified','all_billable_bounds_verified','diagnostics_approved']}
-        m.update(study_id='test-study',provider_budget_usd=38,hosting_budget_usd=2,input_hashes=runner.hashes(),verified_bounds={endpoint:{'verified':True,'micro_usd':35_000_000,'evidence':'SYNTHETIC TEST'}},providers={endpoint:{'all_billable_bound_verified':True,'diagnostic_route_approved':True,'qualified':False,'usage_cost_verified_all_in':True,'route':'openrouter','model':'synthetic','provider':'synthetic','reviewed_request_parameters':{'max_tokens':1500}}})
+        m.update(location_policy_version='finland-v1',study_id='test-study',provider_budget_usd=38,hosting_budget_usd=2,input_hashes=runner.hashes(),verified_bounds={endpoint:{'verified':True,'micro_usd':35_000_000,'evidence':'SYNTHETIC TEST'}},providers={endpoint:{'all_billable_bound_verified':True,'diagnostic_route_approved':True,'qualified':False,'usage_cost_verified_all_in':True,'route':'openrouter','model':'synthetic','provider':'synthetic','reviewed_request_parameters':{'max_tokens':1500}}})
         m['frozen_manifest_sha256']=service.manifest_hash(m)
         return m
     def slot(self,n=1):return {'slot_id':f'diagnostic:kimi_candidate:{n}','endpoint':'kimi_candidate','intent_id':'IT01','language':'fi'}

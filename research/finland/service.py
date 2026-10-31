@@ -69,7 +69,9 @@ def manifest_hash(m):
 def execution_gate(m,kind):
     if runner.sanitize(m)!=m:raise RuntimeError('Manifest must not contain credentials')
     common=['owner_execution_approved','secure_host_verified','durable_storage_verified','private_backup_verified','all_billable_bounds_verified']
-    if kind=='primary':common+=['finnish_review_signed','protocol_frozen','models_qualified']
+    if kind=='primary':
+        common+=['finnish_review_signed','protocol_frozen','models_qualified']
+        if m.get('location_policy_version')!='finland-v1':raise RuntimeError('Primary location method not frozen')
     else:common+=['diagnostics_approved']
     missing=[k for k in common if m.get(k) is not True]
     if missing:raise RuntimeError('Execution gates closed: '+', '.join(missing))
@@ -77,6 +79,19 @@ def execution_gate(m,kind):
     if m.get('input_hashes')!=runner.hashes():raise RuntimeError('Inputs not frozen to this image')
     if not m.get('study_id'):raise RuntimeError('Study identity absent')
     if m.get('frozen_manifest_sha256')!=manifest_hash(m):raise RuntimeError('Provider settings/bounds manifest hash mismatch')
+
+LOCATION_POLICY_VERSION='finland-v1'
+LOCATION_CITIES={'ACC04':'Tampere','IT04':'Turku','MKT04':'Helsinki'}
+def requested_location(endpoint,intent_id):
+    if endpoint!='openai_responses':return None  # Exa search has no supported user_location.
+    value={'type':'approximate','country':'FI'}
+    if intent_id in LOCATION_CITIES:value['city']=LOCATION_CITIES[intent_id]
+    return value
+
+def location_matches(response,expected):
+    tools=[x for x in response.get('tools',[]) if isinstance(x,dict) and x.get('type')=='web_search']
+    if not tools:return False
+    return all(isinstance(x.get('user_location'),dict) and all(x['user_location'].get(k)==v for k,v in expected.items()) for x in tools)
 
 def execute_one(root,m,slot,kind='primary',transport=None,backup_hook=None,key_loader=None):
     """Only paid entry point; reservation precedes request, one request only, no auto retry."""
@@ -92,6 +107,8 @@ def execute_one(root,m,slot,kind='primary',transport=None,backup_hook=None,key_l
     prompt=pmap[slot['intent_id']][slot['language']]
     # Qualification assesses the model; only its separately authorized/bounded diagnostic route bypasses qualified flag.
     dispatch_config={**config,'qualified':True}
+    location=requested_location(endpoint,slot['intent_id']) if m.get('location_policy_version')==LOCATION_POLICY_VERSION else None
+    if endpoint=='openai_responses' and location is not None:dispatch_config['search_parameters']={**config.get('search_parameters',{}),'user_location':location}
     with singleflight(root):
         if hasattr(backup_hook,'verify_head'):backup_hook.verify_head(root)
         ledger=open_study(root,m['study_id'],m['verified_bounds'])
@@ -120,7 +137,7 @@ def execute_one(root,m,slot,kind='primary',transport=None,backup_hook=None,key_l
                 backup(root,ledger,tag+'-error',backup_hook)
                 return {'attempt_id':aid,'status':'retryable' if retryable else 'fatal','cost_hold_retained':True}
             finally:key=None
-            evidence={'study_id':m['study_id'],'slot':slot,'attempt_id':aid,'started_at':started,'ended_at':datetime.datetime.fromtimestamp(response_end,datetime.timezone.utc).isoformat(),'prompt_hash':runner.digest(prompt.encode()),'requested_model':config.get('model'),'response':runner.sanitize(response)}
+            evidence={'manifest_sha256':m['frozen_manifest_sha256'],'requested_settings':runner.sanitize(dispatch_config),'location_policy_version':m.get('location_policy_version'),'requested_search_location':location,'location_support':'supported' if endpoint=='openai_responses' else 'unsupported_exa','study_id':m['study_id'],'slot':slot,'attempt_id':aid,'started_at':started,'ended_at':datetime.datetime.fromtimestamp(response_end,datetime.timezone.utc).isoformat(),'prompt_hash':runner.digest(prompt.encode()),'requested_model':config.get('model'),'response':runner.sanitize(response)}
             raw_hash=write_once(pathlib.Path(root)/'raw'/f'{tag}.json',evidence)
             # Provider costs must be verified all-in; absent/uncertain usage retains full hold and stops execution.
             import accounting
@@ -128,6 +145,7 @@ def execute_one(root,m,slot,kind='primary',transport=None,backup_hook=None,key_l
             actual=charge['actual'];accounted=charge['accounted']
             complete=(runner.parse_response(response)['usable'] if endpoint=='openai_responses' else bool(response.get('choices')) and all(c.get('finish_reason') in ('stop',) for c in response['choices']))
             status=('complete' if complete else 'incomplete') if actual is not None or accounted is not None else 'unknown'
+            if kind=='primary' and endpoint=='openai_responses' and not location_matches(response,location):status='fatal'
             if kind=='primary' and response.get('model') not in config['allowed_returned_models']:status='fatal'
             ledger.finish(aid,status,{'raw_path':f'raw/{tag}.json','raw_hash':raw_hash},actual=actual,end=response_end,accounted=accounted,accounting_basis=charge['basis'])
             backup(root,ledger,tag+'-finished',backup_hook)

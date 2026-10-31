@@ -4,6 +4,7 @@ class SchedulerTests(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.root=pathlib.Path(self.tmp.name)/'study';service.initialize(self.root,'scheduled-test');self.now=scheduler.epoch(scheduler.schedule()[0]);self.calls=[]
         self.m={k:True for k in ['owner_execution_approved','secure_host_verified','durable_storage_verified','private_backup_verified','all_billable_bounds_verified','finnish_review_signed','protocol_frozen','models_qualified','schedule_enabled']}
+        self.m['location_policy_version']='finland-v1'
         self.m.update(study_id='scheduled-test',provider_budget_usd=38,hosting_budget_usd=2,input_hashes=runner.hashes(),block_start_grace_seconds=600,max_block_duration_seconds=7200,verified_bounds={e:{'verified':True,'micro_usd':1000,'evidence':'synthetic'} for e in ('openai_responses','kimi_candidate')})
         self.freeze()
     def tearDown(self):self.tmp.cleanup()
@@ -24,7 +25,7 @@ class SchedulerTests(unittest.TestCase):
         for b in self.m['verified_bounds'].values():b['micro_usd']=1000000
         self.freeze()
         def model(url,*a):
-            if 'openai.com' in url:return {'model':runner.MODEL,'status':'completed','usage':{'input_tokens':100,'output_tokens':100}}
+            if 'openai.com' in url:return {'tools':a[0]['tools'],'model':runner.MODEL,'status':'completed','usage':{'input_tokens':100,'output_tokens':100}}
             return {'model':'synthetic','usage':{'cost':.01},'choices':[{'finish_reason':'stop'}]}
         r=scheduler.tick(self.root,self.m,self.now-1,backup_hook=hook,key_loader=lambda n:'FAKE',transport=model);self.assertEqual(r['state'],'waiting');hook.verify_head(self.root)
         for _ in range(4):
