@@ -56,6 +56,7 @@ def evidence(root,row,expected):
     return result
 
 def report(root,m,remote):
+    service.init_stage('qualification_report_build')
     ledger=service.open_study(root,m['study_id'],m['verified_bounds'])
     try:
         rows=ledger.rows();summary=ledger.summary()
@@ -67,6 +68,7 @@ def report(root,m,remote):
     data={'study_id':m['study_id'],'batch_id':BATCH_ID,'manifest_sha256':m['frozen_manifest_sha256'],'diagnostic_only':True,'supersedes_batch_id':'technical-v2','supersedes_for':'qualification_only; previous attempts and charges retained','collection_qualified':False,'human_review_required':True,'planned_slots':len(plan),'reused_prior_qualification':m['diagnostic_batch'].get('reused_prior_qualification',[]),'attempts':items,'budget':summary}
     payload=json.dumps(runner.sanitize(data),sort_keys=True,ensure_ascii=False).encode();digest=runner.digest(payload)
     name=f'qualification-{BATCH_ID}-{len(items):02d}-{digest[:16]}.json'
+    service.init_stage('qualification_report_upload')
     ack=remote.put_verified(name,payload)
     if ack.get('verified') is not True or ack.get('sha256')!=digest:raise RuntimeError('Qualification report backup not verified')
     return data,name
@@ -104,6 +106,7 @@ def run(root,m,remote,execute=service.execute_one,transport=None,key_loader=None
                 if evidence(root,row,config['expected_models']['kimi_candidate']).get('stop_reason'):raise RuntimeError('Prior qualification evidence not reusable')
         finally:ledger.db.close()
         for slot in frozen_slots():
+            service.init_stage('qualification_next_head_verify')
             service.execution_gate(m,'diagnostic');remote.verify_head(root)
             data,name=report(root,m,remote)
             if any(x.get('stop_reason') for x in data['attempts']):return {'status':'qualification_review_required','report_file':name,'collection_qualified':False}

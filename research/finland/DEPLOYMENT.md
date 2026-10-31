@@ -191,3 +191,17 @@ V2 stops after the first4 completed slots with qualification_checkpoint_review_r
 Frozen protocol requires supported search user_location Finland for national prompts and matching city for local prompts. Earlier OpenAI v2 IT results echoedUS and remain preserved, explicitly nonconforming for location qualification. V3 runs10new diagnostics:6OpenAI withnewtechnical-v3IDs and4unattemptedKimi accounting/marketing slots retainingtheirv2IDs; reviewedKimiIT-v2pair is referenced ratherthan repeated. Existing7attempts and227154microUSDaccounting persist; tennewslots yield17of20diagnostics. No ledger reset or automaticprimaryqualification.
 Location policy finland-v1 sets OpenAI {type:approximate,country:FI} equally for FI/EN; ACC04Tampere, IT04Turku, MKT04Helsinki add only the prompt-definedcity. Kimi's pinnedExa search lacks supported user_location, so requestedlocation is explicitlynull; country/city remainspromptcontent. ReturnedOpenAIweb_searchtools mustechoFI andmatchingcity whereexpected. Missing/mismatchedlocation stopsqualificationbeforeanothercall; primaryresponses arefatal+halt withtheir knowncost retained. Locationbias doesnotguarantee allresultsareFinnish.
 Newrawrecords retain per-attemptmanifestsha256, sanitizedadaptersettings, requestedlocation, supportstatus andpolicyversion. Reportentries identifyeachattemptmanifest; currentreportmanifest no longerimplicitlyattributesoldresponseconfiguration. Existingrawschemasremainreadable/unmodified. OpenAIv2escapedUnicodequerymetadata ispreserved asprovider-observableartifact, notmisrepresented ascorruptsourceprompt.
+
+## Read-only diagnostic preflight (local contingency)
+RESEARCH_ACTION=diagnostic_preflight performs no provider requests or storage writes.
+It opens existing runner/qualification locks read-only, copies ledger/WAL/SHM and
+nonsecret research evidence into disposable scratch, checks that snapshot against
+the remote/local head, and reconstructs report bytes using an in-memory sink.
+Only marker/head/report GETs touch private storage. Source ledger, identity, raw
+answers and backup receipts are never changed. Scratch is removed on exit;
+persistent_research_writes=0 does not mean no ephemeral snapshot was created.
+Logs contain fixed stages, booleans, counts and numeric HTTP statuses, never
+exception text, credentials, raw answers or private storage URLs. Head mismatches
+are reported, never repaired. The probe cannot become paid execution if the
+original error disappears. Keep THEN_IDLE=1; further execution remains a separate
+explicit owner action. No automatic storage or provider retry was added.

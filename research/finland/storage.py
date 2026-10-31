@@ -4,6 +4,11 @@ from urllib.request import Request,build_opener
 from urllib.error import HTTPError
 from adapters import NoRedirect
 ALLOWED={'storage.bunnycdn.com','uk.storage.bunnycdn.com','se.storage.bunnycdn.com'}
+LAST_STAGE='not_started'
+def stage(value):
+    global LAST_STAGE
+    LAST_STAGE=value
+
 class StorageError(RuntimeError):
     def __init__(self,message,http_status=None,operation=None):
         super().__init__(message)
@@ -26,13 +31,16 @@ class BunnyBackup:
         except Exception:raise StorageError('Storage request failed; no credential/body logged') from None
     def put_verified(self,name,data):
         if not re.fullmatch(r'[A-Za-z0-9_.-]+',name):raise StorageError('Unsafe artifact name')
+        stage('artifact_existence_get')
         status,existing=self.transport('GET',self.base+name)
         if status==200:
             if existing!=data:raise StorageError('Immutable remote artifact differs')
         elif status==404:
+            stage('artifact_put')
             status,_=self.transport('PUT',self.base+name,data)
             if status!=201:raise StorageError('Backup upload not acknowledged')
         else:raise StorageError('Remote existence check failed')
+        stage('artifact_readback_get')
         status,readback=self.transport('GET',self.base+name)
         digest=hashlib.sha256(data).hexdigest()
         if status!=200 or hashlib.sha256(readback).hexdigest()!=digest:raise StorageError('Backup readback mismatch')
@@ -63,6 +71,7 @@ class BunnyBackup:
         with sqlite3.connect(path) as db:data='\n'.join(db.iterdump()).encode()
         return hashlib.sha256(data).hexdigest()
     def head(self):
+        stage('head_get')
         status,data=self.transport('GET',self.base+'latest-backup.json')
         if status==404:return None
         if status!=200:raise StorageError('Remote head unavailable')
@@ -80,8 +89,10 @@ class BunnyBackup:
         if prior!=local or (prior is None and not initial):raise StorageError('Remote/local head mismatch; never overwrite unknown newer state')
         head={'sequence':(prior['sequence']+1 if prior else 1),'archive':ack['reference'],'sha256':ack['sha256'],'ledger_fingerprint':self.ledger_fingerprint(root)}
         data=json.dumps(head,sort_keys=True).encode()
+        stage('head_put')
         status,_=self.transport('PUT',self.base+'latest-backup.json',data)
         if status!=201 or self.head()!=head:raise StorageError('Latest backup pointer not verified')
+        stage('local_head_persist')
         temp=root/'remote-head.json.tmp'
         with temp.open('wb') as f:f.write(data);f.flush();os.fsync(f.fileno())
         os.replace(temp,root/'remote-head.json')

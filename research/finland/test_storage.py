@@ -44,3 +44,27 @@ class StorageTests(unittest.TestCase):
         self.s.transport=lambda method,url,data=None:(404,b'') if method=='GET' else (201,b'')
         with self.assertRaises(storage.StorageError):self.s.put_verified('a',b'a')
 if __name__=='__main__':unittest.main()
+
+class StorageStageTests(unittest.TestCase):
+    def test_upload_failure_reports_fixed_stage_without_body(self):
+        def mock(method,url,data=None):
+            if method=='GET':return 404,b''
+            raise storage.StorageError('NEVER LOG PRIVATE BODY',503,'PUT')
+        s=storage.BunnyBackup('se.storage.bunnycdn.com','synthetic','FAKE','study',mock)
+        with self.assertRaises(storage.StorageError) as caught:s.put_verified('a.json',b'{}')
+        from types import SimpleNamespace
+        result=service.safe_failure(caught.exception,SimpleNamespace(study_id='study'))
+        self.assertEqual(result['storage_stage'],'artifact_put')
+        self.assertEqual(result['storage_http_status'],503)
+        self.assertNotIn('PRIVATE',str(result))
+
+    def test_readback_failure_stage(self):
+        count=0
+        def mock(method,url,data=None):
+            nonlocal count
+            if method=='PUT':return 201,b''
+            count+=1
+            return (404,b'') if count==1 else (200,b'wrong')
+        s=storage.BunnyBackup('se.storage.bunnycdn.com','synthetic','FAKE','study',mock)
+        with self.assertRaises(storage.StorageError):s.put_verified('a.json',b'{}')
+        self.assertEqual(storage.LAST_STAGE,'artifact_readback_get')

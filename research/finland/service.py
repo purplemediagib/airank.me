@@ -45,6 +45,7 @@ def backup(root,ledger,tag,hook=None):
     """Consistent local snapshot; optional injected private remote-backup hook.
     Hook returns a durable reference/hash; never invoke shell strings from a manifest.
     """
+    init_stage('backup_snapshot')
     root=pathlib.Path(root);dest=root/'backups'/f'{tag}.sqlite'
     if dest.exists():raise RuntimeError('Backup already exists')
     with sqlite3.connect(dest) as target:ledger.db.backup(target)
@@ -53,13 +54,16 @@ def backup(root,ledger,tag,hook=None):
         tar.add(dest,arcname='ledger.sqlite');tar.add(root/'identity.json',arcname='identity.json');tar.add(root/'raw',arcname='raw');tar.add(root/'manifests',arcname='manifests');tar.add(runner.ROOT/'inputs',arcname='inputs')
     digest=runner.digest(archive.read_bytes()); result={'path':str(archive),'sha256':digest,'created_at':utc()}
     if hook:
+        init_stage('backup_remote_verify')
         ack=hook(archive,digest)
         if not isinstance(ack,dict) or ack.get('verified') is not True or ack.get('sha256')!=digest or not ack.get('reference'):raise RuntimeError('Private backup not verified')
         result['remote']=ack
+    init_stage('backup_local_receipt')
     write_once(root/'backups'/f'{tag}.json',result)
     if hook and getattr(hook,'delete_local_after_verified',False):
         # Only redundant local snapshots are removed, after verified private remote upload/head.
         # Primary raw evidence and durable ledger remain untouched.
+        init_stage('backup_local_cleanup')
         dest.unlink();archive.unlink()
     return result
 
@@ -169,7 +173,7 @@ def safe_failure(exc,args):
     # Only fixed codes, booleans and nonsecret inline-manifest length; never exception strings.
     inline=os.environ.get('RESEARCH_MANIFEST_JSON','')
     out={'failure_stage':INIT_STAGE,'failure_code':'unclassified','environment_present':{name:bool(os.environ.get(name)) for name in ('RESEARCH_MANIFEST_JSON','RESEARCH_MANIFEST_PATH','RESEARCH_STUDY_ID','RESEARCH_STORAGE_HOST','RESEARCH_STORAGE_ZONE','RESEARCH_STORAGE_ACCESS_KEY')},'manifest_json_length':len(inline)}
-    if isinstance(exc,json.JSONDecodeError):out['failure_code']='manifest_json_invalid'
+    if isinstance(exc,json.JSONDecodeError):out['failure_code']='manifest_json_invalid' if INIT_STAGE=='manifest_load' else 'json_invalid'
     elif isinstance(exc,PermissionError):out['failure_code']='filesystem_permission_denied'
     elif isinstance(exc,FileNotFoundError):out['failure_code']='required_file_missing'
     elif isinstance(exc,sqlite3.Error):out['failure_code']='sqlite_failure'
@@ -184,9 +188,73 @@ def safe_failure(exc,args):
     import storage
     if isinstance(exc,storage.StorageError):
         out['failure_code']='private_storage_failure'
+        out['storage_stage']=storage.LAST_STAGE
         if exc.http_status is not None:out['storage_http_status']=exc.http_status
         if exc.operation is not None:out['storage_operation']=exc.operation
     return out
+
+
+def diagnostic_preflight(root,m,remote):
+    """Read source files under existing locks; all SQLite/report work is on a disposable copy."""
+    import shutil
+    root=pathlib.Path(root)
+    result={'status':'diagnostic_preflight_complete','paid_calls':0,'storage_writes':0,'persistent_research_writes':0,'ephemeral_snapshot_used':True}
+    init_stage('probe_existing_locks')
+    with contextlib.ExitStack() as stack:
+        for name in ('runner.lock','qualification.lock'):
+            handle=stack.enter_context((root/name).open('rb'))
+            fcntl.flock(handle,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        init_stage('probe_marker_get')
+        marker=remote.read_marker()
+        result['remote_marker_matches']=isinstance(marker,dict) and marker.get('study_id')==m['study_id'] and marker.get('provider_cap_micro_usd')==38000000
+        init_stage('probe_head_get')
+        head=remote.head()
+        init_stage('probe_local_head_read')
+        local=json.loads((root/'remote-head.json').read_text())
+        result['remote_local_head_equal']=head==local
+        result['remote_head_sequence']=head.get('sequence') if isinstance(head,dict) and type(head.get('sequence')) is int else None
+        init_stage('probe_disposable_snapshot')
+        with tempfile.TemporaryDirectory(prefix='research-readonly-probe-') as tmp:
+            copy=pathlib.Path(tmp)/'snapshot'
+            # Never copy keys/environment or modify source. Existing lock forbids active writers.
+            copy.mkdir()
+            for name in ('identity.json','ledger.sqlite','ledger.sqlite-wal','ledger.sqlite-shm'):
+                if (root/name).is_file():shutil.copyfile(root/name,copy/name)
+            for name in ('raw','manifests'):
+                shutil.copytree(root/name,copy/name)
+            init_stage('probe_snapshot_integrity')
+            with sqlite3.connect(copy/'ledger.sqlite') as db:
+                result['ledger_integrity_ok']=db.execute('PRAGMA integrity_check').fetchone()[0]=='ok'
+                fingerprint=hashlib.sha256('\n'.join(db.iterdump()).encode()).hexdigest()
+                result['ledger_matches_remote_head']=isinstance(head,dict) and fingerprint==head.get('ledger_fingerprint')
+                result['ledger_matches_local_head']=fingerprint==local.get('ledger_fingerprint')
+                result['ledger_halted']=bool(db.execute("SELECT 1 FROM config WHERE k='halt'").fetchone())
+                row=db.execute('SELECT id FROM attempts ORDER BY start DESC LIMIT 1').fetchone()
+            if row:
+                tag=hashlib.sha256(row[0].encode()).hexdigest()
+                result['last_finished_receipt_present']=(root/'backups'/f'{tag}-finished.json').is_file()
+                result['last_finished_snapshot_present']=(root/'backups'/f'{tag}-finished.sqlite').is_file()
+                result['last_finished_archive_present']=(root/'backups'/f'{tag}-finished.tar.gz').is_file()
+            init_stage('probe_report_build')
+            import qualification
+            captured={}
+            class Capture:
+                def put_verified(self,name,payload):
+                    captured.update(name=name,payload=payload)
+                    return {'verified':True,'sha256':runner.digest(payload)}
+            data,name=qualification.report(copy,m,Capture())
+            result['diagnostic_attempts']=data['budget']['diagnostic_attempts']
+            result['committed_or_held_micro_usd']=data['budget']['committed_or_held_micro_usd']
+            result['uncertain_charge_hold_micro_usd']=data['budget']['uncertain_charge_hold_micro_usd']
+            result['batch_attempts']=len(data['attempts'])
+            result['batch_evidence_stop_count']=sum(bool(x.get('stop_reason')) for x in data['attempts'])
+            init_stage('probe_report_get')
+            status,payload=remote.transport('GET',remote.base+name)
+            result['report_storage_http_status']=status if type(status) is int and 100<=status<=599 else None
+            result['report_present']=status==200
+            result['report_bytes_match']=payload==captured['payload'] if status==200 else None
+            result['report_file']=name
+    return result
 
 def perform(args):
     init_stage('manifest_load')
@@ -199,6 +267,9 @@ def perform(args):
     import storage
     init_stage('storage_configuration')
     remote=storage.from_env(m['study_id'])
+    if args.mode=='diagnostic_preflight':
+        if args.study_id!=m['study_id']:raise RuntimeError('Study ID differs from manifest')
+        return diagnostic_preflight(args.data_dir,m,remote)
     if args.mode=='preflight':
         init_stage('study_id_validation')
         if args.study_id!=m['study_id']:raise RuntimeError('Study ID differs from manifest')
@@ -234,8 +305,8 @@ def perform(args):
             try:backup(root,ledger,'initial-'+uuid.uuid4().hex,remote)
             finally:ledger.db.close()
         return {'initialized':True,'study_id':args.study_id,'remote_marker_verified':True,'paid_calls':0}
-    remote.verify_marker(m['study_id'])
-    remote.verify_head(args.data_dir)
+    init_stage('execution_marker_verify');remote.verify_marker(m['study_id'])
+    init_stage('execution_head_verify');remote.verify_head(args.data_dir)
     if args.mode=='diagnostic_batch':
         import qualification
         return qualification.run(args.data_dir,m,remote)
@@ -259,7 +330,7 @@ def health_bind():
 
 def main():
     os.umask(0o077)
-    ap=argparse.ArgumentParser();ap.add_argument('mode',choices=['idle','preflight','init','diagnostic','diagnostic_batch','collect','scheduled'],nargs='?',default=os.environ.get('RESEARCH_ACTION','idle'))
+    ap=argparse.ArgumentParser();ap.add_argument('mode',choices=['idle','preflight','diagnostic_preflight','init','diagnostic','diagnostic_batch','collect','scheduled'],nargs='?',default=os.environ.get('RESEARCH_ACTION','idle'))
     for flag,env,default in [('data-dir','RESEARCH_DATA_DIR','/data/research'),('study-id','RESEARCH_STUDY_ID',None),('manifest','RESEARCH_MANIFEST_PATH',None),('slot-id','RESEARCH_SLOT_ID',None),('endpoint','RESEARCH_ENDPOINT',None),('intent-id','RESEARCH_INTENT_ID',None),('language','RESEARCH_LANGUAGE',None),('action-id','RESEARCH_ACTION_ID',None)]:
         ap.add_argument('--'+flag,default=os.environ.get(env,default))
     ap.add_argument('--then-idle',action='store_true',default=os.environ.get('RESEARCH_THEN_IDLE')=='1');args=ap.parse_args()
@@ -273,7 +344,7 @@ def main():
         try:print(json.dumps(perform(args)),flush=True)
         except Exception as exc:
             # No raw exception, provider body or secret can reach container logs.
-            print(json.dumps({'status':'blocked','action':args.mode,'paid_execution_enabled':False,'instruction':'Inspect private manifest/ledger; do not change action ID to bypass an unresolved attempt',**(safe_failure(exc,args) if args.mode in ('init','preflight') else {})}),flush=True)
+            print(json.dumps({'status':'blocked','action':args.mode,'paid_execution_enabled':False,'instruction':'Inspect private manifest/ledger; do not change action ID to bypass an unresolved attempt',**(safe_failure(exc,args) if args.mode in ('init','preflight','diagnostic_preflight','diagnostic_batch') else {})}),flush=True)
             if not args.then_idle:raise SystemExit(2) from None
         Health.state='idle'
         if not args.then_idle:return

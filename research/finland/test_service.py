@@ -134,3 +134,60 @@ class PreflightTests(unittest.TestCase):
             args=SimpleNamespace(manifest=None,mode='preflight',study_id='study',data_dir=str(root))
             with patch.dict(service.os.environ,{'RESEARCH_MANIFEST_JSON':json.dumps(m)},clear=True),patch.object(storage,'from_env',return_value=b):x=service.perform(args)
             self.assertEqual(calls,['GET']);self.assertFalse(root.exists());self.assertEqual(x['storage_writes'],0);self.assertEqual(x['status'],'preflight_passed')
+
+class DiagnosticPreflightTests(unittest.TestCase):
+    def probe(self,mismatch=False,fail=False):
+        from unittest.mock import patch
+        import storage,qualification,hashlib,sqlite3
+        with tempfile.TemporaryDirectory() as d:
+            root=pathlib.Path(d)/'study'
+            service.initialize(root,'study')
+            (root/'qualification.lock').touch()
+            with sqlite3.connect(root/'ledger.sqlite') as db:
+                fingerprint=hashlib.sha256('\n'.join(db.iterdump()).encode()).hexdigest()
+            head={'sequence':1,'ledger_fingerprint':fingerprint}
+            (root/'remote-head.json').write_text(json.dumps(head))
+            remotehead={**head,'sequence':2} if mismatch else head
+            calls=[]
+            def transport(method,url,data=None):
+                calls.append(method)
+                self.assertEqual(method,'GET')
+                if fail:raise storage.StorageError('SECRET BODY',503,'GET')
+                if url.endswith('study-marker.json'):return 200,json.dumps({'study_id':'study','provider_cap_micro_usd':38000000}).encode()
+                if url.endswith('latest-backup.json'):return 200,json.dumps(remotehead).encode()
+                return 404,b''
+            remote=storage.BunnyBackup('se.storage.bunnycdn.com','synthetic','FAKE','study',transport)
+            def snapshot():return {str(p.relative_to(root)):p.read_bytes() for p in root.rglob('*') if p.is_file()}
+            before=snapshot()
+            def report(copy,m,sink):
+                self.assertNotEqual(pathlib.Path(copy),root)
+                sink.put_verified('qualification-synthetic.json',b'{}')
+                return {'budget':{'diagnostic_attempts':0,'committed_or_held_micro_usd':0,'uncertain_charge_hold_micro_usd':0},'attempts':[]},'qualification-synthetic.json'
+            with patch.object(qualification,'report',side_effect=report),patch.object(service,'execute_one',side_effect=AssertionError('no paid calls')),patch.object(service,'backup',side_effect=AssertionError('no backup')):
+                if fail:
+                    with self.assertRaises(storage.StorageError):service.diagnostic_preflight(root,{'study_id':'study'},remote)
+                    result=None
+                else:result=service.diagnostic_preflight(root,{'study_id':'study'},remote)
+            self.assertEqual(before,snapshot())
+            self.assertTrue(all(x=='GET' for x in calls))
+            return result
+    def test_readonly_diagnostic_probe(self):
+        x=self.probe()
+        self.assertTrue(x['remote_local_head_equal']);self.assertTrue(x['ledger_matches_remote_head'])
+        self.assertEqual(x['paid_calls'],0);self.assertEqual(x['storage_writes'],0)
+        self.assertFalse(x['report_present'])
+    def test_probe_head_mismatch_is_reported_not_repaired(self):
+        x=self.probe(mismatch=True)
+        self.assertFalse(x['remote_local_head_equal']);self.assertEqual(x['remote_head_sequence'],2)
+    def test_probe_network_failure_never_dispatches(self):self.probe(fail=True)
+    def test_missing_local_head_fixed_stage(self):
+        from types import SimpleNamespace
+        with tempfile.TemporaryDirectory() as d:
+            root=pathlib.Path(d)
+            (root/'runner.lock').touch();(root/'qualification.lock').touch()
+            remote=SimpleNamespace(read_marker=lambda:None,head=lambda:{})
+            with self.assertRaises(FileNotFoundError) as caught:
+                service.diagnostic_preflight(root,{'study_id':'study'},remote)
+            x=service.safe_failure(caught.exception,SimpleNamespace(study_id='study'))
+            self.assertEqual(x['failure_stage'],'probe_local_head_read')
+            self.assertEqual(x['failure_code'],'required_file_missing')
