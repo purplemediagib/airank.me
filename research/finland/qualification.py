@@ -116,3 +116,59 @@ def run(root,m,remote,execute=service.execute_one,transport=None,key_loader=None
             data,name=report(root,m,remote)
             if any(x.get('stop_reason') for x in data['attempts']):return {'status':'qualification_review_required','report_file':name,'collection_qualified':False}
         return {'status':'diagnostic_batch_complete','report_file':name,'collection_qualified':False,'human_review_required':True}
+
+CITY_BATCH_ID='technical-city-v1'
+def city_slots():
+    return [{'slot_id':f'diagnostic:openai_responses:{CITY_BATCH_ID}-IT04-{lang}','endpoint':'openai_responses','intent_id':'IT04','language':lang} for lang in ('fi','en')]
+
+def city_report(root,m,remote):
+    service.init_stage('city_report_build')
+    ledger=service.open_study(root,m['study_id'],m['verified_bounds'])
+    try:rows=ledger.rows();summary=ledger.summary()
+    finally:ledger.db.close()
+    selected={x['slot_id'] for x in city_slots()}
+    items=[evidence(root,x,m['diagnostic_batch']['expected_models']['openai_responses']) for x in rows if x['slot'] in selected]
+    data={'study_id':m['study_id'],'batch_id':CITY_BATCH_ID,'manifest_sha256':m['frozen_manifest_sha256'],'diagnostic_only':True,'collection_qualified':False,'planned_slots':2,'attempts':items,'budget':summary}
+    payload=json.dumps(runner.sanitize(data),sort_keys=True,ensure_ascii=False).encode();digest=runner.digest(payload)
+    name=f'qualification-{CITY_BATCH_ID}-{len(items):02d}-{digest[:16]}.json'
+    service.init_stage('city_report_upload');ack=remote.put_verified(name,payload)
+    if ack.get('verified') is not True or ack.get('sha256')!=digest:raise RuntimeError('City report backup not verified')
+    return data,name
+
+def run_city(root,m,remote,execute=service.execute_one,transport=None,key_loader=None):
+    service.execution_gate(m,'diagnostic')
+    cfg=m.get('city_qualification',{})
+    if cfg.get('enabled') is not True or cfg.get('batch_id')!=CITY_BATCH_ID or cfg.get('slots')!=city_slots():raise RuntimeError('Explicit frozen city diagnostic approval required')
+    if cfg.get('v3_review_approved') is not True or not cfg.get('v3_review_reference'):raise RuntimeError('Completed v3 review required')
+    if m.get('singleton_deployment_confirmed') is not True or m.get('location_policy_version')!=service.LOCATION_POLICY_VERSION:raise RuntimeError('City identity/method gates absent')
+    loader=key_loader or (lambda name:os.environ.get(name))
+    if not loader('OPENAI_API_KEY'):raise RuntimeError('OpenAI credential absent; no reservation made')
+    import fcntl
+    with (pathlib.Path(root)/'qualification.lock').open('a') as lock:
+        fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB);remote.verify_head(root)
+        ledger=service.open_study(root,m['study_id'],m['verified_bounds'])
+        try:
+            rows=ledger.rows();by={x['slot']:x for x in rows}
+            if ledger.db.execute("SELECT 1 FROM config WHERE k='halt'").fetchone() or any(x['status']=='reserved' or (x['actual'] is None and x['accounted'] is None) for x in rows):raise RuntimeError('Prior financial uncertainty blocks city diagnostics')
+            expected_prior={x['slot_id'] for x in city_slots()}
+            noncity=[x for x in rows if x['slot'] not in expected_prior]
+            if len(noncity)!=17 or any(x['kind']!='diagnostic' for x in noncity):raise RuntimeError('City diagnostics require reviewed17 diagnostic attempts and no primary calls')
+            refs=m['diagnostic_batch'].get('reused_prior_qualification',[])
+            if len(refs)!=2:raise RuntimeError('Two reviewed Kimi IT references required')
+            by_id={x['id']:x for x in rows}
+            for ref in refs:
+                row=by_id.get(ref.get('attempt_id'));meta=json.loads(row['raw']) if row else {}
+                if not row or not row['id'].startswith('diagnostic:kimi_candidate:technical-v2-IT01-') or meta.get('raw_hash')!=ref.get('raw_sha256') or evidence(root,row,m['diagnostic_batch']['expected_models']['kimi_candidate']).get('stop_reason'):raise RuntimeError('Prior Kimi IT evidence invalid')
+            for slot in frozen_slots():
+                row=by.get(slot['slot_id'])
+                if not row or evidence(root,row,m['diagnostic_batch']['expected_models'][slot['endpoint']]).get('stop_reason'):raise RuntimeError('V3 qualification evidence incomplete')
+        finally:ledger.db.close()
+        for slot in city_slots():
+            service.execution_gate(m,'diagnostic');remote.verify_head(root)
+            data,name=city_report(root,m,remote)
+            if any(x.get('stop_reason') for x in data['attempts']):return {'status':'city_qualification_review_required','report_file':name,'collection_qualified':False}
+            if any(x['slot']==slot['slot_id'] for x in data['attempts']):continue
+            execute(root,m,slot,'diagnostic',transport=transport,backup_hook=remote,key_loader=key_loader)
+            data,name=city_report(root,m,remote)
+            if any(x.get('stop_reason') for x in data['attempts']):return {'status':'city_qualification_review_required','report_file':name,'collection_qualified':False}
+        return {'status':'city_qualification_complete','report_file':name,'collection_qualified':False,'human_review_required':True}

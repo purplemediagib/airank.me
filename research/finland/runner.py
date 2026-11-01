@@ -10,7 +10,7 @@ def digest(data):
 
 def load_inputs(root=ROOT/'inputs', endpoint='openai_responses'):
     prompts = json.loads((root/'prompt_pairs.json').read_text())
-    schedule = 'schedule_v02_openai_kimi_DRAFT.json' if (root/'schedule_v02_openai_kimi_DRAFT.json').exists() else 'proposed_schedule.json'
+    schedule = 'schedule_v04_nov01_PRIMARY.json'
     slots = [s for s in json.loads((root/schedule).read_text()) if s['endpoint']==endpoint]
     assert len(prompts)==12 and len({p['intent_id'] for p in prompts})==12
     assert len(slots)==144 and len({s['slot_id'] for s in slots})==144

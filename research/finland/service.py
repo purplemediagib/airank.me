@@ -151,6 +151,12 @@ def execute_one(root,m,slot,kind='primary',transport=None,backup_hook=None,key_l
             status=('complete' if complete else 'incomplete') if actual is not None or accounted is not None else 'unknown'
             if kind=='primary' and endpoint=='openai_responses' and not location_matches(response,location):status='fatal'
             if kind=='primary' and response.get('model') not in config['allowed_returned_models']:status='fatal'
+            if kind=='primary' and endpoint=='kimi_candidate':
+                usage=response.get('usage') or {};bound=config.get('bound_evidence',{})
+                max_input=bound.get('endpoint_context_tokens',0)*bound.get('max_model_passes',0)
+                max_output=config.get('reviewed_request_parameters',{}).get('max_tokens',0)*bound.get('max_model_passes',0)
+                if not max_input or not max_output or any(type(usage.get(k)) is not int or not 0<=usage[k]<=cap for k,cap in [('prompt_tokens',max_input),('completion_tokens',max_output)]):status='fatal'
+                if response.get('provider') not in config.get('allowed_returned_providers',[]):status='fatal'
             ledger.finish(aid,status,{'raw_path':f'raw/{tag}.json','raw_hash':raw_hash},actual=actual,end=response_end,accounted=accounted,accounting_basis=charge['basis'])
             backup(root,ledger,tag+'-finished',backup_hook)
             return {'attempt_id':aid,'status':status,'raw_hash':raw_hash,'cost_hold_retained':actual is None and accounted is None,'accounting_basis':charge['basis'],'provider_actual_cost_micro_usd':actual,'conservative_accounted_micro_usd':accounted}
@@ -319,6 +325,9 @@ def perform(args):
         return {'initialized':True,'study_id':args.study_id,'remote_marker_verified':True,'paid_calls':0}
     init_stage('execution_marker_verify');remote.verify_marker(m['study_id'])
     init_stage('execution_head_verify');remote.verify_head(args.data_dir)
+    if args.mode=='city_qualification':
+        import qualification
+        return qualification.run_city(args.data_dir,m,remote)
     if args.mode=='diagnostic_batch':
         import qualification
         return qualification.run(args.data_dir,m,remote)
@@ -342,7 +351,7 @@ def health_bind():
 
 def main():
     os.umask(0o077)
-    ap=argparse.ArgumentParser();ap.add_argument('mode',choices=['idle','preflight','diagnostic_preflight','checkpoint_reconcile','init','diagnostic','diagnostic_batch','collect','scheduled'],nargs='?',default=os.environ.get('RESEARCH_ACTION','idle'))
+    ap=argparse.ArgumentParser();ap.add_argument('mode',choices=['idle','preflight','diagnostic_preflight','checkpoint_reconcile','city_qualification','init','diagnostic','diagnostic_batch','collect','scheduled'],nargs='?',default=os.environ.get('RESEARCH_ACTION','idle'))
     for flag,env,default in [('data-dir','RESEARCH_DATA_DIR','/data/research'),('study-id','RESEARCH_STUDY_ID',None),('manifest','RESEARCH_MANIFEST_PATH',None),('slot-id','RESEARCH_SLOT_ID',None),('endpoint','RESEARCH_ENDPOINT',None),('intent-id','RESEARCH_INTENT_ID',None),('language','RESEARCH_LANGUAGE',None),('action-id','RESEARCH_ACTION_ID',None)]:
         ap.add_argument('--'+flag,default=os.environ.get(env,default))
     ap.add_argument('--then-idle',action='store_true',default=os.environ.get('RESEARCH_THEN_IDLE')=='1');args=ap.parse_args()
@@ -356,7 +365,7 @@ def main():
         try:print(json.dumps(perform(args)),flush=True)
         except Exception as exc:
             # No raw exception, provider body or secret can reach container logs.
-            print(json.dumps({'status':'blocked','action':args.mode,'paid_execution_enabled':False,'instruction':'Inspect private manifest/ledger; do not change action ID to bypass an unresolved attempt',**(safe_failure(exc,args) if args.mode in ('init','preflight','diagnostic_preflight','checkpoint_reconcile','diagnostic_batch') else {})}),flush=True)
+            print(json.dumps({'status':'blocked','action':args.mode,'paid_execution_enabled':False,'instruction':'Inspect private manifest/ledger; do not change action ID to bypass an unresolved attempt',**(safe_failure(exc,args) if args.mode in ('init','preflight','diagnostic_preflight','checkpoint_reconcile','diagnostic_batch','city_qualification') else {})}),flush=True)
             if not args.then_idle:raise SystemExit(2) from None
         Health.state='idle'
         if not args.then_idle:return

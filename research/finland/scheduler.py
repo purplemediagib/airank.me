@@ -6,8 +6,8 @@ def epoch(slot):
     return datetime.datetime.fromisoformat(slot['proposed_date_utc']+'T'+slot['proposed_block_utc']+':00+00:00').timestamp()
 def block_id(slot):return slot['proposed_date_utc']+'T'+slot['proposed_block_utc']+'Z'
 def schedule():
-    # Preserve original interleaving/randomization and adjacent language pairs from frozen v0.2 file.
-    rows=json.loads((runner.ROOT/'inputs'/'schedule_v02_openai_kimi_DRAFT.json').read_text())
+    # Preserve original interleaving/randomization and adjacent language pairs from explicitly superseding November 1 v0.4 file.
+    rows=json.loads((runner.ROOT/'inputs'/'schedule_v04_nov01_PRIMARY.json').read_text())
     assert len(rows)==288 and len({s['slot_id'] for s in rows})==288
     return rows
 

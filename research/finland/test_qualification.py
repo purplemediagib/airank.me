@@ -165,3 +165,70 @@ class QualificationTests(unittest.TestCase):
         self.m['diagnostic_batch']['reused_prior_qualification']=[{'attempt_id':'diagnostic:kimi_candidate:technical-v2-IT01-fi:a1','raw_sha256':'synthetic'}];self.m['frozen_manifest_sha256']=service.manifest_hash(self.m)
         with self.assertRaisesRegex(RuntimeError,'reference unavailable'):self.run_batch()
         self.assertEqual(self.calls,[])
+
+
+    def primary_kimi(self,provider='Moonshot AI',output_tokens=9000):
+        for key in ('finnish_review_signed','protocol_frozen','models_qualified'):self.m[key]=True
+        c=self.m['providers']['kimi_candidate']
+        c.update(qualified=True,allowed_returned_models=['moonshotai/kimi-k3.1-pro'],allowed_returned_providers=['Moonshot AI'])
+        c['bound_evidence']={'endpoint_context_tokens':1048576,'max_model_passes':3}
+        self.m['frozen_manifest_sha256']=service.manifest_hash(self.m)
+        _,slots=runner.load_inputs(endpoint='kimi_candidate')
+        def response(*args):
+            x=self.response(*args);x['provider']=provider;x['usage'].update(prompt_tokens=100,completion_tokens=output_tokens);return x
+        result=service.execute_one(self.root,self.m,slots[0],'primary',transport=response,backup_hook=self.remote,key_loader=lambda n:'FAKE')
+        l=service.open_study(self.root,'study',{});row=l.rows()[0];halt=l.db.execute("select v from config where k='halt'").fetchone();l.db.close()
+        return result,row,halt
+    def test_primary_kimi_contract_deviation_halts_known_cost(self):
+        result,row,halt=self.primary_kimi(output_tokens=9001)
+        self.assertEqual(result['status'],'fatal');self.assertEqual(row['actual'],10000);self.assertIsNotNone(halt)
+    def test_primary_kimi_provider_drift_halts_known_cost(self):
+        result,row,halt=self.primary_kimi(provider='unreviewed')
+        self.assertEqual(result['status'],'fatal');self.assertEqual(row['actual'],10000);self.assertIsNotNone(halt)
+    def test_primary_kimi_contract_boundary_accepted(self):
+        result,row,halt=self.primary_kimi()
+        self.assertEqual(result['status'],'complete');self.assertIsNone(halt)
+
+class CityQualificationTests(unittest.TestCase):
+    setUp=QualificationTests.setUp
+    tearDown=QualificationTests.tearDown
+    response=QualificationTests.response
+    run_batch=QualificationTests.run_batch
+    def seed(self):
+        for i in range(7):
+            lang='fi' if i%2==0 else 'en'
+            aid=f'technical-v2-IT01-{lang}' if i<2 else f'synthetic-prior-{i}'
+            slot={'slot_id':f'diagnostic:kimi_candidate:{aid}','endpoint':'kimi_candidate','intent_id':'IT01','language':lang}
+            service.execute_one(self.root,self.m,slot,'diagnostic',transport=self.response,backup_hook=self.remote,key_loader=lambda n:'FAKE')
+        l=service.open_study(self.root,'study',{});rows=l.rows();l.db.close()
+        self.m['diagnostic_batch']['reused_prior_qualification']=[{'attempt_id':r['id'],'raw_sha256':json.loads(r['raw'])['raw_hash']} for r in rows[:2]]
+        self.m['frozen_manifest_sha256']=service.manifest_hash(self.m);self.run_batch()
+        self.m['diagnostic_batch']['enabled']=False
+        self.m['city_qualification']={'enabled':True,'batch_id':q.CITY_BATCH_ID,'slots':q.city_slots(),'v3_review_approved':True,'v3_review_reference':'SYNTHETIC REVIEW'}
+        self.m['frozen_manifest_sha256']=service.manifest_hash(self.m)
+    def run_city(self,transport=None):
+        return q.run_city(self.root,self.m,self.remote,transport=transport or self.response,key_loader=lambda n:'FAKE')
+    def test_city_pair_19total_restart_no_duplicates_and_exact_turku(self):
+        self.seed();bodies=[]
+        def response(url,body,key):
+            bodies.append(body)
+            return self.response(url,body,key)
+        x=self.run_city(response);self.assertEqual(x['status'],'city_qualification_complete')
+        self.assertEqual(len(self.calls),19);self.assertFalse(x['collection_qualified'])
+        self.assertEqual(self.run_city()['status'],'city_qualification_complete');self.assertEqual(len(self.calls),19)
+        self.assertTrue(all(b['tools'][0]['user_location']=={'type':'approximate','country':'FI','city':'Turku'} for b in bodies))
+        report=json.loads(self.files[self.remote.base+x['report_file']]);self.assertEqual(report['budget']['diagnostic_attempts'],19)
+    def test_city_missing_city_stops_preserving_cost(self):
+        self.seed()
+        def wrong(*args):
+            x=self.response(*args);x['tools'][0]['user_location'].pop('city');return x
+        x=self.run_city(wrong);self.assertEqual(x['status'],'city_qualification_review_required');self.assertEqual(len(self.calls),18)
+        self.assertEqual(self.run_city()['status'],'city_qualification_review_required');self.assertEqual(len(self.calls),18)
+    def test_city_requires_full_v3_before_calls(self):
+        self.m['city_qualification']={'enabled':True,'batch_id':q.CITY_BATCH_ID,'slots':q.city_slots(),'v3_review_approved':True,'v3_review_reference':'SYNTHETIC'}
+        self.m['frozen_manifest_sha256']=service.manifest_hash(self.m)
+        with self.assertRaisesRegex(RuntimeError,'reviewed17'):self.run_city()
+        self.assertEqual(self.calls,[])
+    def test_city_disabled_never_dispatches(self):
+        with self.assertRaises(RuntimeError):self.run_city()
+        self.assertEqual(self.calls,[])

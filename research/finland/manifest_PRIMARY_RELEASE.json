@@ -1,0 +1,337 @@
+{
+  "study_id": "finland-language-v02",
+  "provider_budget_usd": 38,
+  "hosting_budget_usd": 2,
+  "input_hashes": {
+    "BUDGET.md": "ca96b961d0f26729eb29d42929214746c216ed6961cb82c26ef7b562ed4022a1",
+    "PROTOCOL.md": "afcb94af988b4662f1f4982af9d62b1d78e225eaa88a5c09c9661c8e276a52ef",
+    "PROTOCOL_v04_PRIMARY_ADDENDUM.md": "6b32daec9a566bb7ac5c2c63aa400df864dcb239480e15b9502178b956cd0652",
+    "budget_assumptions.json": "b128561c0aabe02c82d47cbe0a5f72531a805208950a5137b2525481683982a7",
+    "prompt_pairs.json": "61f92a7e39f94e97913aebec3767ef43e1d790cc19573fbe6ac17dace6c50fb8",
+    "proposed_schedule.json": "13c3f3ff304c43d5d38d0049d78ec9bf741ec08040856c42602468e0d91dc8df",
+    "schedule_v02_openai_kimi_DRAFT.json": "e49a9b367f4558ef2ab2c7e9f3002a4e3f73dd43a4e7f4b75345b30a7b82ad4c",
+    "schedule_v04_nov01_PRIMARY.json": "0c7eeb4ae20dfb5d77c6b50997ca1989952d25141268598062d1b3ac4a4acc39"
+  },
+  "owner_execution_approved": true,
+  "diagnostics_approved": true,
+  "storage_access_approved": true,
+  "secure_host_verified": true,
+  "durable_storage_verified": true,
+  "private_backup_verified": true,
+  "all_billable_bounds_verified": true,
+  "finnish_review_signed": true,
+  "protocol_frozen": true,
+  "models_qualified": true,
+  "providers": {
+    "kimi_candidate": {
+      "qualified": true,
+      "all_billable_bound_verified": true,
+      "route": "openrouter",
+      "model": "moonshotai/kimi-k3.1-pro",
+      "provider": "moonshotai/mxfp4",
+      "native_tool_loop_required": false,
+      "reviewed_request_parameters": {
+        "tools": [
+          {
+            "type": "openrouter:web_search",
+            "parameters": {
+              "engine": "exa",
+              "mode": "auto",
+              "max_uses": 2,
+              "max_results": 3,
+              "max_total_results": 6,
+              "max_characters": 1000
+            }
+          }
+        ],
+        "tool_choice": "required",
+        "max_tokens": 3000,
+        "reasoning": {
+          "effort": "low"
+        },
+        "stop_server_tools_when": [
+          {
+            "type": "step_count_is",
+            "step_count": 1
+          }
+        ]
+      },
+      "warning": "Primary $7 operational reservation after final qualification; reviewed normal-contract three-pass envelope $6.395456. Tool counters are not verified execution counts.",
+      "canonical_model_version": "moonshotai/kimi-k3.1-pro-20261023",
+      "qualification_reservation_micro_usd": 35000000,
+      "post_qualification_reservation_micro_usd": 7000000,
+      "diagnostic_route_approved": true,
+      "usage_cost_verified_all_in": true,
+      "bound_evidence": {
+        "endpoint_context_tokens": 1048576,
+        "endpoint_max_completion_tokens": 943718,
+        "max_model_passes": 3,
+        "input_usd_per_million": 2,
+        "output_usd_per_million": 10,
+        "cache_write_usd": 0,
+        "max_search_calls": 2,
+        "search_auto_usd_per_call": 0.007,
+        "initial_envelope_usd": 34.616996,
+        "operational_envelope_usd": 6.395456,
+        "operational_requires_live_qualification": true
+      },
+      "allowed_returned_models": [
+        "moonshotai/kimi-k3.1-pro"
+      ],
+      "allowed_returned_providers": [
+        "Moonshot AI"
+      ]
+    },
+    "openai_responses": {
+      "qualified": true,
+      "all_billable_bound_verified": true,
+      "model": "gpt-4.1-mini-2025-04-14",
+      "max_tool_calls": 2,
+      "max_output_tokens": 1500,
+      "tool_choice": "required",
+      "diagnostic_route_approved": true,
+      "usage_upper_bound_accounting_verified": true,
+      "qualification_reservation_micro_usd": 1500000,
+      "operational_reservation_micro_usd": 1500000,
+      "allowed_returned_models": [
+        "gpt-4.1-mini-2025-04-14"
+      ],
+      "bound_evidence": {
+        "context_tokens": 1047576,
+        "max_endpoint_output_tokens": 32768,
+        "engineering_max_passes": 3,
+        "max_tool_calls": 2,
+        "input_usd_per_million": 0.4,
+        "output_usd_per_million": 1.6,
+        "fixed_search_input_tokens": 8000,
+        "search_fee_usd": 0.01,
+        "conservative_envelope_usd": 1.4407776,
+        "interpretation": "3input/outputpasses is conservative engineering inference from2builtintoolcalls+final; no arbitrary-provider-misbilling guarantee",
+        "price_checked_at": "2026-10-30"
+      },
+      "search_parameters": {
+        "user_location": {
+          "type": "approximate",
+          "country": "FI"
+        }
+      }
+    }
+  },
+  "verified_bounds": {
+    "kimi_candidate": {
+      "verified": true,
+      "micro_usd": 7000000,
+      "evidence": "Final qualification reviewed: all10v3 plus2reused Kimi pass. 3*(1048576*2/1e6+3000*10/1e6)+2*0.007=6.395456 normal-contract envelope. Pendingtools/finalpass margin included; no arbitrary misbilling guarantee. Runtime token/provider/model/usage guards retained."
+    },
+    "openai_responses": {
+      "verified": true,
+      "micro_usd": 1500000,
+      "evidence": "Frozen2026-10-30 GPT4.1mini fullmodelcontext/output\u00d73 +2searchfees/fixedblocks =1.4407776; reserve1.50. See provider_candidates_DRAFT sources."
+    }
+  },
+  "frozen_manifest_sha256": "b78ed70ecbf84952e4402f41200ab8c0769a0b12e72c651d3b836c432e1a2fa5",
+  "schedule_enabled": true,
+  "block_start_grace_seconds": 600,
+  "max_block_duration_seconds": 7200,
+  "timing_policy_status": "FROZEN_NOV01_2100_2300_UTC_NO_BACKFILL",
+  "deployment_evidence": {
+    "owner_reported_at_utc": "2026-10-30T21:35:00Z",
+    "storage_zone": "airank-finland-research-private",
+    "storage_host": "se.storage.bunnycdn.com",
+    "storage_no_pull_zone_confirmed": true,
+    "app_region": "Zagreb",
+    "volume_owner_saved": "1 GB mounted /data",
+    "singleton_confirmed": true,
+    "runtime_write_verified": true,
+    "initialization_success_utc": "2026-10-30T22:17:27.663Z",
+    "restart_initialization_success_utc": "2026-10-30T22:20:49.546Z",
+    "initial_pod": "d9c71QYiTGIuZR",
+    "restart_pod": "klBc7CDxFKeo05",
+    "singleton_confirmation_basis": "Owner affirmed min1 max1 on 2026-10-30T22:33UTC; not independent UI inspection"
+  },
+  "singleton_deployment_confirmed": true,
+  "diagnostic_batch": {
+    "enabled": false,
+    "batch_id": "technical-v3",
+    "slots": [
+      {
+        "slot_id": "diagnostic:openai_responses:technical-v3-IT01-fi",
+        "endpoint": "openai_responses",
+        "intent_id": "IT01",
+        "language": "fi"
+      },
+      {
+        "slot_id": "diagnostic:openai_responses:technical-v3-IT01-en",
+        "endpoint": "openai_responses",
+        "intent_id": "IT01",
+        "language": "en"
+      },
+      {
+        "slot_id": "diagnostic:kimi_candidate:technical-v2-ACC01-fi",
+        "endpoint": "kimi_candidate",
+        "intent_id": "ACC01",
+        "language": "fi"
+      },
+      {
+        "slot_id": "diagnostic:kimi_candidate:technical-v2-ACC01-en",
+        "endpoint": "kimi_candidate",
+        "intent_id": "ACC01",
+        "language": "en"
+      },
+      {
+        "slot_id": "diagnostic:kimi_candidate:technical-v2-MKT01-fi",
+        "endpoint": "kimi_candidate",
+        "intent_id": "MKT01",
+        "language": "fi"
+      },
+      {
+        "slot_id": "diagnostic:kimi_candidate:technical-v2-MKT01-en",
+        "endpoint": "kimi_candidate",
+        "intent_id": "MKT01",
+        "language": "en"
+      },
+      {
+        "slot_id": "diagnostic:openai_responses:technical-v3-ACC01-fi",
+        "endpoint": "openai_responses",
+        "intent_id": "ACC01",
+        "language": "fi"
+      },
+      {
+        "slot_id": "diagnostic:openai_responses:technical-v3-ACC01-en",
+        "endpoint": "openai_responses",
+        "intent_id": "ACC01",
+        "language": "en"
+      },
+      {
+        "slot_id": "diagnostic:openai_responses:technical-v3-MKT01-fi",
+        "endpoint": "openai_responses",
+        "intent_id": "MKT01",
+        "language": "fi"
+      },
+      {
+        "slot_id": "diagnostic:openai_responses:technical-v3-MKT01-en",
+        "endpoint": "openai_responses",
+        "intent_id": "MKT01",
+        "language": "en"
+      }
+    ],
+    "expected_models": {
+      "kimi_candidate": [
+        "moonshotai/kimi-k3.1-pro",
+        "moonshotai/kimi-k3.1-pro-20261023"
+      ],
+      "openai_responses": [
+        "gpt-4.1-mini-2025-04-14"
+      ]
+    },
+    "supersedes_batch_id": "technical-v2",
+    "supersedes_reason": "OpenAI defaultUS location deviated from frozen protocol; use newFI-locatedOpenAI IDs, retainunattemptedKimi-v2IDs andreusevalidKimiITpair",
+    "checkpoint_review_approved": true,
+    "checkpoint_policy": "Run10diagnostics automatically onlywhileeach completedresponse passes model/cost/location/grounding checks. Noautomaticprimaryrelease.",
+    "reused_prior_qualification": [
+      {
+        "attempt_id": "diagnostic:kimi_candidate:technical-v2-IT01-fi:a1",
+        "raw_sha256": "5d53f1f43451e40343abb7e87b4c78c3a484e1073f9f52faac782e19979b502b",
+        "qualification_scope": "Kimi IT01 prior v2 unchanged provider/settings"
+      },
+      {
+        "attempt_id": "diagnostic:kimi_candidate:technical-v2-IT01-en:a1",
+        "raw_sha256": "c6c88c411fd013e9b61c4f59b64a1a234f44916b0f77d97d084aa9f5f252c4b5",
+        "qualification_scope": "Kimi IT01 prior v2 unchanged provider/settings"
+      }
+    ],
+    "nonconforming_prior_attempts": [
+      {
+        "attempt_id": "diagnostic:openai_responses:technical-v2-IT01-fi:a1",
+        "raw_sha256": "6158d531cc62b65ce57f417889f187dafe773c3d778b910e7738e950fbff3bcb",
+        "reason": "OpenAI returned defaultcountryUS, notprotocolrequiredFI; diagnostic only, not qualifying location evidence"
+      },
+      {
+        "attempt_id": "diagnostic:openai_responses:technical-v2-IT01-en:a1",
+        "raw_sha256": "9af9b5012b02f2c25d00b744e4face2294fc927cbe6744d05781fa6dbcf7ef14",
+        "reason": "OpenAI returned defaultcountryUS, notprotocolrequiredFI; diagnostic only, not qualifying location evidence"
+      }
+    ],
+    "checkpoint_review_reference": "Priorv2fourresponsecheckpoint reviewed2026-10-31T08:21Z; USlocation deviation identified. Full10v3 diagnostics authorised as technical qualification withmandatoryruntimeeffectiveFIguard; this is not manualapprovalofunseenFIresults."
+  },
+  "finnish_review_basis": "Owner accepted Finnish prompt wording 2026-10-30T22:23Z; not independent fluent-speaker validation",
+  "qualification_revision_evidence": {
+    "reviewed_at_utc": "2026-10-31T08:30:00Z",
+    "prior_report": "qualification-technical-v2-04-64216855c07702a6.json",
+    "prior_attempt_count": 7,
+    "prior_accounted_micro_usd": 227154,
+    "prior_unknown_hold_micro_usd": 0,
+    "source_library_file_id": "libfile_446873cc64f48191a6d503e68336e7f4",
+    "nominal_two_generation_bound_usd": 23.082664,
+    "conservative_three_generation_bound_usd": 34.616996,
+    "reservation_micro_usd": 35000000,
+    "interpretation": "Normal documented contract engineering bound; not an arbitrary-provider-misbilling guarantee. Pending tool calls plus final disabled-tools turn included. No lower reserve until qualification reviewed.",
+    "sources": [
+      "https://openrouter.ai/docs/api/api-reference/chat/create-a-chat-completion",
+      "https://openrouter.ai/docs/guides/features/server-tools/web-search",
+      "https://raw.githubusercontent.com/OpenRouterTeam/python-sdk/main/src/openrouter/components/stopservertoolswhenstepcountis.py"
+    ],
+    "previous_review_report": "qualification-technical-v1-03-ded5443bcaef81b4.json"
+  },
+  "location_policy_version": "finland-v1",
+  "search_location_policy": {
+    "version": "finland-v1",
+    "openai_responses": {
+      "national": {
+        "type": "approximate",
+        "country": "FI"
+      },
+      "cities_by_intent": {
+        "ACC04": "Tampere",
+        "IT04": "Turku",
+        "MKT04": "Helsinki"
+      },
+      "effective_returned_location_must_match": true
+    },
+    "kimi_candidate": {
+      "supported": false,
+      "requested_location": null,
+      "reason": "Pinned Exa engine: user_location supported only native search, not Exa; Finland/city remains prompt content"
+    },
+    "source": "https://developers.openai.com/api/docs/guides/tools-web-search#user-location",
+    "kimi_source": "https://openrouter.ai/docs/guides/features/server-tools/web-search"
+  },
+  "primary_release_review": {
+    "status": "OFFLINE_REVIEWED_CANDIDATE_NOT_DEPLOYED",
+    "schedule_version": "v0.4-nov01-primary",
+    "qualification_usage_latest_verified_micro_usd": 535310,
+    "verified_diagnostic_attempts": 17,
+    "local_city_live_verification": "Not separately live-qualified; optional paid pair omitted. All three city mappings offline-tested, runtime effective country/city fatal guard retained.",
+    "kimi_operational_bound_micro_usd": 7000000,
+    "kimi_operational_envelope_usd": 6.395456,
+    "operational_bound_review": "Conservative normal-contract three-pass envelope, not arbitrary provider-misbilling guarantee.",
+    "owner_finnish_wording": "approved; not independent native-human certification",
+    "qualification_archive_sha256": "9d2db828ff1736e873e2c9fe9f5f2fde058585841e815656939bf5a10ab2fbb0",
+    "qualification_report_sha256": "dbe12a405434e79f68185b1c8961d30968842242bdd597104912a29cc327dc92",
+    "reviewed_head_sequence": 35,
+    "reviewed_archive_sha256": "208830da67c9bbbf975d5a138fcd7994574006b43ddcf787a8c2fd887432f2ac",
+    "source_library_file_id": "libfile_815b18b4f1c88191ab6e1de1103ca1f5",
+    "hosting_allowance_usd": 2,
+    "hosting_actual_spend_verified": false
+  },
+  "city_qualification": {
+    "enabled": false,
+    "batch_id": "technical-city-v1",
+    "slots": [
+      {
+        "slot_id": "diagnostic:openai_responses:technical-city-v1-IT04-fi",
+        "endpoint": "openai_responses",
+        "intent_id": "IT04",
+        "language": "fi"
+      },
+      {
+        "slot_id": "diagnostic:openai_responses:technical-city-v1-IT04-en",
+        "endpoint": "openai_responses",
+        "intent_id": "IT04",
+        "language": "en"
+      }
+    ],
+    "v3_review_approved": false,
+    "v3_review_reference": "Optional city diagnostic omitted; no live-city pass claimed."
+  }
+}

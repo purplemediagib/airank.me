@@ -5,10 +5,12 @@
   "input_hashes": {
     "BUDGET.md": "ca96b961d0f26729eb29d42929214746c216ed6961cb82c26ef7b562ed4022a1",
     "PROTOCOL.md": "afcb94af988b4662f1f4982af9d62b1d78e225eaa88a5c09c9661c8e276a52ef",
+    "PROTOCOL_v04_PRIMARY_ADDENDUM.md": "6b32daec9a566bb7ac5c2c63aa400df864dcb239480e15b9502178b956cd0652",
     "budget_assumptions.json": "b128561c0aabe02c82d47cbe0a5f72531a805208950a5137b2525481683982a7",
     "prompt_pairs.json": "61f92a7e39f94e97913aebec3767ef43e1d790cc19573fbe6ac17dace6c50fb8",
     "proposed_schedule.json": "13c3f3ff304c43d5d38d0049d78ec9bf741ec08040856c42602468e0d91dc8df",
-    "schedule_v02_openai_kimi_DRAFT.json": "e49a9b367f4558ef2ab2c7e9f3002a4e3f73dd43a4e7f4b75345b30a7b82ad4c"
+    "schedule_v02_openai_kimi_DRAFT.json": "e49a9b367f4558ef2ab2c7e9f3002a4e3f73dd43a4e7f4b75345b30a7b82ad4c",
+    "schedule_v04_nov01_PRIMARY.json": "0c7eeb4ae20dfb5d77c6b50997ca1989952d25141268598062d1b3ac4a4acc39"
   },
   "owner_execution_approved": true,
   "diagnostics_approved": true,
@@ -110,7 +112,7 @@
       "evidence": "Frozen2026-10-30 GPT4.1mini fullmodelcontext/output\u00d73 +2searchfees/fixedblocks =1.4407776; reserve1.50. See provider_candidates_DRAFT sources."
     }
   },
-  "frozen_manifest_sha256": "b1efec8aa34cec5efa8b9f9b77a634974dd73b69720f38a7219eceba9a519d61",
+  "frozen_manifest_sha256": "6b6cc5ea80b632e89c74618618e6156719702f057ad19b5cb87a15a5fcbbd25a",
   "schedule_enabled": false,
   "block_start_grace_seconds": 600,
   "max_block_duration_seconds": 7200,
