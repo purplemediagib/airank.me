@@ -49,11 +49,19 @@ export const PUBLIC_CHECK_PROVIDERS=Object.freeze(['openai','gemini']);
 export const GUEST_OPENROUTER_OUTPUT_TOKENS=2048;
 // Hard per-scan ceiling for guests: 3 confirmed questions x 2 providers.
 export const GUEST_MAX_CALLS_PER_SCAN=6;
-export function publicProviders(config){
+export const KIMI_GUEST_ROUTE=Object.freeze({transport:'openrouter',model:'moonshotai/kimi-k3.1-pro',search_engine:'exa',collection_method:'public-kimi-k3.1-pro-v1'});
+export const isGuestKimi=route=>route?.collection_method===KIMI_GUEST_ROUTE.collection_method;
+export function publicRoutesFromEnv(env=process.env){
+ if(env.PUBLIC_CHECK_PROVIDER_PAIR==='openai,kimi')return {openai:{transport:'direct',model:env.OPENAI_MODEL||'gpt-4.1-mini'},kimi:{...KIMI_GUEST_ROUTE}};
+ if(env.PUBLIC_CHECK_PROVIDER_PAIR)throw Error('PUBLIC_CHECK_PROVIDER_PAIR must be openai,kimi or unset');
+ return Object.fromEntries(Object.entries(routesFromEnv(env)).filter(([p])=>PUBLIC_CHECK_PROVIDERS.includes(p)));
+}
+export function publicProviders(config,env=process.env){
+ if(env.PUBLIC_CHECK_PROVIDER_PAIR)return Object.keys(publicRoutesFromEnv(env));
  return [...new Set(config.enabledProviders)].filter(p=>PUBLIC_CHECK_PROVIDERS.includes(p));
 }
 
 export function providersForScan({requested,enabled,platform}){
  const selected=[...new Set(requested||enabled)];
- return platform?selected:selected.filter(p=>PUBLIC_CHECK_PROVIDERS.includes(p));
+ return platform?selected:selected.filter(p=>[...PUBLIC_CHECK_PROVIDERS,'kimi'].includes(p));
 }

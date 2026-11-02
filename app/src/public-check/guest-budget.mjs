@@ -2,21 +2,22 @@ import {one,exec,transaction} from '../monitoring/shared.mjs';
 import {usedCalls} from '../monitoring/budget.mjs';
 import {uuid} from '../common/utils.mjs';
 import {apiBudgetPlan} from '../providers/budget-config.mjs';
-import {routesFromEnv,routeAvailable,publicProviders,PUBLIC_CHECK_PROVIDERS,GUEST_OPENROUTER_OUTPUT_TOKENS,GUEST_MAX_CALLS_PER_SCAN} from '../providers/routing.mjs';
+import {publicRoutesFromEnv,isGuestKimi,routeAvailable,publicProviders,PUBLIC_CHECK_PROVIDERS,GUEST_OPENROUTER_OUTPUT_TOKENS,GUEST_MAX_CALLS_PER_SCAN} from '../providers/routing.mjs';
 import {callRoute} from '../providers/dispatch.mjs';
 import {id,checksum} from './budget-migration.mjs';
 import {id as prepId,checksum as prepChecksum} from './prep-migration.mjs';
 import {guestDailyNano} from './prep-budget.mjs';
 import {maxHttpAttempts} from '../providers/rate-limit.mjs';
 
-export const GUEST_POLICY=Object.freeze({providers:PUBLIC_CHECK_PROVIDERS,openrouterOutputTokens:GUEST_OPENROUTER_OUTPUT_TOKENS});
+export const GUEST_POLICY=Object.freeze({providers:[...PUBLIC_CHECK_PROVIDERS,'kimi'],openrouterOutputTokens:GUEST_OPENROUTER_OUTPUT_TOKENS});
 
 export function guestPlan({provider,route,prompt,context,env}){
  const plan=apiBudgetPlan({provider,route,prompt,context,env,guest:GUEST_POLICY});
- // Provider adapters retry HTTP 429 up to maxHttpAttempts; guests reserve every attempt.
- const reservedNano=plan.reservedNano*maxHttpAttempts;
+ // Kimi is single-attempt; other adapters retain existing HTTP 429 retries.
+ const httpAttempts=isGuestKimi(route)?1:maxHttpAttempts;
+ const reservedNano=plan.reservedNano*httpAttempts;
  if(!Number.isSafeInteger(reservedNano)||reservedNano>plan.perScanNano)throw Error('API_BUDGET_EXHAUSTED');
- return {...plan,reservedNano,httpAttempts:maxHttpAttempts};
+ return {...plan,reservedNano,httpAttempts};
 }
 // Capabilities list a provider only when the worker could actually reserve it.
 export function guestBudgetReady(provider,route,env){
@@ -59,10 +60,17 @@ export async function executeGuestCall({db,scanId,provider,promptId,prompt,route
 // Providers a guest scan may list: allowlisted, enabled, and with a valid guest
 // price route. With no guest budget configured the list is empty (fail closed).
 export function budgetedPublicProviders(config,env=process.env){
- const listed=publicProviders(config);
+ let listed;try{listed=publicProviders(config,env);}catch{return [];}
  if(!listed.length)return [];
- let routes;try{routes=routesFromEnv({...env,ENABLED_PROVIDERS:listed.join(',')});}catch{return [];}
- return listed.filter(p=>routeAvailable(p,routes[p],env)&&guestBudgetReady(p,routes[p],env));
+ let routes;try{routes=publicRoutesFromEnv({...env,ENABLED_PROVIDERS:listed.join(',')});}catch{return [];}
+ const ready=listed.filter(p=>routeAvailable(p,routes[p],env)&&guestBudgetReady(p,routes[p],env));
+ // The opted-in pair must fit all three questions before we advertise it.
+ if(env.PUBLIC_CHECK_PROVIDER_PAIR==='openai,kimi'){
+  if(ready.length!==2)return [];
+  const plans=ready.map(provider=>guestPlan({provider,route:routes[provider],prompt:'',context:{},env}));
+  if(3*plans.reduce((total,p)=>total+p.reservedNano,0)>plans[0].perScanNano)return [];
+ }
+ return ready;
 }
 
 // API-local prerequisites only. Worker configuration must also be verified at release.

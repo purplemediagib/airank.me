@@ -6,15 +6,16 @@ import {googleAioSearch} from './google-aio.mjs';
 import {measurementContext} from '../common/measurement-context.mjs';
 import {isCollectorRoute} from '../collectors/config.mjs';
 import {enforceBudgetInput} from './budget-config.mjs';
-import {GUEST_OPENROUTER_OUTPUT_TOKENS} from './routing.mjs';
+import {GUEST_OPENROUTER_OUTPUT_TOKENS,isGuestKimi} from './routing.mjs';
 export async function callRoute(provider,prompt,route,timeoutMs,context={},{guest=false}={}){
  if(isCollectorRoute(route))throw Error('Consumer routes require durable monitoring execution');
  context=measurementContext(context);
  const budget=route.api_budget;
  enforceBudgetInput(budget,provider,route,prompt,context);
- // Guest scans carry no monetary reservation, so they get a fixed, smaller output cap.
+ // Guest scans use the output limit from their monetary reservation.
  const limits=budget?{budget,maxTokens:budget.maxTokens}:guest&&route.transport==='openrouter'?{maxTokens:GUEST_OPENROUTER_OUTPUT_TOKENS}:{};
- if(route.transport==='openrouter')return openrouterSearch(prompt,{model:route.model,searchEngine:route.search_engine,timeoutMs,context,...limits});
+ if(isGuestKimi(route)&&(!guest||provider!=='kimi'))throw Error('PUBLIC_CHECK_ONLY_ROUTE');
+ if(route.transport==='openrouter')return openrouterSearch(prompt,{model:route.model,searchEngine:route.search_engine,timeoutMs,context,guestKimi:isGuestKimi(route),...limits});
  if(route.transport==='dataforseo'&&provider==='google_aio'){
   const r=await googleAioSearch(prompt,{timeoutMs,context,budget});
   r.meta={...r.meta,transport:route.transport,requested_model:route.model,context};return r;

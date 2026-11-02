@@ -156,3 +156,24 @@ test('API readiness fails closed for missing migration, credentials, provider li
   assert.deepEqual(await readyPublicProviders(f.db,config,{...env,OPENROUTER_GEMINI_MODEL:'invalid/model/route'}),[]);
  }finally{f.close();}
 });
+
+test('Kimi guest execution reserves before dispatch, retains six-call cap and cannot replay a reservation',async()=>{
+ const {KIMI_GUEST_ROUTE}=await import('../src/providers/routing.mjs');
+ const f=await fixture();let calls=0;
+ const prices=JSON.parse(fixtureGuestBudget(base));
+ prices.routes.kimi={transport:'openrouter',model:KIMI_GUEST_ROUTE.model,searchEngine:'exa',contextWindowTokens:1048576,maxInputBytes:10000,inputUsdPerMillion:2,outputUsdPerMillion:10,searchUsdPerCall:0.007};
+ const env={...base,PUBLIC_CHECK_PROVIDER_PAIR:'openai,kimi',PUBLIC_CHECK_BUDGET_CONFIG_JSON:JSON.stringify(prices)};
+ const call=async(provider,prompt,route,_timeout,_context,options)=>{
+  calls++;assert.equal(provider,'kimi');assert.equal(options.guest,true);
+  assert.equal(route.api_budget.reservedNano,6_395_456_000);assert.equal(route.api_budget.httpAttempts,1);
+  assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM public_check_api_reservations').get().n,calls);
+  return {status:'success',answer:'Fixture',citations:[]};
+ };
+ try{
+  f.scan('kimi');
+  const execute=promptId=>executeGuestCall({db:f.db,scanId:'kimi',provider:'kimi',promptId,prompt:PROMPT,route:KIMI_GUEST_ROUTE,env,timeoutMs:1000,call});
+  for(let i=0;i<6;i++)assert.equal((await execute('p'+i)).reserved,true);
+  assert.equal((await execute('p6')).reason,'GUEST_CALL_LIMIT');
+  assert.equal((await execute('p0')).reason,'API_BUDGET_ALREADY_RESERVED');assert.equal(calls,6);
+ }finally{f.close();}
+});
