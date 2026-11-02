@@ -1,3 +1,4 @@
+import {isGuestKimi,KIMI_GUEST_ROUTE} from './routing.mjs';
 import {promptContext} from './common.mjs';
 import {measurementContext} from '../common/measurement-context.mjs';
 import {claudeOutputBudget} from './claude.mjs';
@@ -61,10 +62,13 @@ export function apiBudgetPlan({provider,route,prompt,context,env,guest=null}){
   const maxReplayBytes=provider==='claude'?integer(price.maxReplayBytes,1,10000000):0;
   const inputRate=rate(price.inputUsdPerMillion),outputRate=rate(price.outputUsdPerMillion);
   const searchRate=rate(price.searchUsdPerCall);
-  const maxSearches=route.transport==='openrouter'?openrouterSearchLimits(route.model).max_uses:3;
-  reservedNano=maxRequests*(Math.ceil(contextWindowTokens*inputRate*NANO_USD/1000000)+
-   Math.ceil(outputTokens*outputRate*NANO_USD/1000000)+Math.ceil(maxSearches*searchRate*NANO_USD));
-  limits={contextWindowTokens,maxReplayBytes,maxSearches,inputUsdPerMillion:inputRate,
+  const kimi=isGuestKimi(route);
+  if(kimi&&(provider!=='kimi'||route.model!==KIMI_GUEST_ROUTE.model||route.search_engine!=='exa'||contextWindowTokens<1048576||inputRate<2||outputRate<10||searchRate<0.007))invalid();
+  const maxSearches=kimi?2:route.transport==='openrouter'?openrouterSearchLimits(route.model).max_uses:3;
+  const modelPasses=kimi?3:1;
+  reservedNano=maxRequests*(modelPasses*(Math.ceil(contextWindowTokens*inputRate*NANO_USD/1000000)+
+   Math.ceil(outputTokens*outputRate*NANO_USD/1000000))+Math.ceil(maxSearches*searchRate*NANO_USD));
+  limits={contextWindowTokens,maxReplayBytes,maxSearches,...(kimi?{modelPasses}:{}),inputUsdPerMillion:inputRate,
    outputUsdPerMillion:outputRate,searchUsdPerCall:searchRate};
  }
  if(!Number.isSafeInteger(reservedNano)||reservedNano<=0)invalid();
@@ -88,7 +92,7 @@ export function guestBudgetConfig(env){
 function guestBudgetPlan({provider,route,prompt,context,env,guest}){
  if(!guest.providers.includes(provider))throw Error('API_BUDGET_UNBOUNDED_ROUTE');
  const {config,perScanNano,dailyNano}=guestBudgetConfig(env);
- const outputTokens=route.transport==='openrouter'?guest.openrouterOutputTokens:completionLimit(provider,route,env);
+ const outputTokens=isGuestKimi(route)?3000:route.transport==='openrouter'?guest.openrouterOutputTokens:completionLimit(provider,route,env);
  const plan=apiBudgetPlan({provider,route,prompt,context,env:{...env,API_BUDGET_CONFIG_JSON:JSON.stringify({dailyUsd:null,routes:config.routes}),
   ...(route.transport==='openrouter'?{OPENROUTER_MAX_TOKENS:String(outputTokens)}:{})}});
  if(plan.mode!=='monetary_reserved')throw Error('API_BUDGET_NOT_CONFIGURED');

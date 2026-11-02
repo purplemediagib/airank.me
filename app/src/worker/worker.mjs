@@ -9,7 +9,7 @@ import { CONFIG,hasDbConfig } from '../common/config.mjs';
 import { sql, one, getDb } from '../common/db.mjs';
 import { inspectWebsite } from '../common/fetch-website.mjs';
 import { promptCandidates,detectEvidence } from '../common/observations.mjs';
-import {routesFromEnv,routeAvailable,providersForScan,GUEST_MAX_CALLS_PER_SCAN} from '../providers/routing.mjs';
+import {routesFromEnv,publicRoutesFromEnv,routeAvailable,providersForScan,GUEST_MAX_CALLS_PER_SCAN} from '../providers/routing.mjs';
 import {callRoute} from '../providers/dispatch.mjs';
 import {executeGuestCall} from '../public-check/guest-budget.mjs';
 import {observeProvider,logEvent} from '../providers/diagnostics.mjs';
@@ -20,6 +20,8 @@ import { storeRawJson } from '../common/storage.mjs';
 import { uuid,errorMessage } from '../common/utils.mjs';
 const workerId=uuid(),started=Date.now();let ready=false,stop=false,running=false;
 const routes=routesFromEnv();
+// Only the legacy Gemini route may be retained to drain pre-switch jobs.
+const guestRoutes={...(routes.gemini?{gemini:routes.gemini}:{}),...publicRoutesFromEnv()};
 logEvent('worker_configuration',workerConfiguration());
 const models=Object.fromEntries(Object.entries(routes).map(([p,r])=>[p,r.model]));
 function respond(res,status,body){res.writeHead(status,{'content-type':'application/json','cache-control':'no-store'});res.end(JSON.stringify(body))}
@@ -51,21 +53,22 @@ async function executeOne(provider,prompt,scan,{guest=false}={}){
   logEvent('provider_skipped',{scan_id:scan.id,prompt_id:prompt.id,provider,status,reason});
   return recordObservation({scan,prompt,provider,result:{status,error:reason,meta:{failure_code:reason}}});
  };
- if(!routes[provider])return skip('unconfigured','PROVIDER_DISABLED');
- if(!routeAvailable(provider,routes[provider]))return skip('unconfigured','MISSING_CREDENTIAL');
+ const selectedRoute=(guest?guestRoutes:routes)[provider];
+ if(!selectedRoute)return skip('unconfigured','PROVIDER_DISABLED');
+ if(!routeAvailable(provider,selectedRoute))return skip('unconfigured','MISSING_CREDENTIAL');
  let result;
  if(guest){
   // Guests must hold a monetary reservation before any provider request.
   let refused=null;
-  result=await observeProvider({provider,route:routes[provider],timeoutMs:CONFIG.httpTimeoutMs,ids:{scan_id:scan.id,prompt_id:prompt.id},call:async()=>{
-   const r=await executeGuestCall({db:await getDb(),scanId:scan.id,provider,promptId:prompt.id,prompt:prompt.prompt_text,route:routes[provider],context:scan.profile||{},env:process.env,timeoutMs:CONFIG.httpTimeoutMs,dailyCalls:CONFIG.maxDailyProviderCalls,maxCalls:Math.min(CONFIG.maxProviderCalls,GUEST_MAX_CALLS_PER_SCAN)});
+  result=await observeProvider({provider,route:selectedRoute,timeoutMs:CONFIG.httpTimeoutMs,ids:{scan_id:scan.id,prompt_id:prompt.id},call:async()=>{
+   const r=await executeGuestCall({db:await getDb(),scanId:scan.id,provider,promptId:prompt.id,prompt:prompt.prompt_text,route:selectedRoute,context:scan.profile||{},env:process.env,timeoutMs:CONFIG.httpTimeoutMs,dailyCalls:CONFIG.maxDailyProviderCalls,maxCalls:Math.min(CONFIG.maxProviderCalls,GUEST_MAX_CALLS_PER_SCAN)});
    if(!r.reserved){refused=r.reason;return {status:'budget_blocked',error:r.reason,meta:{failure_code:r.reason}};}
    return r.result;
   }});
   if(refused)return skip('budget_blocked',refused);
  }else{
   if(!await reserveQuickCall(await getDb(),{scanId:scan.id,provider,daily:CONFIG.maxDailyProviderCalls,perRun:CONFIG.maxProviderCalls}))return skip('budget_blocked','BUDGET_EXHAUSTED');
-  result=await observeProvider({provider,route:routes[provider],timeoutMs:CONFIG.httpTimeoutMs,ids:{scan_id:scan.id,prompt_id:prompt.id},call:()=>callRoute(provider,prompt.prompt_text,routes[provider],CONFIG.httpTimeoutMs,scan.profile||{})});
+  result=await observeProvider({provider,route:selectedRoute,timeoutMs:CONFIG.httpTimeoutMs,ids:{scan_id:scan.id,prompt_id:prompt.id},call:()=>callRoute(provider,prompt.prompt_text,selectedRoute,CONFIG.httpTimeoutMs,scan.profile||{})});
  }
  // A persistence failure is a scan failure, never a replacement provider failure.
  await recordObservation({scan,prompt,provider,result});
@@ -93,7 +96,7 @@ async function processJob(scan){
   }
   const hasProjects=await one("SELECT name FROM sqlite_master WHERE type='table' AND name='app_project_scans'");
   const platform=hasProjects&&Boolean(await one('SELECT scan_id FROM app_project_scans WHERE scan_id=?',[scan.id]));
-  const providers=providersForScan({requested:scan.profile?.providers,enabled:CONFIG.enabledProviders,platform});
+  const providers=providersForScan({requested:scan.profile?.providers,enabled:platform?CONFIG.enabledProviders:Object.keys(publicRoutesFromEnv()),platform});
   logEvent('scan_started',{scan_id:scan.id,platform:Boolean(platform),providers,prompt_count:prompts.length});
   for(const prompt of prompts){for(const provider of providers){
     if(stop)throw new Error('Worker shutdown');

@@ -20,7 +20,7 @@ export function workerConfiguration(env=process.env){
   sentiment_credential_present:Boolean(env.OPENAI_API_KEY?.trim()),
   scheduler_enabled:env.PROJECT_SCHEDULER_ENABLED==='true',
   database_configured:Boolean(env.BUNNY_DATABASE_URL&&env.BUNNY_DATABASE_AUTH_TOKEN),
-  public_providers:publicProviders({enabledProviders:Object.keys(routes)}),
+  public_providers:publicProviders({enabledProviders:Object.keys(routes)},env),
   providers:Object.entries(routes).map(([provider,route])=>({provider,...route,credential_present:routeAvailable(provider,route,env),...(isCollectorRoute(route)?{budget_configured:!!collectionBudget(env,provider)}:{}),missing_variables:(route.transport==='dataforseo_scraper'?['DATAFORSEO_LOGIN','DATAFORSEO_PASSWORD']:route.transport==='scrapeless'?['SCRAPELESS_API_TOKEN']:route.transport==='openrouter'?['OPENROUTER_API_KEY']:credentialNames[provider]||[]).filter(k=>!env[k]?.trim())})),
   provider_concurrency:providerConcurrency(env),
   monitoring_concurrency:Number(env.MONITORING_CONCURRENCY||2),

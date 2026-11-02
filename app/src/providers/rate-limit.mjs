@@ -15,7 +15,8 @@ export function retryAfterMs(value,now=Date.now()){
 // Retry only explicit HTTP 429 rejections. Network errors, partially generated
 // responses and all other statuses are never replayed here. All attempts share
 // the original task deadline and reservation, including backoff and body reads.
-export async function fetchRateLimited(url,init,{timeoutMs=60000,fetchImpl=fetch,now=Date.now,random=Math.random,sleep=(ms,signal)=>delay(ms,undefined,{signal})}={}){
+export async function fetchRateLimited(url,init,{timeoutMs=60000,fetchImpl=fetch,maxAttempts=maxHttpAttempts,now=Date.now,random=Math.random,sleep=(ms,signal)=>delay(ms,undefined,{signal})}={}){
+ if(!Number.isSafeInteger(maxAttempts)||maxAttempts<1||maxAttempts>maxHttpAttempts)throw Error('Invalid HTTP attempt limit');
  const deadline=now()+timeoutMs,signal=AbortSignal.timeout(timeoutMs);
  let attempts=0,retries=0;
  const meta=()=>({request_attempts:attempts,rate_limit_retries:retries});
@@ -24,7 +25,7 @@ export async function fetchRateLimited(url,init,{timeoutMs=60000,fetchImpl=fetch
    signal.throwIfAborted();
    attempts++;
    const response=await fetchImpl(url,{...init,signal});
-   if(response.status!==429||attempts>=maxHttpAttempts)return {response,meta:meta()};
+   if(response.status!==429||attempts>=maxAttempts)return {response,meta:meta()};
    const wait=retryAfterMs(response.headers?.get?.('retry-after'),now())??[2000,6000][attempts-1]*(1+Math.min(1,Math.max(0,random()))*0.25);
    // Do not shorten Retry-After to fit a lease or launch after its expiry.
    if(wait>=deadline-now()||signal.aborted)return {response,meta:meta()};
