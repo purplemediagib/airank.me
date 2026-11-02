@@ -52,6 +52,8 @@ if(process.env.AIRANK_RUN_APP_MIGRATIONS==='true'){
   await migratePublicCheckBudget(db);
   const {migratePublicCheckPrepBudget}=await import('../public-check/prep-migration.mjs');
   await migratePublicCheckPrepBudget(db);
+  const {migrateSignupNotifications}=await import('./signup-notification-migration.mjs');
+  if(process.env.SIGNUP_NOTIFICATIONS_ENABLED==='true'){await migrateSignupNotifications(db);console.log('AI Rank signup notification migration 025 verified.');}
   console.log('AI Rank app migrations 001–024 verified successfully.');
 }
 try {

@@ -1,3 +1,4 @@
+import {startSignupNotifications} from '../app/signup-notifications.mjs';
 import {verifyCaptcha} from '../public-check/captcha.mjs';
 import {scanReadAllowed} from '../common/access.mjs';
 import http from 'node:http';
@@ -122,5 +123,7 @@ const server=http.createServer((req,res)=>Promise.resolve(route(req,res)).catch(
  console.error('API request failed:',errorMessage(e));if(!res.headersSent)json(res,status,{error:status>=500?'Server request failed':errorMessage(e),...(e.code?{code:e.code}:{})});else res.end();
 }));
 await ensureSchema();
+// Mail delivery is asynchronous and never awaited by signup/login requests.
+const stopSignupNotifications=hasDbConfig()?startSignupNotifications({db:await getDb()}):()=>{};
 server.listen(CONFIG.apiPort,'0.0.0.0',()=>console.log(`AIRank API v${CONFIG.version} listening on ${CONFIG.apiPort}`));
-process.on('SIGTERM',()=>server.close(()=>process.exit(0)));
+process.on('SIGTERM',()=>{stopSignupNotifications();server.close(()=>process.exit(0));});
