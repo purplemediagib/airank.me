@@ -1,3 +1,4 @@
+import {startSignupNotifications} from '../app/signup-notifications.mjs';
 import {verifyCaptcha} from '../public-check/captcha.mjs';
 import {scanReadAllowed} from '../common/access.mjs';
 import http from 'node:http';
@@ -14,6 +15,8 @@ import { createOauthRequest, exchangeGoogleCode, verifyGoogleIdToken } from '../
 import {validateProfile,confirmedPrompts,buildScanReport,METHODOLOGY} from '../common/scan-profile.mjs';
 // Explicit, additive release migration, including when an existing command starts this file directly.
 if(process.env.AIRANK_RUN_SENTIMENT_MIGRATION==='true'){const {migrateSentiment}=await import('../sentiment/migration.mjs');await migrateSentiment(await getDb());console.log('AI Rank sentiment migration verified.');}
+// Narrow operator opt-in works with either the release wrapper or direct API command.
+if(process.env.AIRANK_RUN_SIGNUP_NOTIFICATION_MIGRATION==='true'){const {migrateSignupNotifications}=await import('../app/signup-notification-migration.mjs');await migrateSignupNotifications(await getDb());console.log('AI Rank signup notification migration 025 verified.');}
 const started=Date.now();let schemaReady=false;
 const json=(res,status,obj)=>{res.writeHead(status,{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff','referrer-policy':'no-referrer','x-frame-options':'DENY'});res.end(JSON.stringify(obj))};
 const getSession=async req=>{
@@ -122,5 +125,7 @@ const server=http.createServer((req,res)=>Promise.resolve(route(req,res)).catch(
  console.error('API request failed:',errorMessage(e));if(!res.headersSent)json(res,status,{error:status>=500?'Server request failed':errorMessage(e),...(e.code?{code:e.code}:{})});else res.end();
 }));
 await ensureSchema();
+// Mail delivery is asynchronous and never awaited by signup/login requests.
+const stopSignupNotifications=hasDbConfig()?startSignupNotifications({db:await getDb()}):()=>{};
 server.listen(CONFIG.apiPort,'0.0.0.0',()=>console.log(`AIRank API v${CONFIG.version} listening on ${CONFIG.apiPort}`));
-process.on('SIGTERM',()=>server.close(()=>process.exit(0)));
+process.on('SIGTERM',()=>{stopSignupNotifications();server.close(()=>process.exit(0));});
