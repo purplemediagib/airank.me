@@ -1,3 +1,4 @@
+import {readFileSync} from 'node:fs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
@@ -124,4 +125,13 @@ test('existing same-email password account is not linked by current Google callb
  assert.equal(f.sqlite.prepare("SELECT count(DISTINCT id) n FROM users WHERE email='google@example.test'").get().n,2);
  assert.equal(f.rows().length,2);
  }finally{f.sqlite.close();}
+});
+
+test('narrow migration startup opt-in precedes API listening for direct and wrapper entrypoints',()=>{
+ const api=readFileSync(new URL('../src/api/server.mjs',import.meta.url),'utf8');
+ const wrapper=readFileSync(new URL('../src/app/start-release.mjs',import.meta.url),'utf8');
+ const block=api.match(/if\(process.env.AIRANK_RUN_SIGNUP_NOTIFICATION_MIGRATION==='true'\)\{[^\n]+\}/)?.[0];
+ assert.ok(block);assert.match(block,/await migrateSignupNotifications\(await getDb\(\)\)/);
+ assert.ok(!block.includes('migrateApp('));assert.ok(api.indexOf(block)<api.indexOf('server.listen('));
+ assert.match(wrapper,/await import\('..\/api\/server.mjs'\)/);
 });

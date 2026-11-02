@@ -18,7 +18,9 @@ Publication, image building/publishing and production activation require owner a
 
 Use the API's existing `RESEND_API_KEY` and verified `AUTH_EMAIL_FROM`; do not create credentials or change sender/domain. Confirm current sender verification operationally before enabling. Set `SIGNUP_NOTIFICATIONS_ENABLED=true` on the API. Optional `SIGNUP_NOTIFICATION_TO` must exactly equal the fixed owner address; any other value disables delivery. No arbitrary/client-provided recipient is accepted.
 
-Apply additive migration `node src/app/signup-notification-migration.mjs` after the existing app migrations. The existing `AIRANK_RUN_APP_MIGRATIONS=true` release-start path also applies migration 025 when notifications are enabled. It creates table and triggers in one transaction and does not scan historical users. With a direct `src/api/server.mjs` startup command, apply migration separately first. The API itself dispatches once per 15 seconds, across replicas safely; no worker credentials/settings need changing.
+For the simplest manual rollout, set **AIRANK_RUN_SIGNUP_NOTIFICATION_MIGRATION=true** alongside **SIGNUP_NOTIFICATIONS_ENABLED=true** on the API. This narrow startup opt-in applies only additive migration 025, before listening, whether Bunny uses the default release wrapper or a direct `src/api/server.mjs` command. Existing app tables/migrations must already exist. It creates table and triggers in one transaction, is idempotent/checksum-verified, and does not scan historical users. Remove the migration flag after successful rollout; keep notifications enabled.
+
+Alternative operator paths remain `node src/app/signup-notification-migration.mjs`, or the existing broad `AIRANK_RUN_APP_MIGRATIONS=true` release wrapper (which includes 025 when notifications are enabled). The narrow flag avoids rerunning unrelated migrations. The API itself dispatches once per 15 seconds, across replicas safely; no worker credentials/settings need changing.
 
 ## Reliability and operational limits
 
