@@ -1,0 +1,47 @@
+name: Publish analytics summary candidate images
+on:
+  push:
+    branches: [fix/analytics-summary-read-model-20261103]
+permissions:
+  contents: read
+concurrency:
+  group: analytics-summary-candidate-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  validate:
+    if: github.repository == 'purplemediagib/airank.me' && github.ref == 'refs/heads/fix/analytics-summary-read-model-20261103'
+    uses: ./.github/workflows/ci.yml
+  publish:
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [api, analytics]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Publish exact candidate revision without deployment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+          REPOSITORY: ${{ github.repository }}
+          REVISION: ${{ github.sha }}
+          SERVICE: ${{ matrix.service }}
+        run: |
+          set -euo pipefail
+          image="ghcr.io/${REPOSITORY,,}/$SERVICE:sha-$REVISION"
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
+          trap 'docker logout ghcr.io >/dev/null 2>&1 || true' EXIT
+          docker build --platform linux/amd64 --target "$SERVICE" --build-arg "BUILD_REVISION=$REVISION" --label "org.opencontainers.image.revision=$REVISION" --tag "$image" .
+          docker push "$image"
+          docker pull "$image"
+          digest=$(docker image inspect "$image" --format '{{index .RepoDigests 0}}')
+          test "$(docker image inspect "$image" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')" = "$REVISION"
+          docker run --rm --network none --entrypoint node "$image" -e "Promise.all([import('@libsql/client/web'),import('./src/app/service.mjs'),import('./src/analytics/summary-projector.mjs')])"
+          printf '### %s candidate\n\nRevision: `%s`\n\nTag: `%s`\n\nImmutable digest: `%s`\n\nNo deployment or migration was run.\n' "$SERVICE" "$REVISION" "$image" "$digest" >> "$GITHUB_STEP_SUMMARY"
+          printf 'ANALYTICS_CANDIDATE service=%s revision=%s digest=%s\n' "$SERVICE" "$REVISION" "$digest"

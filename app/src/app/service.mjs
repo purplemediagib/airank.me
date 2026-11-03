@@ -15,6 +15,7 @@ import { appScans } from './scans.mjs';
 import {recordNewGoogleSignup,claimNewGoogleSignup} from '../public-check/signup.mjs';
 import { monitoringService } from '../monitoring/service.mjs';
 import {bootstrapImmediate} from '../monitoring/immediate.mjs';
+import {summaryService,summaryEvidenceService} from '../analytics/summary-service.mjs';
 import { analyticsService } from '../analytics/service.mjs';
 import {researchService} from '../research/service.mjs';
 import {intelligenceService} from '../intelligence/service.mjs';
@@ -181,6 +182,8 @@ export function createAppService({ db, clients, env = process.env, now = Date.no
     if (/^\/v1\/projects\/[A-Za-z0-9-]{1,80}\/content(?:\/|$)/.test(path)) return contentService({db,method,path,query,body,userId,env,now});
     if (method === 'GET' && /^\/v1\/projects\/[a-zA-Z0-9-]{1,80}\/results(?:\/[a-zA-Z0-9-]{1,80})?$/.test(path)) return resultsService({db,path,query,userId,env});
     if (method === 'POST' && /^\/v1\/projects\/[a-zA-Z0-9-]{1,80}\/sentiment-backfill$/.test(path)) return backfillService({db,path,body,userId,env,now});
+    if (method === 'GET' && /^\/v1\/projects\/[a-zA-Z0-9-]{1,80}\/analytics\/summary$/.test(path)) return summaryService({db,path,query,userId,env,now});
+    if (method === 'GET' && /^\/v1\/projects\/[a-zA-Z0-9-]{1,80}\/analytics\/evidence(?:\/[a-zA-Z0-9_-]{1,160})?$/.test(path)) return summaryEvidenceService({db,path,query,userId,env,now});
     if (method === 'GET' && /^\/v1\/projects\/[a-zA-Z0-9-]{1,80}\/analytics$/.test(path)) return analyticsService({db,path,query,userId,env});
     if (/^\/v1\/industries(?:\/[a-zA-Z0-9_-]{1,80})?$/.test(path)) return industriesService({db,method,path,body,userId,env,now});
     if (/^\/v1\/website-profiles(?:\/[a-zA-Z0-9-]{1,80})?$/.test(path)) return websiteProfileService({db,method,path,body,userId,env,now});

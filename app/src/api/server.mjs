@@ -1,5 +1,7 @@
 import {startSignupNotifications} from '../app/signup-notifications.mjs';
 import {verifyCaptcha} from '../public-check/captcha.mjs';
+// Narrow, explicit operator opt-in. Ordinary starts and dashboard reads never migrate.
+if(process.env.AIRANK_RUN_ANALYTICS_READ_MIGRATION==='true'){const {migrateAnalyticsReads}=await import('../analytics/read-migration.mjs');const {getDb}=await import('../common/db.mjs');await migrateAnalyticsReads(await getDb());console.log('AI Rank analytics read indexes verified.');}
 import {scanReadAllowed} from '../common/access.mjs';
 import http from 'node:http';
 import { appRoute, isAppPath } from '../app/http.mjs';

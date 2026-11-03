@@ -1,7 +1,7 @@
 import {requireProject} from '../common/access.mjs';
 import {one,exec,fail} from '../monitoring/shared.mjs';
 import {extract} from './extraction.mjs';
-import {loadJobs,attachSentiment} from '../sentiment/read.mjs';
+import {loadJobs,indexJobs,attachSentiment} from '../sentiment/read.mjs';
 import {analyticsService,parseMeasurementFilters} from './service.mjs';
 
 const skipped=new Set(['unconfigured','disabled','budget_blocked','plan_blocked','deadline_not_started','unsupported_context','not_configured']);
@@ -56,7 +56,7 @@ export async function resultsService({db,path,query=new URLSearchParams(),userId
  const total=Number((await one(db,`SELECT COUNT(*) n ${join}`,args)).n);
  if(itemId&&!total)fail(404,'NOT_FOUND');
  const rows=(await exec(db,`SELECT t.*,r.snapshot,r.created_at run_created_at,e.payload ${join} ORDER BY r.created_at DESC,r.id,t.prompt_id,t.provider LIMIT ? OFFSET ?`,[...args,itemId?1:pageSize,itemId?0:(page-1)*pageSize])).rows;
- const jobs=await loadJobs(db,projectId,userId,rows.map(t=>t.id));
+ const jobs=indexJobs(await loadJobs(db,projectId,userId,rows.map(t=>t.id)));
  const items=rows.map(t=>{
   const s=JSON.parse(t.snapshot),saved=t.payload?JSON.parse(t.payload):null;
   const e=saved||{id:t.id,runId:t.run_id,promptId:t.prompt_id,promptVersion:Number(t.prompt_version),text:t.text,provider:t.provider,model:JSON.parse(t.route).model||null,status:t.status,answer:'',citations:[],observedAt:null};

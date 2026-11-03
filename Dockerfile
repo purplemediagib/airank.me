@@ -24,6 +24,13 @@ EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD node -e "fetch('http://127.0.0.1:'+process.env.PORT+'/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 CMD ["node", "src/worker/worker.mjs"]
 
+FROM runtime AS analytics
+ENV PORT=3003 AIRANK_ANALYTICS_SUMMARY_ENABLED=true
+LABEL org.opencontainers.image.title="AI Rank Analytics Projector" org.opencontainers.image.version="1.0.0"
+EXPOSE 3003
+HEALTHCHECK --interval=30s --timeout=30s --retries=3 CMD node -e "fetch('http://127.0.0.1:'+process.env.PORT+'/readyz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+CMD ["node", "src/analytics/summary-worker.mjs"]
+
 FROM runtime AS content
 ENV PORT=3002
 LABEL org.opencontainers.image.title="AI Rank Content Worker" org.opencontainers.image.version="1.0.0"

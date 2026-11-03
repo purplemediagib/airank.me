@@ -37,7 +37,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        service: [api, worker, content, google]
+        service: [api, worker, analytics, content, google]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -53,5 +53,5 @@ jobs:
           if [ "$SERVICE" = google ]; then
             docker run --rm --network none --entrypoint node "airank-test:$SERVICE" -e "import('./server.mjs')"
           else
-            docker run --rm --network none --entrypoint node "airank-test:$SERVICE" -e "Promise.all([import('@libsql/client/web'),import('./src/app/service.mjs'),import('./src/content/engine.mjs')])"
+            docker run --rm --network none --entrypoint node "airank-test:$SERVICE" -e "Promise.all([import('@libsql/client/web'),import('./src/app/service.mjs'),import('./src/content/engine.mjs'),import('./src/analytics/summary-projector.mjs')])"
           fi

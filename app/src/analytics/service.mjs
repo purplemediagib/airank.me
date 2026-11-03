@@ -1,5 +1,5 @@
 import {requireProject} from '../common/access.mjs';
-import {loadJobs,attachSentiment} from '../sentiment/read.mjs';
+import {loadJobs,indexJobs,attachSentiment} from '../sentiment/read.mjs';
 import { hash, one, exec, fail } from '../monitoring/shared.mjs';
 import { extract, aggregate, extractionVersion } from './extraction.mjs';
 import { competitorMeasurements } from './competitors.mjs';
@@ -82,7 +82,7 @@ export function promptSummaries(entries) {
        runCount:latest.runCount,metrics:measured(latest.snapshot,latest.rows,latest.expected,latest.provider)};
   });
 }
-export async function analyticsService({db,path,userId,query=new URLSearchParams(),env=process.env,onSelectedTasks}) {
+export async function analyticsService({db,path,userId,query=new URLSearchParams(),env=process.env,onSelectedTasks,onEntries}) {
   const id=path.split('/')[3];
   await requireProject(db,id,userId);
   const from=date(query.get('from')),to=date(query.get('to'),true);
@@ -97,13 +97,14 @@ export async function analyticsService({db,path,userId,query=new URLSearchParams
   const windowArgs=[id,...(Number.isFinite(previousFrom)?[previousFrom]:[]),...(Number.isFinite(to)?[to]:[])];
   // Authorization and filter validation must finish before these independent reads.
   // Preserve the exact queries/populations, but avoid a DB network round trip per await.
-  const [project,runsResult,tasksResult,evidenceResult,sentimentJobs]=await Promise.all([
+  const [project,runsResult,tasksResult,evidenceResult,sentimentRows]=await Promise.all([
     one(db,'SELECT v.identity_json FROM app_projects p JOIN app_identity_versions v ON v.project_id=p.id AND v.version=p.version WHERE p.id=?',[id]),
     exec(db,'SELECT * FROM mon_runs WHERE project_id=? ORDER BY created_at,id',[id]),
     exec(db,`SELECT t.* FROM mon_tasks t JOIN mon_runs r ON r.id=t.run_id WHERE r.project_id=?${windowSql}`,windowArgs),
     exec(db,`SELECT e.payload FROM mon_evidence e JOIN mon_runs r ON r.id=e.run_id WHERE r.project_id=?${windowSql}`,windowArgs),
-    loadJobs(db,id,userId),
+    loadJobs(db,id,userId,null,{from:previousFrom,to}),
   ]);
+  const sentimentJobs=indexJobs(sentimentRows);
   const raw=runsResult.rows,tasks=tasksResult.rows,evidence=evidenceResult.rows.map(r=>JSON.parse(r.payload));
   const tasksByRun=new Map(),evidenceByRun=new Map();
   for(const task of tasks){const bucket=tasksByRun.get(task.run_id)||[];bucket.push(task);tasksByRun.set(task.run_id,bucket);}
@@ -189,6 +190,7 @@ export async function analyticsService({db,path,userId,query=new URLSearchParams
    const selected=entries.filter(e=>e.group===selectedGroup&&(runId?e.id===runId:e.kind==='neutral'));
    // Internal read-only drilldown bridge: includes unfinished tasks, not only recorded evidence.
    onSelectedTasks?.(selected.flatMap(e=>e.tasks));
+  onEntries?.({entries,selected});
   const selectedRows=selected.flatMap(e=>e.rows),expected=selected.reduce((n,e)=>n+e.tasks.length,0);
   const previous=runId?[]:allEntries.filter(e=>e.createdAt<from&&e.group===selectedGroup&&e.kind==='neutral');
   const priorMetrics=aggregate(previous.flatMap(e=>e.rows),previous.reduce((n,e)=>n+e.tasks.length,0));
@@ -206,7 +208,7 @@ export async function analyticsService({db,path,userId,query=new URLSearchParams
     .filter(r=>Date.parse(r.createdAt)>=from&&Date.parse(r.createdAt)<=to).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
   const quickChecks=Number(quickCheckCount.n);
   const overview=overviewInsights(selected,comparison);
-  const intelligence=await readIntelligence(db,id,selected,overview);
+  const intelligence=await readIntelligence(db,id,selected,overview,env);
    return {status:200,headers:{},data:{methodology:metricsFor(selected[0]?.snapshot,selectedRows[0]||{provider:selected[0]?.tasks[0]?.provider}),extractionVersion,selectedGroup,groups,
      measurementScope:'frozen_tracked_cohort_not_all_detected_brands',
     promptScope:{promptId:promptId||null,promptVersion:version?Number(version):null},

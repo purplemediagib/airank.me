@@ -14,7 +14,10 @@
     "migrate:api-budget": "node src/monitoring/budget-migration.mjs",
     "test": "node --test test/*.test.mjs",
     "start:content": "node src/content/worker.mjs",
-    "migrate:content": "node src/content/migration.mjs"
+    "migrate:content": "node src/content/migration.mjs",
+    "start:analytics": "node src/analytics/summary-worker.mjs",
+    "migrate:analytics-summary": "node src/analytics/summary-migration.mjs",
+    "migrate:analytics-reads": "node src/analytics/read-migration.mjs"
   },
   "dependencies": {
     "@libsql/client": "^0.15.0"
