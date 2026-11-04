@@ -1,0 +1,60 @@
+name: Publish integrated follow-up images
+on:
+  push:
+    branches: [fix/integrated-followup-20261104]
+permissions:
+  contents: read
+concurrency:
+  group: integrated-followup-images-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  validate:
+    if: github.repository == 'purplemediagib/airank.me' && github.ref == 'refs/heads/fix/integrated-followup-20261104'
+    uses: ./.github/workflows/ci.yml
+  publish:
+    needs: validate
+    if: github.repository == 'purplemediagib/airank.me' && github.ref == 'refs/heads/fix/integrated-followup-20261104'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [api, analytics, worker]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Publish and verify exact revision without deployment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+          REPOSITORY: ${{ github.repository }}
+          REVISION: ${{ github.sha }}
+          SERVICE: ${{ matrix.service }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$REVISION"
+          image="ghcr.io/${REPOSITORY,,}/$SERVICE:sha-$REVISION"
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
+          trap 'docker logout ghcr.io >/dev/null 2>&1 || true' EXIT
+          # Never replace a published SHA tag. Re-runs verify and reuse it.
+          if docker manifest inspect "$image" > manifest.json 2> manifest-error.txt; then
+            printf 'Reusing existing immutable candidate tag: %s\n' "$image"
+          elif grep -Eqi 'manifest unknown|no such manifest|not found' manifest-error.txt; then
+            docker build --platform linux/amd64 --target "$SERVICE" --build-arg "BUILD_REVISION=$REVISION" --label "org.opencontainers.image.revision=$REVISION" --tag "$image" .
+            docker push "$image"
+          else
+            cat manifest-error.txt >&2
+            exit 1
+          fi
+          docker pull "$image"
+          digest=$(docker image inspect "$image" --format '{{index .RepoDigests 0}}')
+          case "$digest" in "ghcr.io/${REPOSITORY,,}/$SERVICE@sha256:"*) ;; *) exit 1 ;; esac
+          docker pull "$digest"
+          test "$(docker image inspect "$digest" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')" = "$REVISION"
+          docker run --rm --network none --entrypoint npm "$digest" ls --omit=dev
+          docker run --rm --network none --env "EXPECTED_BUILD_REVISION=$REVISION" --entrypoint node "$digest" -e "if(process.env.NODE_ENV!=='production'||process.env.AIRANK_BUILD_REVISION!==process.env.EXPECTED_BUILD_REVISION)throw Error('runtime revision/environment mismatch');Promise.all([import('@libsql/client/web'),import('./src/app/service.mjs'),import('./src/content/engine.mjs'),import('./src/analytics/summary-projector.mjs'),import('./src/common/operation-diagnostics.mjs'),import('./src/providers/diagnostics.mjs')])"
+          printf '### %s candidate\n\nRevision: `%s`\n\nTag: `%s`\n\nImmutable digest: `%s`\n\nProduction dependencies, revision label and offline imports verified. No deployment, migration or provider call was run.\n' "$SERVICE" "$REVISION" "$image" "$digest" >> "$GITHUB_STEP_SUMMARY"
+          printf 'INTEGRATED_CANDIDATE service=%s revision=%s image=%s digest=%s\n' "$SERVICE" "$REVISION" "$image" "$digest"
