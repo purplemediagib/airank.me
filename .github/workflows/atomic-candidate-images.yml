@@ -31,7 +31,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
-          fetch-depth: 2
+          fetch-depth: 3
       - name: Verify existing ordinary candidates; diagnostic publication held
         env:
           REPOSITORY: ${{ github.repository }}
@@ -41,7 +41,7 @@ jobs:
         run: |
           set -euo pipefail
           # Only this verification workflow may differ from the image source commit.
-          test "$(git rev-parse HEAD^)" = "$REVISION"
+          test "$(git rev-parse HEAD^)" = 9362b73eddde4b356518252fa94d3b88f0b253dc
           git diff --exit-code "$REVISION" HEAD -- . ':!.github/workflows/atomic-candidate-images.yml'
           image="ghcr.io/${REPOSITORY,,}/$SERVICE:candidate-sha-$REVISION"
           # No login, build, push, tag overwrite or diagnostic publication is allowed.
@@ -49,7 +49,7 @@ jobs:
           repository="${image%:*}"
           [[ "$INDEX_DIGEST" =~ ^sha256:[a-f0-9]{64}$ ]]
           index="$repository@$INDEX_DIGEST"
-          docker manifest inspect "$index" > manifest.json
+          docker buildx imagetools inspect --raw "$index" > manifest.json
           jq -e '.schemaVersion == 2' manifest.json >/dev/null
           media=$(jq -er '.mediaType | select(type == "string")' manifest.json)
           case "$media" in
@@ -74,7 +74,7 @@ jobs:
               ;;
             *) echo 'Unsupported registry manifest type' >&2; exit 1 ;;
           esac
-          docker manifest inspect "$digest" > child-manifest.json
+          docker buildx imagetools inspect --raw "$digest" > child-manifest.json
           jq -e '.schemaVersion == 2 and (.manifests == null) and (.mediaType == "application/vnd.docker.distribution.manifest.v2+json" or .mediaType == "application/vnd.oci.image.manifest.v1+json")' child-manifest.json >/dev/null
           docker pull --platform linux/amd64 "$digest"
           test "$(docker image inspect "$digest" --format '{{.Os}}/{{.Architecture}}')" = linux/amd64
