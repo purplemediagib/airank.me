@@ -3,6 +3,7 @@ import {one,exec,transaction} from '../monitoring/shared.mjs';
 import {configuration,inputHash} from './core.mjs';
 import {analyse} from './provider.mjs';
 import {extract} from '../analytics/extraction.mjs';
+import {atOperationStage} from '../common/operation-diagnostics.mjs';
 export async function enqueue(db,rows,c,now){
  let queued=0;
  for(const row of rows){
@@ -22,14 +23,14 @@ export function createEntityEngine({db,env=process.env,now=Date.now,call=analyse
    for(const [id,p]of buffer){try{await save(p);buffer.delete(id);}catch{}}
    if(buffer.size)return;
    // Explicit operator opt-in seeds future evidence only, never a silent backfill.
-   await transaction(db,async tx=>{
+   await atOperationStage('entity_queue_seed',()=>transaction(db,async tx=>{
     const stateKey=`enabled_since:${c.version}`;
     await exec(tx,"INSERT OR IGNORE INTO intelligence_state VALUES (?,?)",[stateKey,String(now())]);
     const since=Number((await one(tx,"SELECT value FROM intelligence_state WHERE name=?",[stateKey])).value);
     const rows=(await exec(tx,`SELECT e.payload,e.run_id,r.snapshot FROM mon_evidence e JOIN mon_runs r ON r.id=e.run_id JOIN app_projects p ON p.id=r.project_id WHERE p.status='active' AND e.observed_at>=? AND json_extract(e.payload,'$.status')='success' AND NOT EXISTS(SELECT 1 FROM intelligence_jobs j WHERE j.evidence_id=e.id AND j.analysis_version=?) ORDER BY e.observed_at,e.id LIMIT 50`,[since,c.version])).rows;
     await enqueue(tx,rows,c,now());
-   });
-   const job=await transaction(db,async tx=>{
+   }));
+   const job=await atOperationStage('entity_queue_claim',()=>transaction(db,async tx=>{
     await exec(tx,"UPDATE intelligence_jobs SET status='interrupted_unknown',error='INTERRUPTED_UNKNOWN',finished_at=?,lease_until=NULL WHERE status='running' AND lease_until<=?",[now(),now()]);
     if(await one(tx,"SELECT evidence_id FROM intelligence_jobs WHERE status='running' LIMIT 1"))return null;
     const j=await one(tx,`SELECT j.*,e.payload FROM intelligence_jobs j JOIN mon_evidence e ON e.id=j.evidence_id JOIN mon_runs r ON r.id=j.run_id JOIN app_projects p ON p.id=r.project_id WHERE j.status='queued' AND j.analysis_version=? AND p.status='active' ORDER BY j.created_at,j.evidence_id LIMIT 1`,[c.version]);
@@ -41,7 +42,7 @@ export function createEntityEngine({db,env=process.env,now=Date.now,call=analyse
     const token=randomUUID();
     await exec(tx,"UPDATE intelligence_jobs SET status='running',started_at=?,lease_until=?,claim_token=?,error=NULL WHERE evidence_id=? AND analysis_version=?",[now(),now()+c.timeoutMs+30000,token,j.evidence_id,c.version]);
     return {...j,e,claim_token:token};
-   });
+   }));
    if(!job)return;
    let result=null,error=null;
    try{result=await call(job.e,c,{env});}catch(e){error=/^(?:ENTITY_\w+|INVALID_ENTITY_OUTPUT|MISSING_CREDENTIAL)$/.test(e?.code||'')?e.code:'ENTITY_FAILED';}

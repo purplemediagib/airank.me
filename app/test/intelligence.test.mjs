@@ -8,6 +8,7 @@ import {createEntityEngine,enqueue} from '../src/intelligence/engine.mjs';
 import {readIntelligence} from '../src/intelligence/read.mjs';
 import {analyse} from '../src/intelligence/provider.mjs';
 import {createCollectorClient} from '../src/collectors/client.mjs';
+import {createEntityTick,reportEntityFailure} from '../src/intelligence/runtime.mjs';
 const env={ENTITY_ANALYSIS_ENABLED:'true',OPENAI_API_KEY:'test-only',ENTITY_ANALYSIS_MAX_DAILY_CALLS:'1'};
 const c=configuration(env),stamp=100000;
 const snapshot={identity:{brandName:'Example',aliases:[],ownedDomains:['example.com']},providers:['openai'],prompts:[{id:'p',version:1,text:'Which tools?',kind:'neutral'}],market:'FI',language:'fi'};
@@ -132,4 +133,18 @@ test('response finish length rejects without retry',async()=>{
  let calls=0;
  await assert.rejects(()=>analyse({answer:'Alpha'},c,{env,fetcher:async()=>{calls++;return new Response(JSON.stringify({choices:[{finish_reason:'length',message:{content:'{}'}}]}));}}),/ENTITY_INCOMPLETE/);
  assert.equal(calls,1);
+});
+test('entity disabled, missing-key and budget-wait states emit no timer alarms or provider calls',async()=>{
+ for(const [changes,expected]of [[{ENTITY_ANALYSIS_ENABLED:'false'},null],[{OPENAI_API_KEY:''},'MISSING_CREDENTIAL'],[{ENTITY_ANALYSIS_MAX_DAILY_CALLS:'0'},'BUDGET_WAIT']]){
+  const f=fixture();
+  try{
+   await migrateIntelligence(f.db);const e=f.evidence(),settings={...env,...changes};
+   await enqueue(f.db,[{payload:JSON.stringify(e),run_id:e.runId}],c,stamp);
+   const events=[];let calls=0;
+   const tick=createEntityTick({env:settings,getDatabase:async()=>f.db,makeEngine:opts=>createEntityEngine({...opts,now:()=>stamp+1,call:async()=>{calls++;throw Error('must not call');}})});
+   await tick().catch(error=>reportEntityFailure(error,(event,fields)=>events.push({event,...fields})));
+   assert.equal(calls,0);assert.deepEqual(events,[]);
+   assert.equal(f.raw.prepare('SELECT error FROM intelligence_jobs').get().error,expected);
+  }finally{f.raw.close();}
+ }
 });

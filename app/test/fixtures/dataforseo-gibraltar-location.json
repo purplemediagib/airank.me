@@ -1,0 +1,13 @@
+{
+  "source": "https://cdn.dataforseo.com/v3/locations/locations_serp_google_2026_09_01.csv",
+  "documentation": "https://docs.dataforseo.com/v3/serp-se-locations/",
+  "verifiedOn": "2026-11-04",
+  "note": "Official public CSV row. Empty parent is represented as null, matching the documented API JSON schema. This SERP fixture does not establish support in any LLM scraper catalogue.",
+  "location": {
+    "location_code": 2292,
+    "location_name": "Gibraltar",
+    "location_code_parent": null,
+    "country_iso_code": "GI",
+    "location_type": "Region"
+  }
+}

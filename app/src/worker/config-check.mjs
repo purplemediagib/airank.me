@@ -15,6 +15,7 @@ export function workerConfiguration(env=process.env){
   claude_max_output_tokens:claudeOutputBudget(env),
   consumer_collection_enabled:env.CONSUMER_COLLECTION_ENABLED==='true',
   sentiment_enabled:env.SENTIMENT_ENABLED==='true',
+  entity_analysis_enabled:env.ENTITY_ANALYSIS_ENABLED==='true',
   sentiment_model:env.SENTIMENT_MODEL||'gpt-4.1-mini-2025-04-14',
   sentiment_daily_call_limit:dailyCallLimit(env,'SENTIMENT_MAX_DAILY_CALLS',100,10000),
   sentiment_credential_present:Boolean(env.OPENAI_API_KEY?.trim()),

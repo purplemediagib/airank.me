@@ -1,5 +1,5 @@
 import {sentimentTick} from '../sentiment/runtime.mjs';
-import {entityTick} from '../intelligence/runtime.mjs';
+import {entityTick,reportEntityFailure} from '../intelligence/runtime.mjs';
 import http from 'node:http';
 import { benchmarkTick } from '../benchmark/runtime.mjs';
 import { monitoringTick } from '../monitoring/runtime.mjs';
@@ -130,5 +130,5 @@ process.on('SIGTERM',()=>{stop=true;server.close(()=>{if(!running)process.exit(0
 // Independent analysis queue: never holds up provider evidence or scan completion.
 const sentimentTimer=process.env.SENTIMENT_ENABLED==='true'?setInterval(()=>{if(!stop)sentimentTick().catch(()=>console.warn('Sentiment unavailable; check migration and worker configuration'));},Math.min(5000,CONFIG.jobPollMs)):null;
 process.on('SIGTERM',()=>clearInterval(sentimentTimer));
-const entityTimer=process.env.ENTITY_ANALYSIS_ENABLED==='true'?setInterval(()=>{if(!stop)entityTick().catch(()=>console.warn('Entity analysis unavailable; check migration and worker configuration'));},Math.min(5000,CONFIG.jobPollMs)):null;
+const entityTimer=process.env.ENTITY_ANALYSIS_ENABLED==='true'?setInterval(()=>{if(!stop)entityTick().catch(reportEntityFailure);},Math.min(5000,CONFIG.jobPollMs)):null;
 process.on('SIGTERM',()=>clearInterval(entityTimer));

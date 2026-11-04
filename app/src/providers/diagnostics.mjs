@@ -1,5 +1,6 @@
 // Only allowlisted metadata enters logs or user-visible evidence. Never log
 // request headers, prompts, raw provider bodies, keys or arbitrary exceptions.
+import {operationDiagnosticFields} from '../common/operation-diagnostics.mjs';
 const text = (value, max=120) => typeof value==='string' && /^[\w./: -]+$/.test(value) && !/(?:bearer|sk-|pplx-|AIza)/i.test(value) ? value.slice(0,max) : null;
 export function numericUsage(value, depth=0) {
  if(depth>4||!value||typeof value!=='object'||Array.isArray(value))return null;
@@ -18,6 +19,9 @@ export function safeProviderMeta(meta={}){
  }
  for(const key of ['http_status','max_tokens_requested','tool_calls','duration_ms','continuations','cost','request_attempts','rate_limit_retries'])if(Number.isFinite(meta[key]))out[key]=meta[key];
  if(typeof meta.overview_loaded==='boolean')out.overview_loaded=meta.overview_loaded;
+ if(typeof meta.submission_attempted==='boolean')out.submission_attempted=meta.submission_attempted;
+ const diagnostic=operationDiagnosticFields(meta);
+ for(const key of ['failure_stage','diagnostic_code'])if(diagnostic[key])out[key]=diagnostic[key];
  for(const key of ['context','serp_context'])if(meta[key]){
   const context={};for(const field of ['market','language','country_iso_code','language_code','location_name']){const v=text(meta[key][field]);if(v!==null)context[field]=v;}
   if(Number.isFinite(meta[key].location_code))context.location_code=meta[key].location_code;

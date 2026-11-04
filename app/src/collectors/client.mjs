@@ -1,17 +1,23 @@
 import {measurementContext} from '../common/measurement-context.mjs';
+import {selectMarketLocation} from '../common/dataforseo-location.mjs';
+import {operationFailure,operationDiagnostic} from '../common/operation-diagnostics.mjs';
 import {httpFailure} from '../providers/diagnostics.mjs';
 const engines={openai:'chat_gpt',gemini:'gemini'};
 const validId=id=>typeof id==='string'&&/^[\w-]{1,200}$/.test(id);
 export function createCollectorClient({env=process.env,transport=fetch}={}){
  const catalogs=new Map();
- async function request(url,body,route){
+ async function request(url,body,route,stage){
   const dfs=route.transport==='dataforseo_scraper';
   const headers=dfs?{authorization:'Basic '+Buffer.from(`${env.DATAFORSEO_LOGIN}:${env.DATAFORSEO_PASSWORD}`).toString('base64')}:{'x-api-token':env.SCRAPELESS_API_TOKEN};
-  const response=await transport(url,{method:body?'POST':'GET',headers:{...headers,accept:'application/json',...(body?{'content-type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{}),signal:AbortSignal.timeout(30000)});
+  let response;
+  try{response=await transport(url,{method:body?'POST':'GET',headers:{...headers,accept:'application/json',...(body?{'content-type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{}),signal:AbortSignal.timeout(30000)});}
+  catch(error){throw stage?operationFailure(stage,error):error;}
+  const failure=(error,code)=>stage?operationFailure(stage,error,{...(code?{diagnostic_code:code}:{}),http_status:response.status}):error;
   // Bound raw evidence before JSON parsing without logging supplier bodies.
   let size=0,text='';const decoder=new TextDecoder();
-  if(response.body){for await(const chunk of response.body){size+=chunk.byteLength;if(size>8000000)throw Error('Collector response too large');text+=decoder.decode(chunk,{stream:true});}text+=decoder.decode();}
-  let json;try{json=JSON.parse(text);}catch{throw Error('Invalid collector response');}
+  try{if(response.body){for await(const chunk of response.body){size+=chunk.byteLength;if(size>8000000)throw failure(Error('Collector response too large'),'RESPONSE_TOO_LARGE');text+=decoder.decode(chunk,{stream:true});}text+=decoder.decode();}}
+  catch(error){throw failure(error);}
+  let json;try{json=JSON.parse(text);}catch{throw failure(Error('Invalid collector response'),response.ok?'INVALID_RESPONSE':'HTTP_ERROR');}
   return {http:response.status,ok:response.ok,json};
  }
  return {
@@ -26,14 +32,17 @@ export function createCollectorClient({env=process.env,transport=fetch}={}){
     if(!catalogs.has(catalogKey)){
      let lists;
      try{lists=await Promise.all(['locations','languages'].map(async path=>{
-      const r=await request(`${root}/${path}${path==='locations'?`/${context.market}`:''}`,undefined,route);
-      if(!r.ok||r.json.status_code!==20000||r.json.tasks?.[0]?.status_code!==20000||!Array.isArray(r.json.tasks[0].result))throw Error('Locale catalog unavailable');
+      const stage=path==='locations'?'collector_locations':'collector_languages';
+      const r=await request(`${root}/${path}${path==='locations'?`/${context.market}`:''}`,undefined,route,stage);
+      const top=r.json?.status_code,task=r.json?.tasks?.[0]?.status_code;
+      const supplierRejected=Number.isSafeInteger(top)&&top!==20000||Number.isSafeInteger(task)&&task!==20000;
+      if(!r.ok||top!==20000||task!==20000||!Array.isArray(r.json.tasks[0].result))throw operationFailure(stage,null,{diagnostic_code:!r.ok?'HTTP_ERROR':supplierRejected?'SUPPLIER_ERROR':'INVALID_RESPONSE',http_status:r.http,upstream_error_code:top!==20000?top:task});
       return r.json.tasks[0].result;
-     }));}catch{return {result:{status:'provider_failed',meta:{failure_code:'COLLECTOR_LOCALE_CATALOG_UNAVAILABLE',submission_attempted:false}}};}
+     }));}catch(error){return {result:{status:'provider_failed',meta:{failure_code:'COLLECTOR_LOCALE_CATALOG_UNAVAILABLE',submission_attempted:false,...operationDiagnostic(error)}}};}
      catalogs.set(catalogKey,{expires:Date.now()+3600000,locations:lists[0],languages:lists[1]});
     }
     const catalog=catalogs.get(catalogKey);
-    const location=catalog.locations.find(x=>x.country_iso_code===context.market&&x.location_type==='Country');
+    const location=selectMarketLocation(context.market,catalog.locations);
     if(!location||!catalog.languages.some(x=>x.language_code===context.language))return {result:{status:'unsupported_context',meta:{failure_code:'UNSUPPORTED_MARKET_OR_LANGUAGE'}}};
     const body=[{keyword:encodeURIComponent(prompt),location_code:location.location_code,language_code:context.language,priority:1,tag:`airank-${taskId}`,...(provider==='openai'?{force_web_search:false}:{})}];
     let r;try{r=await request(`${root}/task_post`,body,route);}catch{ return {result:{status:'interrupted_unknown',meta:{failure_code:'SUBMISSION_UNKNOWN'}}};}

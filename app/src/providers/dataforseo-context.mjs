@@ -1,5 +1,6 @@
 import {requestJson} from './common.mjs';
 import {measurementContext} from '../common/measurement-context.mjs';
+import {selectMarketLocation} from '../common/dataforseo-location.mjs';
 
 let cached=null,pending=null;
 const root='https://api.dataforseo.com/v3/serp/google';
@@ -19,7 +20,7 @@ export async function localeCatalog(headers,timeoutMs){
 }
 export function selectSerpContext(context,catalog){
  const {market,language}=measurementContext(context);
- const location=catalog.locations.find(x=>x.country_iso_code===market&&x.location_type==='Country');
+ const location=selectMarketLocation(market,catalog.locations);
  const supportedLanguage=catalog.languages.find(x=>x.language_code===language);
  if(!location||!supportedLanguage)return null;
  return {location_code:location.location_code,location_name:location.location_name,language_code:language,market};

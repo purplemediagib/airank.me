@@ -48,59 +48,119 @@ export async function renewSummaryLease(db,job,now){
  const r=await exec(db,'UPDATE analytics_summary_requests SET lease_until=? WHERE project_id=? AND query_key=? AND lease_token=? AND lease_until>?',[now+LEASE_MS,job.project_id,job.query_key,job.lease_token,now]);
  return Number(r.rowsAffected)>0;
 }
+// Only independent, ordered writes are batched, inside an already-acquired
+// write transaction. Never parallelize transaction statements with Promise.all.
+async function writeBatch(tx,statements){
+ if(tx.batch)return tx.batch(statements);
+ // Keep compatible with small local adapters; production libSQL has tx.batch.
+ const results=[];for(const statement of statements)results.push(await tx.execute(statement));return results;
+}
+const COMPACT_ROWS=100,COMPACT_BYTES=1024*1024,CHUNK_ROWS=50,CHUNK_BYTES=4*1024*1024;
+class PublicationFenceError extends Error{
+ constructor(reason){super('ANALYTICS_PUBLICATION_FENCED');this.reason=reason;}
+}
+function encodedEvidence(evidence,start){
+ const rows=evidence.slice(start,start+CHUNK_ROWS).map((e,i)=>{const m=evidenceMetadata(e);return {position:start+i,id:e.id,hash:hash(e),payload:JSON.stringify(e),search:m.search,brands:m.brands,...m};});
+ const encoded=JSON.stringify(rows);
+ if(Buffer.byteLength(encoded)>CHUNK_BYTES)fail(422,'ANALYTICS_PROJECTION_LIMIT');
+ return encoded;
+}
+function evidenceStatements(id,encoded){
+ return [
+  {sql:`INSERT INTO analytics_summary_payloads (hash,payload,search_text,brands_json,mentioned,recommended,cited,ordered,first_rank,excluded)
+   SELECT json_extract(value,'$.hash'),json_extract(value,'$.payload'),json_extract(value,'$.search'),json_extract(value,'$.brands'),json_extract(value,'$.mentioned'),json_extract(value,'$.recommended'),json_extract(value,'$.cited'),json_extract(value,'$.ordered'),json_extract(value,'$.first'),json_extract(value,'$.excluded') FROM json_each(?) WHERE true ON CONFLICT(hash) DO NOTHING`,args:[encoded]},
+  {sql:`INSERT INTO analytics_summary_evidence (generation_id,position,id,payload_hash)
+   SELECT ?,json_extract(value,'$.position'),json_extract(value,'$.id'),json_extract(value,'$.hash') FROM json_each(?)`,args:[id,encoded]},
+ ];
+}
 export async function publishSummary(db,job,summary,evidence,clock){
  const now=typeof clock==='function'?clock:()=>clock;
- const id=randomUUID(),json=JSON.stringify(summary);
- if(evidence.length>50000||Buffer.byteLength(json)>5*1024*1024)fail(422,'ANALYTICS_PROJECTION_LIMIT');
+ const id=randomUUID(),json=JSON.stringify(summary),summaryBytes=Buffer.byteLength(json);
+ if(evidence.length>50000||summaryBytes>5*1024*1024)fail(422,'ANALYTICS_PROJECTION_LIMIT');
+ let guardedLeaseUntil;
  const guarded=async tx=>{
-  const stamp=now(),current=await one(tx,`SELECT q.lease_token,q.lease_until,r.revision FROM analytics_summary_requests q JOIN analytics_project_revisions r ON r.project_id=q.project_id WHERE q.project_id=? AND q.query_key=?`,[job.project_id,job.query_key]);
+  const current=await one(tx,`SELECT q.lease_token,q.lease_until,r.revision FROM analytics_summary_requests q JOIN analytics_project_revisions r ON r.project_id=q.project_id WHERE q.project_id=? AND q.query_key=?`,[job.project_id,job.query_key]);
+  const stamp=now();
   if(!current||current.lease_token!==job.lease_token||Number(current.lease_until)<=stamp)return 'lease_lost';
   if(Number(current.revision)!==Number(job.source_revision)){
    await exec(tx,'UPDATE analytics_summary_requests SET lease_token=NULL,lease_until=NULL,next_attempt_at=?,last_error=NULL WHERE project_id=? AND query_key=? AND lease_token=?',[stamp+1000,job.project_id,job.query_key,job.lease_token]);
    return 'source_changed';
   }
+  guardedLeaseUntil=Number(current.lease_until);
   return null;
  };
+ const generationStatement=()=>{
+  const stamp=now();
+  return {sql:`INSERT INTO analytics_summary_generations (id,project_id,query_key,source_revision,format_version,generated_at,expires_at,evidence_count,summary_json,published_at) VALUES (?,?,?,?,?,?,?,?,?,NULL)`,args:[id,job.project_id,job.query_key,job.source_revision,job.format_version,stamp,stamp+LEASE_MS,evidence.length,json]};
+ };
+ const finish=async tx=>{
+  const invalid=await guarded(tx);if(invalid)throw new PublicationFenceError(invalid);
+  const count=Number((await one(tx,'SELECT COUNT(*) n FROM analytics_summary_evidence WHERE generation_id=?',[id])).n);
+  if(count!==evidence.length)throw Error('INCOMPLETE_ANALYTICS_GENERATION');
+  const stamp=now();if(stamp>=guardedLeaseUntil)throw new PublicationFenceError('lease_lost');
+  await writeBatch(tx,[
+   {sql:'UPDATE analytics_summary_generations SET published_at=?,generated_at=?,expires_at=? WHERE id=?',args:[stamp,stamp,stamp+GENERATION_TTL,id]},
+   {sql:`INSERT INTO analytics_summary_heads (project_id,query_key,generation_id) VALUES (?,?,?) ON CONFLICT(project_id,query_key) DO UPDATE SET generation_id=excluded.generation_id`,args:[job.project_id,job.query_key,id]},
+   {sql:'UPDATE analytics_summary_requests SET lease_token=NULL,lease_until=NULL,attempts=0,next_attempt_at=0,last_error=NULL,failed_revision=NULL WHERE project_id=? AND query_key=? AND lease_token=?',args:[job.project_id,job.query_key,job.lease_token]},
+  ]);
+  // A slow batch may outlive its lease even under the writer lock. Throw so
+  // both compact and staged finalization roll back the head and request writes.
+  if(now()>=guardedLeaseUntil)throw new PublicationFenceError('lease_lost');
+  return {published:true,generation:id};
+ };
+ // A small setup can publish in one bounded write transaction instead of four.
+ // Include both copies of each JSON parameter in the byte budget. Encode at most
+ // 50 rows at once; abandon the compact path immediately when it exceeds budget.
+ // No project/query data survives this call and no source reads are cached.
+ let compact=null;
+ if(evidence.length<=COMPACT_ROWS&&summaryBytes<=COMPACT_BYTES){
+  compact=[];let bytes=summaryBytes;
+  for(let start=0;start<evidence.length;start+=CHUNK_ROWS){
+   const encoded=encodedEvidence(evidence,start);bytes+=2*Buffer.byteLength(encoded);
+   if(bytes>COMPACT_BYTES){compact=null;break;}
+   compact.push(encoded);
+  }
+ }
  let published=false;
  try{
+  if(compact){
+   const result=await transaction(db,async tx=>{
+    const invalid=await guarded(tx);if(invalid)return {published:false,reason:invalid};
+    await writeBatch(tx,[generationStatement(),...compact.flatMap(encoded=>evidenceStatements(id,encoded))]);
+    return finish(tx);
+   });
+   published=result.published;return result;
+  }
   let reason=await transaction(db,async tx=>{
    const invalid=await guarded(tx);if(invalid)return invalid;
-   const stamp=now();
-   await exec(tx,`INSERT INTO analytics_summary_generations (id,project_id,query_key,source_revision,format_version,generated_at,expires_at,evidence_count,summary_json,published_at) VALUES (?,?,?,?,?,?,?,?,?,NULL)`,[id,job.project_id,job.query_key,job.source_revision,job.format_version,stamp,stamp+LEASE_MS,evidence.length,json]);
+   await tx.execute(generationStatement());
    return null;
   });
   if(reason)return {published:false,reason};
-  // Stage immutable payloads in bounded transactions. Never hold the source DB
-  // writer lock across every remote round trip of a large projection. Readers
-  // cannot see this generation until the final, short revision-fenced commit.
-  for(let start=0;start<evidence.length;start+=50){
-   const rows=evidence.slice(start,start+50).map((e,i)=>{const m=evidenceMetadata(e);return {position:start+i,id:e.id,hash:hash(e),payload:JSON.stringify(e),search:m.search,brands:m.brands,...m};});
-   const encoded=JSON.stringify(rows);
-   if(Buffer.byteLength(encoded)>4*1024*1024)fail(422,'ANALYTICS_PROJECTION_LIMIT');
+  // Large generations retain bounded staging transactions. Readers cannot see
+  // them until the final, short revision-fenced commit. Release the writer lock
+  // between chunks so collection and other source writes can still proceed.
+  for(let start=0;start<evidence.length;start+=CHUNK_ROWS){
+   const encoded=encodedEvidence(evidence,start);
    reason=await transaction(db,async tx=>{
     const invalid=await guarded(tx);if(invalid)return invalid;
-    await exec(tx,`INSERT INTO analytics_summary_payloads (hash,payload,search_text,brands_json,mentioned,recommended,cited,ordered,first_rank,excluded)
-     SELECT json_extract(value,'$.hash'),json_extract(value,'$.payload'),json_extract(value,'$.search'),json_extract(value,'$.brands'),json_extract(value,'$.mentioned'),json_extract(value,'$.recommended'),json_extract(value,'$.cited'),json_extract(value,'$.ordered'),json_extract(value,'$.first'),json_extract(value,'$.excluded') FROM json_each(?) WHERE true ON CONFLICT(hash) DO NOTHING`,[encoded]);
-    await exec(tx,`INSERT INTO analytics_summary_evidence (generation_id,position,id,payload_hash)
-     SELECT ?,json_extract(value,'$.position'),json_extract(value,'$.id'),json_extract(value,'$.hash') FROM json_each(?)`,[id,encoded]);
     const stamp=now();
-    await exec(tx,'UPDATE analytics_summary_requests SET lease_until=? WHERE project_id=? AND query_key=? AND lease_token=?',[stamp+LEASE_MS,job.project_id,job.query_key,job.lease_token]);
-    await exec(tx,'UPDATE analytics_summary_generations SET expires_at=? WHERE id=? AND published_at IS NULL',[stamp+LEASE_MS,id]);
+    await writeBatch(tx,[...evidenceStatements(id,encoded),
+     {sql:'UPDATE analytics_summary_requests SET lease_until=? WHERE project_id=? AND query_key=? AND lease_token=?',args:[stamp+LEASE_MS,job.project_id,job.query_key,job.lease_token]},
+     {sql:'UPDATE analytics_summary_generations SET expires_at=? WHERE id=? AND published_at IS NULL',args:[stamp+LEASE_MS,id]},
+    ]);
     return null;
    });
    if(reason)return {published:false,reason};
   }
-  const result=await transaction(db,async tx=>{
-   const invalid=await guarded(tx);if(invalid)return {published:false,reason:invalid};
-   const count=Number((await one(tx,'SELECT COUNT(*) n FROM analytics_summary_evidence WHERE generation_id=?',[id])).n);
-   if(count!==evidence.length)throw Error('INCOMPLETE_ANALYTICS_GENERATION');
-   const stamp=now();
-   await exec(tx,'UPDATE analytics_summary_generations SET published_at=?,generated_at=?,expires_at=? WHERE id=?',[stamp,stamp,stamp+GENERATION_TTL,id]);
-   await exec(tx,`INSERT INTO analytics_summary_heads (project_id,query_key,generation_id) VALUES (?,?,?) ON CONFLICT(project_id,query_key) DO UPDATE SET generation_id=excluded.generation_id`,[job.project_id,job.query_key,id]);
-   await exec(tx,'UPDATE analytics_summary_requests SET lease_token=NULL,lease_until=NULL,attempts=0,next_attempt_at=0,last_error=NULL,failed_revision=NULL WHERE project_id=? AND query_key=? AND lease_token=?',[job.project_id,job.query_key,job.lease_token]);
-   return {published:true,generation:id};
-  });
+  const result=await transaction(db,finish);
   published=result.published;return result;
+ }catch(error){
+  if(!(error instanceof PublicationFenceError))throw error;
+  // Preserve source-change retry admission after rolling back a fenced final
+  // transaction. The fresh guard cannot release another worker's lease.
+  if(error.reason==='source_changed')await transaction(db,guarded);
+  return {published:false,reason:error.reason};
  }finally{
   if(!published)await exec(db,'DELETE FROM analytics_summary_generations WHERE id=? AND published_at IS NULL',[id]);
  }

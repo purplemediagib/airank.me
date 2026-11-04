@@ -62,7 +62,7 @@ async function fixture({file=':memory:'}={}){
   let release;const next=new Promise(resolve=>{release=resolve;});const prior=writer;writer=writer.then(()=>next);await prior;
   sql.exec(mode==='read'?'BEGIN':'BEGIN IMMEDIATE');let completed=false;
   const end=command=>{if(!completed){sql.exec(command);completed=true;release();}};
-  return {execute,commit:async()=>end('COMMIT'),rollback:async()=>end('ROLLBACK'),close:()=>{if(!completed)end('ROLLBACK');}};
+  return {execute,batch:async function(statements){const results=[];for(const q of statements)results.push(await this.execute(q));return results;},commit:async()=>end('COMMIT'),rollback:async()=>end('ROLLBACK'),close:()=>{if(!completed)end('ROLLBACK');}};
  }};
  const add=(id,{project='a',at=stamp,answer='Example is useful.',status='success',setup=snapshot,recorded=true,observedAt=at,citations=[]}={})=>{
   const owner=project==='a'?'alice':'bob',s={...setup,prompts:setup.prompts.map(p=>({...p,id:`p${project}`}))};
@@ -470,29 +470,39 @@ test('a new executable/configuration format has its own bounded demand admission
  }finally{f.close();}
 });
 
-test('real local libSQL client completes demand, asynchronous staged chunks, publication and snapshot evidence reads',async()=>{
+test('real local libSQL batches preserve compact and staged publication, rollback and exact canonical reads',async()=>{
+ for(const added of [60,100]){
  const directory=mkdtempSync(join(tmpdir(),'analytics-summary-libsql-')),file=join(directory,'fixture.db');
  let f,client;
  try{
   f=await fixture({file});
-  for(let i=0;i<60;i++)f.add(`libsql-${String(i).padStart(3,'0')}`,{at:stamp+6000+i*1000,answer:'Example says "great". Unicode 👋 and a newline\nremain intact.'});
+  for(let i=0;i<added;i++)f.add(`libsql-${String(i).padStart(3,'0')}`,{at:stamp+6000+i*1000,answer:'Example says "great". Unicode 👋 and a newline\nremain intact.'});
   f.close();f=null;
   client=createClient({url:`file:${file}`});let chunks=0;
   const execute=(cx,q)=>{if((typeof q==='string'?q:q.sql).includes('INSERT INTO analytics_summary_evidence'))chunks++;return cx.execute(q);};
   const db={execute:q=>execute(client,q),transaction:async mode=>{
-   const tx=await client.transaction(mode);return {execute:q=>execute(tx,q),commit:()=>tx.commit(),rollback:()=>tx.rollback(),close:()=>tx.close()};
+   const tx=await client.transaction(mode);return {execute:q=>execute(tx,q),batch:statements=>{chunks+=statements.filter(q=>q.sql.includes('INSERT INTO analytics_summary_evidence')).length;return tx.batch(statements);},commit:()=>tx.commit(),rollback:()=>tx.rollback(),close:()=>tx.close()};
   }};
   const context={db,path:'/v1/projects/a/analytics/summary',userId:'alice',query:query(),env,now:()=>stamp};
   assert.equal((await summaryService(context)).status,202);
-  assert.equal((await projectSummaryOnce({db,env,now:()=>stamp})).state,'published');assert.equal(chunks,2);
-  const result=await summaryService(context);assert.equal(result.status,200);assert.equal(result.data.readModel.evidenceCount,65);
+  assert.equal((await projectSummaryOnce({db,env,now:()=>stamp})).state,'published');assert.equal(chunks,Math.ceil((added+5)/50));
+  const result=await summaryService(context);assert.equal(result.status,200);assert.equal(result.data.readModel.evidenceCount,added+5);
   const original=(await analyticsService({...context,path:'/v1/projects/a/analytics'})).data;
   const {evidence,...expected}=original,{ui,readModel,...actual}=result.data;assert.deepEqual(actual,expected);
   const page=await summaryEvidenceService({...context,path:'/v1/projects/a/analytics/evidence',query:new URLSearchParams({generation:readModel.generation,pageSize:'100'})});
-  assert.deepEqual(page.data.items,scopeEvidence(original,Object.fromEntries(query())));assert.equal(page.data.total,65);
+  const items=[...page.data.items];
+  if(page.data.nextCursor){const next=await summaryEvidenceService({...context,path:'/v1/projects/a/analytics/evidence',query:new URLSearchParams({generation:readModel.generation,pageSize:'100',cursor:page.data.nextCursor})});items.push(...next.data.items);}
+  assert.deepEqual(items,scopeEvidence(original,Object.fromEntries(query())));assert.equal(page.data.total,added+5);
+  await client.execute("UPDATE mon_runs SET status='partial' WHERE id='one'");
+  const job=await claimSummary(db,formatVersion(env),stamp),base=items[0];
+  const counts=await Promise.all(['analytics_summary_generations','analytics_summary_evidence','analytics_summary_payloads'].map(async t=>(await client.execute(`SELECT COUNT(*) n FROM ${t}`)).rows[0].n));
+  await assert.rejects(publishSummary(db,job,{},[base,base],()=>stamp),/UNIQUE/);
+  assert.equal((await client.execute('SELECT generation_id FROM analytics_summary_heads')).rows[0].generation_id,readModel.generation);
+  assert.deepEqual(await Promise.all(['analytics_summary_generations','analytics_summary_evidence','analytics_summary_payloads'].map(async t=>(await client.execute(`SELECT COUNT(*) n FROM ${t}`)).rows[0].n)),counts);
   assert.equal((await client.execute('SELECT COUNT(*) n FROM analytics_summary_generations WHERE published_at IS NULL')).rows[0].n,0);
   assert.equal((await client.execute('PRAGMA foreign_key_check')).rows.length,0);
  }finally{client?.close();f?.close();rmSync(directory,{recursive:true,force:true});}
+ }
 });
 
 test('permanent validation failures do not churn until source revision changes',async()=>{
@@ -541,5 +551,133 @@ test('complete analytics evidence is opt-in, generation-isolated and preserves r
   await assert.rejects(f.evidence(saved.readModel.generation,{},'a','bob'),e=>e.status===404);
   const invalid=query();invalid.set('evidenceScope','all-tenants');
   await assert.rejects(f.summary(invalid),e=>e.status===422);
+ }finally{f.close();}
+});
+
+function instrumentPublication(f,{afterBatch,afterExecute,beforeCommit,afterCommit}={}){
+ const stats={transactions:0,batches:[]};
+ const db={...f.db,transaction:async mode=>{
+  stats.transactions++;const tx=await f.db.transaction(mode);
+  return {...tx,execute:async q=>{const result=await tx.execute(q);await afterExecute?.(q,result);return result;},
+   batch:async statements=>{stats.batches.push(statements);const result=await tx.batch(statements);await afterBatch?.(statements,result);return result;},
+   commit:async()=>{await beforeCommit?.();await tx.commit();await afterCommit?.();},
+  };
+ }};
+ return {db,stats};
+}
+
+test('compact publication bounds rows, JSON bytes and bind counts while keeping large fallback',async()=>{
+ for(const count of [0,100,101]){
+  const f=await fixture();try{
+   const {job,evidence}=await nextLargeProjection(f),observed=instrumentPublication(f);
+   const result=await publishSummary(observed.db,job,{marker:'unchanged'},evidence.slice(0,count),f.now);
+   assert.equal(result.published,true);assert.equal(observed.stats.transactions,count<=100?1:5);
+   assert.ok(observed.stats.batches.every(batch=>batch.length<=5&&batch.reduce((n,q)=>n+q.args.length,0)<=15));
+   assert.equal(f.row('SELECT evidence_count FROM analytics_summary_generations WHERE id=?',result.generation).evidence_count,count);
+   assert.deepEqual(JSON.parse(f.row('SELECT summary_json FROM analytics_summary_generations WHERE id=?',result.generation).summary_json),{marker:'unchanged'});
+   const saved=f.sql.prepare('SELECT e.position,p.payload FROM analytics_summary_evidence e JOIN analytics_summary_payloads p ON p.hash=e.payload_hash WHERE generation_id=? ORDER BY position').all(result.generation);
+   assert.deepEqual(saved.map(r=>JSON.parse(r.payload)),evidence.slice(0,count));
+  }finally{f.close();}
+ }
+ for(const extra of [0,1]){
+  const f=await fixture();try{
+   const {job}=await nextLargeProjection(f),observed=instrumentPublication(f);
+   const summary={padding:'x'.repeat(1024*1024-Buffer.byteLength(JSON.stringify({padding:''}))+extra)};
+   assert.equal(Buffer.byteLength(JSON.stringify(summary)),1024*1024+extra);
+   assert.equal((await publishSummary(observed.db,job,summary,[],f.now)).published,true);
+   assert.equal(observed.stats.transactions,extra?2:1,'byte overflow must use bounded staging even with no rows');
+  }finally{f.close();}
+ }
+ const f=await fixture();try{
+  const {job,evidence}=await nextLargeProjection(f),observed=instrumentPublication(f);
+  const large={...evidence[0],answer:'x'.repeat(300000)};
+  assert.equal((await publishSummary(observed.db,job,{},[large],f.now)).published,true);
+  assert.equal(observed.stats.transactions,3,'both copies of encoded evidence count against compact budget');
+ }finally{f.close();}
+});
+
+test('compact and large finalization roll back a late lease expiry during the final write batch',async()=>{
+ for(const count of [100,101]){
+  const f=await fixture();try{
+   const {head,job,evidence}=await nextLargeProjection(f);
+   const observed=instrumentPublication(f,{afterBatch:statements=>{
+    if(statements.some(q=>q.sql.includes('SET published_at=')))f.advance(LEASE_MS+1);
+   }});
+   assert.deepEqual(await publishSummary(observed.db,job,{},evidence.slice(0,count),f.now),{published:false,reason:'lease_lost'});
+   assert.equal(f.row('SELECT generation_id FROM analytics_summary_heads').generation_id,head);
+   assert.equal(f.row('SELECT COUNT(*) n FROM analytics_summary_generations').n,1);
+   assert.equal(f.row('SELECT COUNT(*) n FROM analytics_summary_evidence').n,5);
+   if(count===100)assert.equal(f.row('SELECT COUNT(*) n FROM analytics_summary_payloads').n,5,'compact payloads must roll back too');
+   assert.ok(await claimSummary(f.db,formatVersion(env),f.now()));
+  }finally{f.close();}
+ }
+});
+
+test('compact final lease check uses the clock after the guard read, not before network delay',async()=>{
+ const f=await fixture();try{
+  const {head,job,evidence}=await nextLargeProjection(f);let guards=0;
+  const observed=instrumentPublication(f,{afterExecute:q=>{
+   if(q.sql.includes('SELECT q.lease_token')&&++guards===2)f.advance(LEASE_MS+1);
+  }});
+  assert.deepEqual(await publishSummary(observed.db,job,{},evidence.slice(0,100),f.now),{published:false,reason:'lease_lost'});
+  assert.equal(f.row('SELECT generation_id FROM analytics_summary_heads').generation_id,head);
+  assert.equal(f.row('SELECT COUNT(*) n FROM analytics_summary_payloads').n,5);
+ }finally{f.close();}
+});
+
+test('compact staging that outlives its lease rolls back every new row',async()=>{
+ const f=await fixture();try{
+  const {head,job,evidence}=await nextLargeProjection(f);
+  const observed=instrumentPublication(f,{afterBatch:statements=>{
+   if(statements.some(q=>q.sql.includes('INSERT INTO analytics_summary_evidence')))f.advance(LEASE_MS+1);
+  }});
+  assert.deepEqual(await publishSummary(observed.db,job,{},evidence.slice(0,100),f.now),{published:false,reason:'lease_lost'});
+  assert.equal(f.row('SELECT generation_id FROM analytics_summary_heads').generation_id,head);
+  assert.deepEqual(['analytics_summary_generations','analytics_summary_evidence','analytics_summary_payloads'].map(t=>f.row(`SELECT COUNT(*) n FROM ${t}`).n),[1,5,5]);
+ }finally{f.close();}
+});
+
+test('compact incomplete evidence count rolls back payloads, generation and head together',async()=>{
+ const f=await fixture();try{
+  const {head,job,evidence}=await nextLargeProjection(f);
+  const observed=instrumentPublication(f,{afterBatch:statements=>{
+   if(statements.some(q=>q.sql.includes('INSERT INTO analytics_summary_evidence')))f.sql.exec("DELETE FROM analytics_summary_evidence WHERE generation_id IN (SELECT id FROM analytics_summary_generations WHERE published_at IS NULL) AND position=0");
+  }});
+  await assert.rejects(publishSummary(observed.db,job,{},evidence.slice(0,100),f.now),/INCOMPLETE_ANALYTICS_GENERATION/);
+  assert.equal(f.row('SELECT generation_id FROM analytics_summary_heads').generation_id,head);
+  assert.deepEqual(['analytics_summary_generations','analytics_summary_evidence','analytics_summary_payloads'].map(t=>f.row(`SELECT COUNT(*) n FROM ${t}`).n),[1,5,5]);
+ }finally{f.close();}
+});
+
+test('a compact commit failure before execution rolls back every write',async()=>{
+ const f=await fixture();try{
+  const {head,job,evidence}=await nextLargeProjection(f);
+  const observed=instrumentPublication(f,{beforeCommit:()=>{throw Error('definite fixture commit failure');}});
+  await assert.rejects(publishSummary(observed.db,job,{},evidence.slice(0,100),f.now),/definite fixture commit failure/);
+  assert.equal(f.row('SELECT generation_id FROM analytics_summary_heads').generation_id,head);
+  assert.deepEqual(['analytics_summary_generations','analytics_summary_evidence','analytics_summary_payloads'].map(t=>f.row(`SELECT COUNT(*) n FROM ${t}`).n),[1,5,5]);
+ }finally{f.close();}
+});
+
+test('an uncertain compact commit result never deletes a successfully published generation',async()=>{
+ const f=await fixture();try{
+  const {head,job,evidence}=await nextLargeProjection(f);
+  const observed=instrumentPublication(f,{afterCommit:()=>{throw Error('fixture response lost after commit');}});
+  await assert.rejects(publishSummary(observed.db,job,{},evidence.slice(0,100),f.now),/fixture response lost after commit/);
+  const next=f.row('SELECT generation_id FROM analytics_summary_heads').generation_id;
+  assert.notEqual(next,head);assert.equal(f.row('SELECT COUNT(*) n FROM analytics_summary_generations').n,2);
+  assert.equal((await f.evidence(next,{pageSize:'100'})).data.items.length,100);
+  assert.equal((await f.evidence(head)).data.items.length,5);
+  assert.equal(f.row('SELECT lease_token FROM analytics_summary_requests').lease_token,null);
+ }finally{f.close();}
+});
+
+test('compact eligibility retains the original hard per-chunk projection byte limit',async()=>{
+ const f=await fixture();try{
+  const {head,job,evidence}=await nextLargeProjection(f),observed=instrumentPublication(f);
+  await rejectsCode(publishSummary(observed.db,job,{},[{...evidence[0],answer:'x'.repeat(3*1024*1024)}],f.now),'ANALYTICS_PROJECTION_LIMIT');
+  assert.equal(observed.stats.transactions,0);
+  assert.equal(f.row('SELECT generation_id FROM analytics_summary_heads').generation_id,head);
+  assert.deepEqual(['analytics_summary_generations','analytics_summary_evidence','analytics_summary_payloads'].map(t=>f.row(`SELECT COUNT(*) n FROM ${t}`).n),[1,5,5]);
  }finally{f.close();}
 });

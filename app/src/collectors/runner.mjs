@@ -4,6 +4,7 @@ import {collectionBudget} from './config.mjs';
 import {id,checksum} from './migration.mjs';
 import {createCollectorClient} from './client.mjs';
 import {normalizeCollection,evidencePayload} from './normalization.mjs';
+import {operationDiagnosticFields} from '../common/operation-diagnostics.mjs';
 
 // POST is only called by submit on a freshly claimed task. Recovery only uses GET.
 export function createCollectionRunner({db,env,now,complete,client=createCollectorClient({env}),logger}){
@@ -32,7 +33,13 @@ export function createCollectionRunner({db,env,now,complete,client=createCollect
    let submission;
    try{submission=await client.submit({provider:task.provider,route,prompt:task.text,context:JSON.parse(task.snapshot),taskId:task.id});}
    catch{await finish(task,{status:'provider_failed',meta:{failure_code:'COLLECTOR_PREFLIGHT_FAILED',measurement_surface:'consumer_web'}});return;}
-   if(submission.result){await finish(task,submission.result);return;}
+   if(submission.result){
+    if(submission.result.meta?.failure_code==='COLLECTOR_LOCALE_CATALOG_UNAVAILABLE'){
+     // Existing task identifier only. Logging must not block evidence persistence.
+     try{logger('collector_preflight_failed',{task_id:task.id,failure_code:'COLLECTOR_LOCALE_CATALOG_UNAVAILABLE',submission_attempted:false,...operationDiagnosticFields(submission.result.meta)});}catch{}
+    }
+    await finish(task,submission.result);return;
+   }
    submissions.set(task.id,{task,submission});
    try{await persist(task,submission);submissions.delete(task.id);}
    catch{logger('collector_storage_pending',{task_id:task.id});}
