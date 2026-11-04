@@ -31,8 +31,8 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
-          fetch-depth: 3
-      - name: Verify existing ordinary candidates; diagnostic publication held
+          fetch-depth: 4
+      - name: Verify existing ordinary candidates only
         env:
           REPOSITORY: ${{ github.repository }}
           REVISION: c725b2c3a41d2738ccd3c85c4d06d963dc5ea535
@@ -41,7 +41,7 @@ jobs:
         run: |
           set -euo pipefail
           # Only this verification workflow may differ from the image source commit.
-          test "$(git rev-parse HEAD^)" = 9362b73eddde4b356518252fa94d3b88f0b253dc
+          test "$(git rev-parse HEAD^)" = d87202bbded87bc5dc47b7bd4815e47af44d7d55
           git diff --exit-code "$REVISION" HEAD -- . ':!.github/workflows/atomic-candidate-images.yml'
           image="ghcr.io/${REPOSITORY,,}/$SERVICE:candidate-sha-$REVISION"
           # No login, build, push, tag overwrite or diagnostic publication is allowed.
@@ -95,5 +95,69 @@ jobs:
           diff -r app/data pulled-data
           cmp app/package.json pulled-source-package.json
           cmp app/package-lock.json pulled-source-package-lock.json
-          printf '### %s candidate\n\nRevision: `%s`\n\nTag: `%s`\n\nImmutable digest: `%s`\n\nOrdinary candidate verified only. Diagnostic publication remains blocked. No deployment, database acceptance or migration was run.\n' "$SERVICE" "$REVISION" "$image" "$digest" >> "$GITHUB_STEP_SUMMARY"
+          printf '### %s candidate\n\nRevision: `%s`\n\nTag: `%s`\n\nImmutable digest: `%s`\n\nOrdinary candidate verified only. Diagnostic publication is not covered by this job. No deployment, database acceptance or migration was run.\n' "$SERVICE" "$REVISION" "$image" "$digest" >> "$GITHUB_STEP_SUMMARY"
           printf 'ATOMIC_CANDIDATE service=%s revision=%s image=%s index=%s digest=%s\n' "$SERVICE" "$REVISION" "$image" "$index" "$digest"
+  diagnostic-single-platform-experiment:
+    # Unproven repair experiment. Never enable with a routine verifier commit.
+    # A denial or uncertain response stops this attempt; never rerun automatically.
+    if: >-
+      github.repository == 'purplemediagib/airank.me' &&
+      github.ref == 'refs/heads/fix/stateless-analytics-20261104' &&
+      github.event_name == 'push' &&
+      github.run_attempt == 1 &&
+      github.event.head_commit.message == 'Authorize one same-destination diagnostic publication experiment for c725b2c3'
+    needs: [validate, verify-published]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: c725b2c3a41d2738ccd3c85c4d06d963dc5ea535
+          persist-credentials: false
+      - name: Build and test the frozen diagnostic source locally
+        env:
+          REVISION: c725b2c3a41d2738ccd3c85c4d06d963dc5ea535
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$REVISION"
+          node scripts/verify-atomic-package.mjs
+          docker build --platform linux/amd64 -f Dockerfile.atomic-acceptance --build-arg "BUILD_REVISION=$REVISION" --label "org.opencontainers.image.revision=$REVISION" --tag atomic-reviewed:local .
+          bash scripts/verify-atomic-image.sh atomic-reviewed:local "$REVISION"
+      - name: One approved single-platform publication experiment, no fallback
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+          REVISION: c725b2c3a41d2738ccd3c85c4d06d963dc5ea535
+        run: |
+          set -euo pipefail
+          repository=ghcr.io/purplemediagib/airank.me/atomic-acceptance
+          image="$repository:diagnostic-sha-$REVISION"
+          # Version check for documented docker push --platform support (API1.46+).
+          api=$(docker version --format '{{.Server.APIVersion}}')
+          node -e 'const [major,minor]=process.argv[1].split(".").map(Number);if(!Number.isInteger(major)||!Number.isInteger(minor)||major<1||(major===1&&minor<46))throw Error("unsupported Docker API")' "$api"
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
+          trap 'docker logout ghcr.io >/dev/null 2>&1 || true' EXIT
+          if docker manifest inspect "$image" > existing-manifest.json 2> manifest-error.txt; then
+            echo 'Tag already exists. Stop for inspection; never overwrite or repeat.' >&2
+            exit 1
+          elif ! grep -Eqi 'manifest unknown|no such manifest' manifest-error.txt; then
+            echo 'Registry lookup uncertain. Stop without publication.' >&2
+            exit 1
+          fi
+          docker tag atomic-reviewed:local "$image"
+          # Supported single-platform mode omits index and attached attestations.
+          # The prior untagged attestation is preserved; no registry data is deleted.
+          docker image push --platform linux/amd64 "$image"
+          # There is deliberately no retry, fallback destination, or second push.
+          docker buildx imagetools inspect "$image" --format '{{json .Manifest}}' > published-descriptor.json
+          child=$(jq -er '.digest | select(type == "string" and test("^sha256:[a-f0-9]{64}$"))' published-descriptor.json)
+          digest="$repository@$child"
+          docker buildx imagetools inspect --raw "$digest" > published-manifest.json
+          jq -e '.schemaVersion == 2 and (.manifests == null) and (.mediaType == "application/vnd.docker.distribution.manifest.v2+json" or .mediaType == "application/vnd.oci.image.manifest.v1+json")' published-manifest.json >/dev/null
+          docker pull --platform linux/amd64 "$digest"
+          test "$(docker image inspect "$digest" --format '{{.Os}}/{{.Architecture}}')" = linux/amd64
+          bash scripts/verify-atomic-image.sh "$digest" "$REVISION"
+          printf 'ATOMIC_DIAGNOSTIC revision=%s image=%s digest=%s publication=single-platform-experiment live_test=not_run\n' "$REVISION" "$image" "$digest"
+          printf 'Diagnostic single-platform artifact verified. Source revision: `%s`. Immutable digest: `%s`. No attached index/provenance, live acceptance, database request or deployment was performed.\n' "$REVISION" "$digest" >> "$GITHUB_STEP_SUMMARY"
