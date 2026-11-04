@@ -1,12 +1,17 @@
+import {demandFixed,claimFixed,renewFixed,publishFixed,failFixed,cleanupFixed,assertPublicationSafe,quarantinePredicate} from './summary-fixed-store.mjs';
+export {assertPublicationSafe,readSummaryClock} from './summary-fixed-store.mjs';
 import {randomUUID} from 'node:crypto';
 import {one,exec,transaction,fail,hash} from '../monitoring/shared.mjs';
 import {DEMAND_TTL,GENERATION_TTL,LEASE_MS,MAX_VARIANTS,evidenceMetadata} from './summary-contract.mjs';
 
 export async function demandSummary(db,projectId,key,query,format,now){
+ if(db.summaryAtomic)return demandFixed(db,projectId,key,query,format);
+ await assertPublicationSafe(db);
  const existing=await one(db,'SELECT * FROM analytics_summary_requests WHERE project_id=? AND query_key=?',[projectId,key]);
  if(existing&&Number(existing.last_requested_at)>=now-60000)return existing;
  // Serialize admission so concurrent cold requests cannot overrun the cap.
  return transaction(db,async tx=>{
+  await assertPublicationSafe(tx);
   const old=await one(tx,'SELECT * FROM analytics_summary_requests WHERE project_id=? AND query_key=?',[projectId,key]);
   if(old){
    if(Number(old.last_requested_at)<=now-DEMAND_TTL){
@@ -29,7 +34,9 @@ export async function readHead(db,projectId,key){
  return one(db,`SELECT g.*,r.revision current_revision FROM analytics_summary_heads h JOIN analytics_summary_generations g ON g.id=h.generation_id JOIN analytics_project_revisions r ON r.project_id=h.project_id WHERE h.project_id=? AND h.query_key=? AND g.published_at IS NOT NULL`,[projectId,key]);
 }
 export async function claimSummary(db,format,now){
+ if(db.summaryAtomic)return claimFixed(db,format);
  return transaction(db,async tx=>{
+  await assertPublicationSafe(tx);
   const job=await one(tx,`SELECT q.*,r.revision source_revision,p.owner_id FROM analytics_summary_requests q
    JOIN analytics_project_revisions r ON r.project_id=q.project_id JOIN app_projects p ON p.id=q.project_id
    LEFT JOIN analytics_summary_heads h ON h.project_id=q.project_id AND h.query_key=q.query_key
@@ -45,7 +52,9 @@ export async function claimSummary(db,format,now){
  });
 }
 export async function renewSummaryLease(db,job,now){
- const r=await exec(db,'UPDATE analytics_summary_requests SET lease_until=? WHERE project_id=? AND query_key=? AND lease_token=? AND lease_until>?',[now+LEASE_MS,job.project_id,job.query_key,job.lease_token,now]);
+ if(db.summaryAtomic)return renewFixed(db,job);
+ await assertPublicationSafe(db);
+ const r=await exec(db,`UPDATE analytics_summary_requests SET lease_until=? WHERE project_id=? AND query_key=? AND lease_token=? AND lease_until>? AND NOT EXISTS(SELECT 1 FROM analytics_summary_requests WHERE ${quarantinePredicate})`,[now+LEASE_MS,job.project_id,job.query_key,job.lease_token,now]);
  return Number(r.rowsAffected)>0;
 }
 // Only independent, ordered writes are batched, inside an already-acquired
@@ -74,11 +83,13 @@ function evidenceStatements(id,encoded){
  ];
 }
 export async function publishSummary(db,job,summary,evidence,clock){
+ if(db.summaryAtomic)return publishFixed(db,job,summary,evidence);
  const now=typeof clock==='function'?clock:()=>clock;
  const id=randomUUID(),json=JSON.stringify(summary),summaryBytes=Buffer.byteLength(json);
  if(evidence.length>50000||summaryBytes>5*1024*1024)fail(422,'ANALYTICS_PROJECTION_LIMIT');
  let guardedLeaseUntil;
  const guarded=async tx=>{
+  await assertPublicationSafe(tx);
   const current=await one(tx,`SELECT q.lease_token,q.lease_until,r.revision FROM analytics_summary_requests q JOIN analytics_project_revisions r ON r.project_id=q.project_id WHERE q.project_id=? AND q.query_key=?`,[job.project_id,job.query_key]);
   const stamp=now();
   if(!current||current.lease_token!==job.lease_token||Number(current.lease_until)<=stamp)return 'lease_lost';
@@ -162,20 +173,25 @@ export async function publishSummary(db,job,summary,evidence,clock){
   if(error.reason==='source_changed')await transaction(db,guarded);
   return {published:false,reason:error.reason};
  }finally{
-  if(!published)await exec(db,'DELETE FROM analytics_summary_generations WHERE id=? AND published_at IS NULL',[id]);
+  if(!published)await exec(db,`DELETE FROM analytics_summary_generations WHERE id=? AND published_at IS NULL AND NOT EXISTS(SELECT 1 FROM analytics_summary_requests WHERE ${quarantinePredicate})`,[id]);
  }
 }
 
 export async function failSummary(db,job,error,now){
+ if(error?.outcome==='unknown'||error?.code==='ANALYTICS_PUBLICATION_OUTCOME_UNKNOWN'||error?.code==='ANALYTICS_PUBLICATION_QUARANTINED')throw error;
+ if(db.summaryAtomic)return failFixed(db,job,error);
+ await assertPublicationSafe(db);
  const allowed=new Set(['INVALID_FILTER','NOT_FOUND','ANALYTICS_PROJECTION_LIMIT']);
  const code=allowed.has(error.code)?error.code:'ANALYTICS_BUILD_FAILED';
  // Never persist exception text, URLs, credentials, provider bodies or answers.
- await exec(db,'UPDATE analytics_summary_requests SET lease_token=NULL,lease_until=NULL,last_error=?,failed_revision=?,next_attempt_at=? WHERE project_id=? AND query_key=? AND lease_token=?',[code,job.source_revision,now+Math.min(300000,3000*2**Math.min(job.attempts,7)),job.project_id,job.query_key,job.lease_token]);
+ await exec(db,`UPDATE analytics_summary_requests SET lease_token=NULL,lease_until=NULL,last_error=?,failed_revision=?,next_attempt_at=? WHERE project_id=? AND query_key=? AND lease_token=? AND NOT EXISTS(SELECT 1 FROM analytics_summary_requests WHERE ${quarantinePredicate})`,[code,job.source_revision,now+Math.min(300000,3000*2**Math.min(job.attempts,7)),job.project_id,job.query_key,job.lease_token]);
  return code;
 }
 export async function cleanupSummaries(db,now){
+ if(db.summaryAtomic)return cleanupFixed(db);
  // One bounded batch per tick; do not purge active generation pages mid-read.
  return transaction(db,async tx=>{
+  await assertPublicationSafe(tx);
   await exec(tx,'DELETE FROM analytics_summary_generations WHERE id IN (SELECT id FROM analytics_summary_generations WHERE expires_at<=? ORDER BY expires_at LIMIT 20)',[now]);
   await exec(tx,'DELETE FROM analytics_summary_payloads WHERE hash IN (SELECT p.hash FROM analytics_summary_payloads p WHERE NOT EXISTS (SELECT 1 FROM analytics_summary_evidence e WHERE e.payload_hash=p.hash) LIMIT 1000)');
   await exec(tx,'DELETE FROM analytics_summary_requests WHERE last_requested_at<=? AND (lease_until IS NULL OR lease_until<=?) AND NOT EXISTS (SELECT 1 FROM analytics_summary_generations g WHERE g.project_id=analytics_summary_requests.project_id AND g.query_key=analytics_summary_requests.query_key AND g.expires_at>?)',[now-DEMAND_TTL,now,now]);

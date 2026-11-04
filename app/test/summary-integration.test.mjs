@@ -681,3 +681,32 @@ test('compact eligibility retains the original hard per-chunk projection byte li
   assert.deepEqual(['analytics_summary_generations','analytics_summary_evidence','analytics_summary_payloads'].map(t=>f.row(`SELECT COUNT(*) n FROM ${t}`).n),[1,5,5]);
  }finally{f.close();}
 });
+
+
+// Orchestration regression: uncertainty must never be converted into an ordinary
+// failure update, lease release, retry, or cleanup by the projector catch path.
+test('projector preserves claimed request after unknown outcome instead of failSummary',async()=>{
+ const f=await fixture();try{
+  await f.summary();
+  f.queries.length=0;
+  const result=await f.build({compute:async()=>{throw Object.assign(Error('secret endpoint raw answer'),{outcome:'unknown',code:'ANALYTICS_PUBLICATION_OUTCOME_UNKNOWN'});}});
+  assert.equal(result.state,'blocked');assert.equal(result.code,'ANALYTICS_PUBLICATION_OUTCOME_UNKNOWN');
+  const request=f.row('SELECT * FROM analytics_summary_requests');
+  assert.ok(request.lease_token);assert.equal(request.attempts,1);assert.equal(request.last_error,null);
+  assert.ok(!f.queries.some(sql=>/SET lease_token=NULL|DELETE FROM analytics_summary/i.test(sql)));
+  assert.doesNotMatch(JSON.stringify(result),/secret|endpoint|raw answer/);
+ }finally{f.close();}
+});
+
+test('durable publication intent blocks fresh projector before claim after restart',async()=>{
+ const f=await fixture();try{
+  await f.summary();
+  f.sql.prepare('UPDATE analytics_summary_requests SET last_error=?').run('ANALYTICS_PUBLICATION_UNKNOWN:11111111-1111-4111-8111-111111111111');
+  for(let restart=0;restart<2;restart++){
+   f.queries.length=0;
+   await rejectsCode(f.build(),'ANALYTICS_PUBLICATION_QUARANTINED');
+   assert.ok(!f.queries.some(sql=>/^\s*(?:UPDATE|DELETE|INSERT)/i.test(sql)));
+  }
+  assert.equal(f.row('SELECT attempts FROM analytics_summary_requests').attempts,0);
+ }finally{f.close();}
+});

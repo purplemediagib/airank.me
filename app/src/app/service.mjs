@@ -68,7 +68,7 @@ export const csrfFor = token => hmac('airank-app-csrf-v1', token);
 
 // Dependency injection exists only for offline tests; production uses existing Google validation and DB.
 export function createAppService({ db, clients, env = process.env, now = Date.now,
-  exchange = exchangeGoogleCode, verify = verifyGoogleIdToken, sendMail }) {
+  exchange = exchangeGoogleCode, verify = verifyGoogleIdToken, sendMail, getSummaryDatabase = () => db }) {
   const reportTokens=createReportTokens({db,env,now});
   const ready = async () => {
     try { const row = await one(db, 'SELECT checksum FROM app_migrations WHERE id=?', [migrationId]); if (row?.checksum !== checksum) fail(503, 'APP_NOT_CONFIGURED'); }
@@ -182,8 +182,8 @@ export function createAppService({ db, clients, env = process.env, now = Date.no
     if (/^\/v1\/projects\/[A-Za-z0-9-]{1,80}\/content(?:\/|$)/.test(path)) return contentService({db,method,path,query,body,userId,env,now});
     if (method === 'GET' && /^\/v1\/projects\/[a-zA-Z0-9-]{1,80}\/results(?:\/[a-zA-Z0-9-]{1,80})?$/.test(path)) return resultsService({db,path,query,userId,env});
     if (method === 'POST' && /^\/v1\/projects\/[a-zA-Z0-9-]{1,80}\/sentiment-backfill$/.test(path)) return backfillService({db,path,body,userId,env,now});
-    if (method === 'GET' && /^\/v1\/projects\/[a-zA-Z0-9-]{1,80}\/analytics\/summary$/.test(path)) return summaryService({db,path,query,userId,env,now});
-    if (method === 'GET' && /^\/v1\/projects\/[a-zA-Z0-9-]{1,80}\/analytics\/evidence(?:\/[a-zA-Z0-9_-]{1,160})?$/.test(path)) return summaryEvidenceService({db,path,query,userId,env,now});
+    if (method === 'GET' && /^\/v1\/projects\/[a-zA-Z0-9-]{1,80}\/analytics\/summary$/.test(path)) return summaryService({db:env.AIRANK_ANALYTICS_SUMMARY_ENABLED==='true'?await getSummaryDatabase():db,path,query,userId,env,now});
+    if (method === 'GET' && /^\/v1\/projects\/[a-zA-Z0-9-]{1,80}\/analytics\/evidence(?:\/[a-zA-Z0-9_-]{1,160})?$/.test(path)) return summaryEvidenceService({db:env.AIRANK_ANALYTICS_SUMMARY_ENABLED==='true'?await getSummaryDatabase():db,path,query,userId,env,now});
     if (method === 'GET' && /^\/v1\/projects\/[a-zA-Z0-9-]{1,80}\/analytics$/.test(path)) return analyticsService({db,path,query,userId,env});
     if (/^\/v1\/industries(?:\/[a-zA-Z0-9_-]{1,80})?$/.test(path)) return industriesService({db,method,path,body,userId,env,now});
     if (/^\/v1\/website-profiles(?:\/[a-zA-Z0-9-]{1,80})?$/.test(path)) return websiteProfileService({db,method,path,body,userId,env,now});

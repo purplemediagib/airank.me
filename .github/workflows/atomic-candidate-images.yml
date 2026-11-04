@@ -1,0 +1,79 @@
+name: Publish stateless analytics candidates
+on:
+  push:
+    branches: [fix/stateless-analytics-20261104]
+permissions:
+  contents: read
+concurrency:
+  group: atomic-candidate-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  validate:
+    if: github.repository == 'purplemediagib/airank.me' && github.ref == 'refs/heads/fix/stateless-analytics-20261104'
+    uses: ./.github/workflows/ci.yml
+  publish:
+    if: github.repository == 'purplemediagib/airank.me' && github.ref == 'refs/heads/fix/stateless-analytics-20261104'
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [api, analytics, worker, atomic-acceptance]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Publish tested immutable candidate without deployment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+          REPOSITORY: ${{ github.repository }}
+          REVISION: ${{ github.sha }}
+          SERVICE: ${{ matrix.service }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$REVISION"
+          prefix=candidate
+          args=(--target "$SERVICE")
+          if [ "$SERVICE" = atomic-acceptance ]; then
+            prefix=diagnostic
+            args=(-f Dockerfile.atomic-acceptance)
+          fi
+          image="ghcr.io/${REPOSITORY,,}/$SERVICE:$prefix-sha-$REVISION"
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
+          trap 'docker logout ghcr.io >/dev/null 2>&1 || true' EXIT
+          if docker manifest inspect "$image" > manifest.json 2> manifest-error.txt; then
+            echo 'Existing commit tag will be verified, never overwritten.'
+          elif grep -Eqi 'manifest unknown|no such manifest' manifest-error.txt; then
+            docker build --platform linux/amd64 "${args[@]}" --build-arg "BUILD_REVISION=$REVISION" --label "org.opencontainers.image.revision=$REVISION" --tag "$image" .
+            docker push "$image"
+          else
+            echo 'Registry lookup inconclusive; refusing publication.' >&2
+            exit 1
+          fi
+          docker manifest inspect "$image" > manifest.json
+          # Plain docker build publishes a single platform manifest, never an index.
+          jq -e '.schemaVersion == 2 and (.manifests == null) and (.mediaType == "application/vnd.docker.distribution.manifest.v2+json" or .mediaType == "application/vnd.oci.image.manifest.v1+json")' manifest.json >/dev/null
+          docker pull "$image"
+          digest=$(docker image inspect "$image" --format '{{index .RepoDigests 0}}')
+          docker pull "$digest"
+          test "$(docker image inspect "$digest" --format '{{.Os}}/{{.Architecture}}')" = linux/amd64
+          test "$(docker image inspect "$digest" --format '{{.Config.User}}')" = node
+          test "$(docker image inspect "$digest" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')" = "$REVISION"
+          if [ "$SERVICE" = atomic-acceptance ]; then
+            bash scripts/verify-atomic-image.sh "$digest" "$REVISION"
+          else
+            docker run --rm --network none --entrypoint node "$digest" -e "Promise.all([import('@libsql/client/web'),import('./src/app/service.mjs'),import('./src/analytics/summary-projector.mjs')])"
+            container=$(docker create "$digest")
+            mkdir -p pulled-source
+            docker cp "$container:/app/src/." pulled-source/
+            docker cp "$container:/app/package-lock.json" pulled-source-package-lock.json
+            docker rm "$container"
+            diff -r app/src pulled-source
+            cmp app/package-lock.json pulled-source-package-lock.json
+          fi
+          printf '### %s candidate\n\nRevision: `%s`\n\nTag: `%s`\n\nImmutable digest: `%s`\n\nNo deployment, database acceptance or migration was run.\n' "$SERVICE" "$REVISION" "$image" "$digest" >> "$GITHUB_STEP_SUMMARY"
+          printf 'ATOMIC_CANDIDATE service=%s revision=%s image=%s digest=%s\n' "$SERVICE" "$REVISION" "$image" "$digest"

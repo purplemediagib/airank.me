@@ -1,0 +1,32 @@
+{
+  "status": "PINNED_OFFLINE_REVIEW",
+  "candidate_commit": "b7e71ccb883de4d5a22809f7b40d283004cbc766",
+  "live_proof": false,
+  "files": {
+    "brand-order.mjs": "d3b9f800b21b3cd25fa1944c28e8856b887156f1eac74dd2e4e1da94f9fd37d0",
+    "competitors.mjs": "230c858fc7a41f78341133c48ad610034f4c86dae7f92d4d6eb4e08beb5ac6c2",
+    "extraction.mjs": "6a8dbdb55e174bc4716756275da3b514de2db2f01630dd4552f18ab3b006ac58",
+    "overview.mjs": "48471ddc0f8c680f3851feb6dd82b5bcb417108c9585625afd5a47e89c8e4ea1",
+    "service.mjs": "9fe628214e4618dae91bd7ee448454efce879ca901fab9e8cbe7a0156a53174f",
+    "sources.mjs": "9d212cd6648a20254f4c587536d564dc83ba8a761926bc9cd0322d497a04c497",
+    "summary-contract.mjs": "8f09a591ef5c89be67c1ee6bbc712d03f92034b759c50e3b442bb011061b2234",
+    "summary-fixed-store.mjs": "2e4ce89931cde0794d923cc996f0ecb0964aed120ecb7fe2f9d16530a13123c2",
+    "summary-plans.mjs": "bcf8a2aea833fe0cba39907cb897eb1903ce0527a575f1c531209fd6a0d7b7f6",
+    "summary-store.mjs": "3ad5d005585b3cb2d03c26f7eefb8d38f6063ee10e339da711be5600ffe50d21",
+    "summary-transport.mjs": "d4310a976fabe72cb958ad4e623f72d1aabf0e4b8329bb82d139f4fef33d6a31",
+    "../common/access.mjs": "a9a9b54570ac2f674aa7efe2396fd39a4a47fa701c38fece3b27706f71037a4d",
+    "../common/daily-limits.mjs": "074ba1b5e56b7110953607ababbd94c417f9b314ac9db4e3f3c8d4d5536ced8f",
+    "../common/db.mjs": "daaa6272e4919a58011e35ea09040037430c5b7b155a4116c8d0965c7352f6fe",
+    "../common/measurement-context.mjs": "becee0e77005f1dda46b031eeea9c89ac7473b42828dd915fcc3ae5e6c85d9be",
+    "../common/observations.mjs": "55800c340892f1560f09ed2bfd3b88e5b8ed5fe153e95e4efc0fd8c1861f4b5b",
+    "../common/plans.mjs": "968e05a3aad9fb73f9a5dfb190647645fccaa5adc1440514c080ad220e0a1f57",
+    "../common/scan-profile.mjs": "5b7eef5d44826d8e864a111ae689f216eb71946176c2ff12d5c05460fcdadd44",
+    "../common/utils.mjs": "355d0ccd73d6ee5756699050e8ce1972b9e7985b7414fef97568a9002ad96492",
+    "../intelligence/core.mjs": "4146b216bc482fb519fce9193f7ea2687eb6a0a055bcb8932c9e10e336a70d29",
+    "../intelligence/migration.mjs": "62b249894469ab9cc23774ee3d1552390c0cb173f85e0630438f7e8070076765",
+    "../intelligence/read.mjs": "2cc1b6587c34562aacd092a33e3c97bf15d7fea4efae3c400046da0d044f4fbe",
+    "../monitoring/shared.mjs": "73aa077bd17912fe35b3b784357ad3ded743bf9841d1d46be95f6c6a1680728a",
+    "../sentiment/core.mjs": "3a5b3114d3287a8c356b907892c5d5efcb9866651366093c676a997a934800b8",
+    "../sentiment/read.mjs": "0b1e4a6481f8c01c1602ab6d419c90e33ea76cf11fadf1667b26d94f86085a6d"
+  }
+}

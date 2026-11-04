@@ -1,11 +1,13 @@
+import {publicationBlockCode} from './summary-worker-control.mjs';
 import {analyticsService} from './service.mjs';
 import {one,fail} from '../monitoring/shared.mjs';
 import {canonicalQuery,formatVersion,queryKey} from './summary-contract.mjs';
 import {assertSummaryReady} from './summary-service.mjs';
-import {claimSummary,publishSummary,failSummary,cleanupSummaries,demandSummary} from './summary-store.mjs';
+import {claimSummary,publishSummary,failSummary,cleanupSummaries,demandSummary,assertPublicationSafe,readSummaryClock} from './summary-store.mjs';
 
 export async function projectSummaryOnce({db,env=process.env,now=Date.now,buildOverview,compute=analyticsService}){
  await assertSummaryReady(db,env);
+ await assertPublicationSafe(db);
  const job=await claimSummary(db,formatVersion(env),now());
  if(!job)return {state:'idle'};
  const started=now();let phase='preflight';
@@ -40,8 +42,12 @@ export async function projectSummaryOnce({db,env=process.env,now=Date.now,buildO
   const evidenceScope=query.get('evidenceScope')==='analytics'?'analytics':'overview';
   const savedEvidence=evidenceScope==='analytics'?evidence:projected.evidence;
   const published=await publishSummary(db,job,{...summary,...(evidenceScope==='analytics'?{evidenceScope}:{}),ui:projected.ui},savedEvidence,now);
+  const blocked=publicationBlockCode(published);
+  if(blocked)return {state:'blocked',code:blocked,phase,durationMs:now()-started};
   return {state:published.published?'published':'retry',...published,projectId:job.project_id,sourceRevision:Number(job.source_revision),durationMs:now()-started};
  }catch(error){
+  const blocked=publicationBlockCode(error);
+  if(blocked)return {state:'blocked',code:blocked,phase,durationMs:now()-started};
   const code=await failSummary(db,job,error,now());
   return {state:'failed',code,phase,projectId:job.project_id,durationMs:now()-started};
  }
@@ -49,7 +55,8 @@ export async function projectSummaryOnce({db,env=process.env,now=Date.now,buildO
 
 export async function prewarmSummaries({db,env=process.env,now=Date.now,limit=200,after=''}){
  await assertSummaryReady(db,env);
- const stamp=now(),to=new Date(stamp).toISOString().slice(0,10),from=new Date(Date.parse(to)-27*86400000).toISOString().slice(0,10),format=formatVersion(env);
+ await assertPublicationSafe(db);
+ const stamp=await readSummaryClock(db,now()),to=new Date(stamp).toISOString().slice(0,10),from=new Date(Date.parse(to)-27*86400000).toISOString().slice(0,10),format=formatVersion(env);
  const projects=(await db.execute({sql:"SELECT id FROM app_projects WHERE status='active' AND id>? ORDER BY id LIMIT ?",args:[after,Math.min(200,limit)]})).rows;
  for(const {id} of projects){const q=canonicalQuery(new URLSearchParams({from,to}));await demandSummary(db,id,queryKey(q,format),q,format,stamp);}
  return {count:projects.length,next:projects.length===Math.min(200,limit)?projects.at(-1).id:null};

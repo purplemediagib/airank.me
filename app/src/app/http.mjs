@@ -1,3 +1,4 @@
+import {getSummaryDb} from '../common/summary-db.mjs';
 import { getDb } from '../common/db.mjs';
 import { createAppService, clientsFromEnv } from './service.mjs';
 let handler;
@@ -5,7 +6,7 @@ export const isAppPath = path => /^\/v1\/(?:internal(?:\/|$)|app(?:\/|$)|project
 export const appError=e=>({error:{code:e.code||'SERVICE_UNAVAILABLE',...(e.code==='PLAN_LIMIT'&&e.status===402?{limit:e.limit,upgradeTo:e.upgradeTo,...(e.reason?{reason:e.reason}:{})}:{}),...(e.fieldErrors?{fieldErrors:e.fieldErrors}:{})}});
 export async function appRoute(req, res, url) {
   try {
-    handler ||= createAppService({ db: await getDb(), clients: clientsFromEnv() });
+    handler ||= createAppService({ db: await getDb(), clients: clientsFromEnv(), getSummaryDatabase:getSummaryDb });
     let body;
     if (req.method !== 'GET') {
       let size = 0;

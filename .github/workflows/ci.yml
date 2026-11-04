@@ -55,3 +55,36 @@ jobs:
           else
             docker run --rm --network none --entrypoint node "airank-test:$SERVICE" -e "Promise.all([import('@libsql/client/web'),import('./src/app/service.mjs'),import('./src/content/engine.mjs'),import('./src/analytics/summary-projector.mjs')])"
           fi
+  atomic-harness:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: ${{ matrix.node }}
+      - working-directory: app
+        run: npm ci
+      - run: node scripts/verify-atomic-package.mjs
+      - name: Offline synthetic tests with fixture-only destination pin
+        run: node --experimental-sqlite --import ./diagnostics/atomic-acceptance/test/register.mjs --test diagnostics/atomic-acceptance/test/*.test.mjs
+  atomic-image:
+    needs: [test, atomic-harness]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Build diagnostic image from exact source
+        env:
+          REVISION: ${{ github.sha }}
+        run: docker build -f Dockerfile.atomic-acceptance --build-arg "BUILD_REVISION=$REVISION" --label "org.opencontainers.image.revision=$REVISION" -t airank-test:atomic-acceptance .
+      - name: Prove non-root no-network no-configuration inert default
+        env:
+          REVISION: ${{ github.sha }}
+        run: bash scripts/verify-atomic-image.sh airank-test:atomic-acceptance "$REVISION"
