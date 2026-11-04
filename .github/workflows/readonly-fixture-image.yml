@@ -1,7 +1,7 @@
-name: Publish read-only synthetic fixture diagnostic
+name: Publish corrected read-only fixture diagnostic
 on:
   push:
-    branches: [fix/readonly-fixture-probe-20261104]
+    branches: [fix/readonly-fixture-correction-20261104]
 permissions:
   contents: read
 concurrency:
@@ -9,9 +9,11 @@ concurrency:
   cancel-in-progress: false
 jobs:
   test:
-    if: github.repository == 'purplemediagib/airank.me' && github.ref == 'refs/heads/fix/readonly-fixture-probe-20261104'
+    if: github.repository == 'purplemediagib/airank.me' && github.ref == 'refs/heads/fix/readonly-fixture-correction-20261104'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     strategy:
+      fail-fast: false
       matrix:
         node: [22, 24]
     steps:
@@ -21,10 +23,28 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: ${{ matrix.node }}
-      - run: node --test diagnostics/read-only-fixture-20261104/*.test.mjs
+      - name: Verify reviewed source and all 284 synthetic tests
+        run: |
+          set -euo pipefail
+          printf '%s  %s\n' '40a5ad2da9df013d8ec880e3405f34e60c640db3b6c1d3d93f1e41acd70f71f3' 'diagnostics/read-only-fixture-20261104/Dockerfile' | sha256sum --check --strict
+          printf '%s  %s\n' '9849f7e7f24070c309d2ebde9dc2888cebedf9cb866d62d67c98738b59a523e3' 'diagnostics/read-only-fixture-20261104/baseline/probe.original.mjs' | sha256sum --check --strict
+          printf '%s  %s\n' 'b149f3ceb81a7e5a2985fc5234e86aa4c57aced480181b06b4c98bf7f4fff8c6' 'diagnostics/read-only-fixture-20261104/correction.test.mjs' | sha256sum --check --strict
+          printf '%s  %s\n' '874b78d5b014c0d1dc19cbfa1d5d788326726522d6c015f87fffbfb33ad798da' 'diagnostics/read-only-fixture-20261104/hold.mjs' | sha256sum --check --strict
+          printf '%s  %s\n' '3b670dddcffbec664dc71d7601ef041ebee527e8c758d72131c21cc2affbe512' 'diagnostics/read-only-fixture-20261104/hold.test.mjs' | sha256sum --check --strict
+          printf '%s  %s\n' 'ce2c74564be6623bb2e4b746486ed96922fe7585f0502ec417384577451340fc' 'diagnostics/read-only-fixture-20261104/live-observation.json' | sha256sum --check --strict
+          printf '%s  %s\n' 'ab9234b20947bc0b5cdd3b948c3180e0c5cfef25b76301421a3f492ee7e16928' 'diagnostics/read-only-fixture-20261104/probe.mjs' | sha256sum --check --strict
+          printf '%s  %s\n' 'da86802b72e3d87f54e7d20315740e239ade33a525f5896c78fd41eb6c3d323b' 'diagnostics/read-only-fixture-20261104/probe.test.mjs' | sha256sum --check --strict
+          printf '%s  %s\n' '5ff0ab84c709a3d925ecbcc5354990f7f19fac293abe7870465aec9870f0ea13' 'diagnostics/read-only-fixture-20261104/review/probe-adversarial.test.mjs' | sha256sum --check --strict
+          node --check diagnostics/read-only-fixture-20261104/probe.mjs
+          node --check diagnostics/read-only-fixture-20261104/hold.mjs
+          node --test --test-reporter=tap diagnostics/read-only-fixture-20261104/*.test.mjs diagnostics/read-only-fixture-20261104/review/*.test.mjs | tee diagnostic-tests.tap
+          grep -Fx '# tests 284' diagnostic-tests.tap
+          grep -Fx '# pass 284' diagnostic-tests.tap
+          grep -Fx '# fail 0' diagnostic-tests.tap
   publish:
     needs: test
-    if: github.repository == 'purplemediagib/airank.me' && github.ref == 'refs/heads/fix/readonly-fixture-probe-20261104'
+    timeout-minutes: 15
+    if: github.repository == 'purplemediagib/airank.me' && github.ref == 'refs/heads/fix/readonly-fixture-correction-20261104'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -41,7 +61,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$REVISION"
-          image="ghcr.io/purplemediagib/airank.me/analytics:readonly-probe-sha-$REVISION"
+          image="ghcr.io/purplemediagib/airank.me/analytics:readonly-corrected-probe-sha-$REVISION"
           printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
           trap 'docker logout ghcr.io >/dev/null 2>&1 || true' EXIT
           if docker manifest inspect "$image" > manifest.json 2> manifest-error.txt; then
@@ -57,11 +77,17 @@ jobs:
           digest=$(docker image inspect "$image" --format '{{index .RepoDigests 0}}')
           case "$digest" in ghcr.io/purplemediagib/airank.me/analytics@sha256:*) ;; *) exit 1 ;; esac
           docker pull "$digest"
+          test "$(docker image inspect "$digest" --format '{{.Architecture}}/{{.Os}}')" = amd64/linux
+          docker manifest inspect "$digest" > published-manifest.json
+          amd64_digest=$(PUBLISHED_DIGEST="$digest" python3 -c 'import json,os; m=json.load(open("published-manifest.json")); entries=m.get("manifests"); matches=[x["digest"] for x in entries if x.get("platform",{}).get("architecture")=="amd64" and x.get("platform",{}).get("os")=="linux"] if entries is not None else [os.environ["PUBLISHED_DIGEST"].split("@",1)[1]]; assert len(matches)==1; print(matches[0])')
+          case "$amd64_digest" in sha256:*) ;; *) exit 1 ;; esac
+          docker pull "ghcr.io/purplemediagib/airank.me/analytics@$amd64_digest"
+          printf 'READ_ONLY_FIXTURE_MANIFEST %s\n' "$(cat published-manifest.json)"
           test "$(docker image inspect "$digest" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')" = "$REVISION"
           test "$(docker image inspect "$digest" --format '{{.Config.User}}')" = node
           test "$(docker image inspect "$digest" --format '{{json .Config.Cmd}}')" = '["node","hold.mjs"]'
-          probe_hash=$(sha256sum diagnostics/read-only-fixture-20261104/probe.mjs | cut -d' ' -f1)
-          hold_hash=$(sha256sum diagnostics/read-only-fixture-20261104/hold.mjs | cut -d' ' -f1)
+          probe_hash=ab9234b20947bc0b5cdd3b948c3180e0c5cfef25b76301421a3f492ee7e16928
+          hold_hash=874b78d5b014c0d1dc19cbfa1d5d788326726522d6c015f87fffbfb33ad798da
           docker run --rm --network none --env "EXPECTED_PROBE_HASH=$probe_hash" --env "EXPECTED_HOLD_HASH=$hold_hash" --env "EXPECTED_BUILD_REVISION=$REVISION" --entrypoint node "$digest" --input-type=module -e "const fs=await import('node:fs');const crypto=await import('node:crypto');for(const [file,expected] of [['probe.mjs',process.env.EXPECTED_PROBE_HASH],['hold.mjs',process.env.EXPECTED_HOLD_HASH]])if(crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex')!==expected)throw Error('image source mismatch');if(process.env.AIRANK_BUILD_REVISION!==process.env.EXPECTED_BUILD_REVISION)throw Error('revision mismatch');if(JSON.stringify(fs.readdirSync('/diagnostic').sort())!==JSON.stringify(['hold.mjs','probe.mjs']))throw Error('unexpected runtime files');globalThis.fetch=()=>{throw Error('network forbidden')};const m=await import('./hold.mjs');const env=new Proxy({},{get(){throw Error('credentials must remain unread')}});if((await m.runConfiguredProbe({env})).status!=='not_run')throw Error('not inert');console.log('READ_ONLY_PROBE_OFFLINE_VERIFIED');"
-          printf 'READ_ONLY_FIXTURE_CANDIDATE revision=%s image=%s digest=%s\n' "$REVISION" "$image" "$digest"
+          printf 'READ_ONLY_FIXTURE_CANDIDATE revision=%s image=%s digest=%s amd64_digest=%s\n' "$REVISION" "$image" "$digest" "$amd64_digest"
           printf '### Read-only fixture diagnostic\n\nRevision: `%s`\n\nImage: `%s`\n\nDigest: `%s`\n\nNo deployment, provider requests, database requests, or credential changes performed.\n' "$REVISION" "$image" "$digest" >> "$GITHUB_STEP_SUMMARY"
