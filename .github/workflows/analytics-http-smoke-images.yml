@@ -1,0 +1,67 @@
+name: Publish isolated analytics HTTP smoke image
+on:
+  push:
+    branches: [fix/analytics-http-smoke-20261104]
+permissions:
+  contents: read
+concurrency:
+  group: analytics-http-smoke-images-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  validate:
+    if: github.repository == 'purplemediagib/airank.me' && github.ref == 'refs/heads/fix/analytics-http-smoke-20261104'
+    uses: ./.github/workflows/ci.yml
+  publish:
+    needs: validate
+    if: github.repository == 'purplemediagib/airank.me' && github.ref == 'refs/heads/fix/analytics-http-smoke-20261104'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [analytics]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Publish and verify exact revision without deployment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+          REPOSITORY: ${{ github.repository }}
+          REVISION: ${{ github.sha }}
+          SERVICE: ${{ matrix.service }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$REVISION"
+          image="ghcr.io/${REPOSITORY,,}/$SERVICE:smoke-sha-$REVISION"
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
+          trap 'docker logout ghcr.io >/dev/null 2>&1 || true' EXIT
+          # The temporary image must not start production projection, even if
+          # an operator has not yet applied the explicit smoke command.
+          cp Dockerfile Dockerfile.smoke
+          printf '\nFROM analytics AS analytics-smoke\nUSER root\nRUN rm ./src/analytics/summary-worker.mjs\nUSER node\nCMD ["node", "src/analytics/smoke/publication-http-smoke-hold.mjs"]\n' >> Dockerfile.smoke
+          # Never replace a published SHA tag. Re-runs verify and reuse it.
+          if docker manifest inspect "$image" > manifest.json 2> manifest-error.txt; then
+            printf 'Reusing existing immutable candidate tag: %s\n' "$image"
+          elif grep -Eqi 'manifest unknown|no such manifest|not found' manifest-error.txt; then
+            docker build --platform linux/amd64 --target analytics-smoke --file Dockerfile.smoke --build-arg "BUILD_REVISION=$REVISION" --label "org.opencontainers.image.revision=$REVISION" --tag "$image" .
+            docker push "$image"
+          else
+            cat manifest-error.txt >&2
+            exit 1
+          fi
+          docker pull "$image"
+          digest=$(docker image inspect "$image" --format '{{index .RepoDigests 0}}')
+          case "$digest" in "ghcr.io/${REPOSITORY,,}/$SERVICE@sha256:"*) ;; *) exit 1 ;; esac
+          docker pull "$digest"
+          test "$(docker image inspect "$digest" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')" = "$REVISION"
+          docker run --rm --network none --entrypoint npm "$digest" ls --omit=dev
+          docker run --rm --network none --env "EXPECTED_BUILD_REVISION=$REVISION" --entrypoint node "$digest" -e "if(process.env.NODE_ENV!=='production'||process.env.AIRANK_BUILD_REVISION!==process.env.EXPECTED_BUILD_REVISION)throw Error('runtime revision/environment mismatch');import('@libsql/client/http')"
+          test "$(docker image inspect "$digest" --format '{{.Config.User}}')" = node
+          test "$(docker image inspect "$digest" --format '{{json .Config.Cmd}}')" = '["node","src/analytics/smoke/publication-http-smoke-hold.mjs"]'
+          docker run --rm --network none --entrypoint node "$digest" --input-type=module -e "globalThis.fetch=()=>{throw Error('offline smoke check attempted network')};const fs=await import('node:fs');if(fs.existsSync('./src/analytics/summary-worker.mjs'))throw Error('production projector entrypoint was not removed');const m=await import('./src/analytics/smoke/publication-http-smoke.mjs');await m.loadPublisher();const r=await m.runConfiguredSmoke();if(r.status!=='not_run')throw Error('missing confirmation was not inert');const h=await import('./src/analytics/smoke/publication-http-smoke-hold.mjs');if(typeof h.startSmokeHold!=='function')throw Error('hold export missing');console.log('SMOKE_OFFLINE_IMPORT_HASH_AND_NOOPTIN_CHECK_PASSED')"
+          printf '### %s isolated smoke image\n\nRevision: `%s`\n\nTag: `%s`\n\nImmutable digest: `%s`\n\nProduction dependencies, revision label, offline imports, pinned publisher hash and inert missing-confirmation path verified. Default command holds without starting a projector. No deployment, migration or provider call was run.\n' "$SERVICE" "$REVISION" "$image" "$digest" >> "$GITHUB_STEP_SUMMARY"
+          printf 'ANALYTICS_HTTP_SMOKE_CANDIDATE service=%s revision=%s image=%s digest=%s\n' "$SERVICE" "$REVISION" "$image" "$digest"
