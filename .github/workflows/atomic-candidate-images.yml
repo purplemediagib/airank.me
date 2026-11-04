@@ -1,4 +1,4 @@
-name: Publish stateless analytics candidates
+name: Verify published stateless analytics candidates
 on:
   push:
     branches: [fix/stateless-analytics-20261104]
@@ -11,69 +11,89 @@ jobs:
   validate:
     if: github.repository == 'purplemediagib/airank.me' && github.ref == 'refs/heads/fix/stateless-analytics-20261104'
     uses: ./.github/workflows/ci.yml
-  publish:
+  verify-published:
     if: github.repository == 'purplemediagib/airank.me' && github.ref == 'refs/heads/fix/stateless-analytics-20261104'
     needs: validate
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
     strategy:
       fail-fast: false
       matrix:
-        service: [api, analytics, worker, atomic-acceptance]
+        include:
+          - service: api
+            index: sha256:844cdf03b38442db17a94972af09248b2991c49d5658bcc9c1569356a077f3fd
+          - service: analytics
+            index: sha256:bf80bca2526593c73a1758aa9071b7ddb1242b95ba407655955fb6a627c16889
+          - service: worker
+            index: sha256:20c4226b7fbde5bbcada9c6f781e1ccdd67e7e00d1ffe894f7cba19aee541a45
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
-      - name: Publish tested immutable candidate without deployment
+          fetch-depth: 2
+      - name: Verify existing ordinary candidates; diagnostic publication held
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ACTOR: ${{ github.actor }}
           REPOSITORY: ${{ github.repository }}
-          REVISION: ${{ github.sha }}
+          REVISION: c725b2c3a41d2738ccd3c85c4d06d963dc5ea535
           SERVICE: ${{ matrix.service }}
+          INDEX_DIGEST: ${{ matrix.index }}
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "$REVISION"
-          prefix=candidate
-          args=(--target "$SERVICE")
-          if [ "$SERVICE" = atomic-acceptance ]; then
-            prefix=diagnostic
-            args=(-f Dockerfile.atomic-acceptance)
-          fi
-          image="ghcr.io/${REPOSITORY,,}/$SERVICE:$prefix-sha-$REVISION"
-          printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
-          trap 'docker logout ghcr.io >/dev/null 2>&1 || true' EXIT
-          if docker manifest inspect "$image" > manifest.json 2> manifest-error.txt; then
-            echo 'Existing commit tag will be verified, never overwritten.'
-          elif grep -Eqi 'manifest unknown|no such manifest' manifest-error.txt; then
-            docker build --platform linux/amd64 "${args[@]}" --build-arg "BUILD_REVISION=$REVISION" --label "org.opencontainers.image.revision=$REVISION" --tag "$image" .
-            docker push "$image"
-          else
-            echo 'Registry lookup inconclusive; refusing publication.' >&2
-            exit 1
-          fi
-          docker manifest inspect "$image" > manifest.json
-          # Plain docker build publishes a single platform manifest, never an index.
-          jq -e '.schemaVersion == 2 and (.manifests == null) and (.mediaType == "application/vnd.docker.distribution.manifest.v2+json" or .mediaType == "application/vnd.oci.image.manifest.v1+json")' manifest.json >/dev/null
-          docker pull "$image"
-          digest=$(docker image inspect "$image" --format '{{index .RepoDigests 0}}')
-          docker pull "$digest"
+          # Only this verification workflow may differ from the image source commit.
+          test "$(git rev-parse HEAD^)" = "$REVISION"
+          git diff --exit-code "$REVISION" HEAD -- . ':!.github/workflows/atomic-candidate-images.yml'
+          image="ghcr.io/${REPOSITORY,,}/$SERVICE:candidate-sha-$REVISION"
+          # No login, build, push, tag overwrite or diagnostic publication is allowed.
+          # Pin the previously observed index; do not trust a mutable tag lookup.
+          repository="${image%:*}"
+          [[ "$INDEX_DIGEST" =~ ^sha256:[a-f0-9]{64}$ ]]
+          index="$repository@$INDEX_DIGEST"
+          docker manifest inspect "$index" > manifest.json
+          jq -e '.schemaVersion == 2' manifest.json >/dev/null
+          media=$(jq -er '.mediaType | select(type == "string")' manifest.json)
+          case "$media" in
+            application/vnd.oci.image.index.v1+json|application/vnd.docker.distribution.manifest.list.v2+json)
+              child=$(jq -er 'def descriptor:
+                  type == "object" and
+                  (.mediaType == "application/vnd.oci.image.manifest.v1+json" or .mediaType == "application/vnd.docker.distribution.manifest.v2+json") and
+                  (.digest | type == "string" and test("^sha256:[a-f0-9]{64}$")) and
+                  (.size | type == "number" and . > 0 and floor == .);
+                .manifests as $all |
+                if ($all | type) != "array" or ($all | length) < 1 or ($all | length) > 2 or (all($all[]; descriptor) | not) then error("invalid descriptor array") else . end |
+                [$all[] | select(.platform.os == "linux" and .platform.architecture == "amd64")] as $run |
+                if ($run | length) != 1 then error("expected exactly one linux/amd64 child") else . end |
+                $run[0] as $child |
+                if ($child.platform.variant // "") != "" or ($child.annotations["vnd.docker.reference.type"] // "") != "" then error("unsupported runnable descriptor") else . end |
+                if all($all[]; . == $child or (.platform.os == "unknown" and .platform.architecture == "unknown" and (.platform.variant // "") == "" and .annotations["vnd.docker.reference.type"] == "attestation-manifest" and .annotations["vnd.docker.reference.digest"] == $child.digest)) then $child.digest else error("unexpected non-runnable descriptor") end' manifest.json)
+              [[ "$child" =~ ^sha256:[a-f0-9]{64}$ ]]
+              digest="$repository@$child"
+              ;;
+            application/vnd.oci.image.manifest.v1+json|application/vnd.docker.distribution.manifest.v2+json)
+              digest="$index"
+              ;;
+            *) echo 'Unsupported registry manifest type' >&2; exit 1 ;;
+          esac
+          docker manifest inspect "$digest" > child-manifest.json
+          jq -e '.schemaVersion == 2 and (.manifests == null) and (.mediaType == "application/vnd.docker.distribution.manifest.v2+json" or .mediaType == "application/vnd.oci.image.manifest.v1+json")' child-manifest.json >/dev/null
+          docker pull --platform linux/amd64 "$digest"
           test "$(docker image inspect "$digest" --format '{{.Os}}/{{.Architecture}}')" = linux/amd64
           test "$(docker image inspect "$digest" --format '{{.Config.User}}')" = node
           test "$(docker image inspect "$digest" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')" = "$REVISION"
-          if [ "$SERVICE" = atomic-acceptance ]; then
-            bash scripts/verify-atomic-image.sh "$digest" "$REVISION"
-          else
-            docker run --rm --network none --entrypoint node "$digest" -e "Promise.all([import('@libsql/client/web'),import('./src/app/service.mjs'),import('./src/analytics/summary-projector.mjs')])"
-            container=$(docker create "$digest")
-            mkdir -p pulled-source
-            docker cp "$container:/app/src/." pulled-source/
-            docker cp "$container:/app/package-lock.json" pulled-source-package-lock.json
-            docker rm "$container"
-            diff -r app/src pulled-source
-            cmp app/package-lock.json pulled-source-package-lock.json
-          fi
-          printf '### %s candidate\n\nRevision: `%s`\n\nTag: `%s`\n\nImmutable digest: `%s`\n\nNo deployment, database acceptance or migration was run.\n' "$SERVICE" "$REVISION" "$image" "$digest" >> "$GITHUB_STEP_SUMMARY"
-          printf 'ATOMIC_CANDIDATE service=%s revision=%s image=%s digest=%s\n' "$SERVICE" "$REVISION" "$image" "$digest"
+          docker run --rm --network none --entrypoint npm "$digest" ls --omit=dev
+          docker run --rm --network none --env "EXPECTED_BUILD_REVISION=$REVISION" --entrypoint node "$digest" -e "if(process.env.NODE_ENV!=='production'||process.env.AIRANK_BUILD_REVISION!==process.env.EXPECTED_BUILD_REVISION)throw Error('runtime revision mismatch');Promise.all([import('@libsql/client/web'),import('./src/app/service.mjs'),import('./src/analytics/summary-projector.mjs')])"
+          container=$(docker create "$digest")
+          trap 'docker rm -f "$container" >/dev/null 2>&1 || true' EXIT
+          mkdir -p pulled-source pulled-data
+          docker cp "$container:/app/src/." pulled-source/
+          docker cp "$container:/app/data/." pulled-data/
+          docker cp "$container:/app/package.json" pulled-source-package.json
+          docker cp "$container:/app/package-lock.json" pulled-source-package-lock.json
+          docker rm "$container"
+          trap - EXIT
+          diff -r app/src pulled-source
+          diff -r app/data pulled-data
+          cmp app/package.json pulled-source-package.json
+          cmp app/package-lock.json pulled-source-package-lock.json
+          printf '### %s candidate\n\nRevision: `%s`\n\nTag: `%s`\n\nImmutable digest: `%s`\n\nOrdinary candidate verified only. Diagnostic publication remains blocked. No deployment, database acceptance or migration was run.\n' "$SERVICE" "$REVISION" "$image" "$digest" >> "$GITHUB_STEP_SUMMARY"
+          printf 'ATOMIC_CANDIDATE service=%s revision=%s image=%s index=%s digest=%s\n' "$SERVICE" "$REVISION" "$image" "$index" "$digest"
