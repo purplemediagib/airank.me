@@ -46,3 +46,49 @@ test('research CRUD, provenance, cohort snapshots, duplicates, private raw and o
  assert.deepEqual(candidateNames('This could be any Company. No structured label.'),[]);
  }finally{f.sql.close();}
 });
+
+test('research deduplicates run snapshots, while answer detail reads only its authorized row',async()=>{
+ const f=await fixture();try{
+  const calls=[];const execute=f.db.execute;
+  f.db.execute=async q=>{calls.push(q);return execute(q);};
+  const original=(await f.request()).data;
+  assert.equal(original.evidence.length,1);
+  const texts=calls.map(q=>typeof q==='string'?q:q.sql);
+  assert.ok(texts.some(s=>s.startsWith('SELECT r.id,r.snapshot FROM mon_runs')));
+  assert.ok(texts.some(s=>s.startsWith('SELECT e.run_id,e.payload FROM mon_evidence')));
+  assert.equal(texts.some(s=>s.startsWith('SELECT e.payload,r.snapshot FROM mon_evidence')),false);
+  // An unrelated malformed answer must never make an existing answer unreadable.
+  f.sql.prepare('INSERT INTO mon_tasks VALUES (?,?,?,?,?,?,?,?,?,?)').run('broken','run','other-prompt',1,'Question','openai','{}','done',null,null);
+  f.sql.prepare('INSERT INTO mon_evidence VALUES (?,?,?,?)').run('broken','run','not-json',2);
+  calls.length=0;
+  const detail=(await f.request(null,'alice','/v1/projects/project/evidence/e')).data;
+  assert.deepEqual(detail.evidence,original.evidence[0]);
+  const targeted=calls.filter(q=>typeof q!=='string'&&q.sql.startsWith('SELECT e.payload,r.snapshot'));
+  assert.equal(targeted.length,1);
+  assert.deepEqual(targeted[0].args,['project','e']);
+  assert.ok(targeted[0].sql.includes('AND e.id=?'));
+  await assert.rejects(f.request(null,'alice','/v1/projects/project/evidence/missing'),e=>e.status===404);
+  await assert.rejects(f.request(null,'bob','/v1/projects/project/evidence/e'),e=>e.status===404);
+ }finally{f.sql.close();}
+});
+
+test('a concurrently completed first answer cannot appear without its snapshot',async()=>{
+ const f=await fixture();try{
+  const execute=f.db.execute;let inserted=false;
+  f.db.execute=async q=>{
+   const result=await execute(q);
+   if(!inserted&&q.sql.startsWith('SELECT e.run_id,e.payload')){
+    inserted=true;
+    const snapshot=f.sql.prepare('SELECT snapshot FROM mon_runs WHERE id=?').get('run').snapshot;
+    f.sql.prepare('INSERT INTO mon_runs VALUES (?,?,?,?,?,?,?,?,?,?,?,?)').run('new-run','project','alice','new-submission','new-hash','neutral','completed',snapshot,1,3,4,null);
+    f.sql.prepare('INSERT INTO mon_tasks VALUES (?,?,?,?,?,?,?,?,?,?)').run('new-answer','new-run','p',1,'Question','openai','{}','done',null,null);
+    const raw=JSON.parse(f.sql.prepare('SELECT payload FROM mon_evidence WHERE id=?').get('e').payload);
+    f.sql.prepare('INSERT INTO mon_evidence VALUES (?,?,?,?)').run('new-answer','new-run',JSON.stringify({...raw,id:'new-answer',runId:'new-run'}),3);
+   }
+   return result;
+  };
+  const first=(await f.request()).data;assert.equal(first.evidence.length,1);assert.ok(inserted);
+  const next=(await f.request()).data;assert.equal(next.evidence.length,2);
+  assert.ok(next.evidence.some(e=>e.id==='new-answer'));
+ }finally{f.sql.close();}
+});

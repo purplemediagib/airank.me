@@ -15,10 +15,13 @@ export function formatVersion(env=process.env){
  // older executable's semantics accidentally; API and projector must match.
  return hash([summaryVersion,'overview-ui-v1',extractionVersion,env.AIRANK_BUILD_REVISION||'development',s.version,s.model,env.SENTIMENT_ENABLED==='true',i.version,i.model,env.ENTITY_ANALYSIS_ENABLED==='true']);
 }
-const allowed=new Set(['from','to','provider','topic','runId','group','surface','promptId','promptVersion','tags','tag','tagMode','market','language']);
+const allowed=new Set(['evidenceScope','from','to','provider','topic','runId','group','surface','promptId','promptVersion','tags','tag','tagMode','market','language']);
 export function canonicalQuery(query){
  for(const key of query.keys())if(!allowed.has(key)||query.getAll(key).length!==1)fail(422,'INVALID_FILTER');
  const q=new URLSearchParams();
+ const evidenceScope=query.get('evidenceScope');
+ if(evidenceScope&&evidenceScope!=='analytics')fail(422,'INVALID_FILTER');
+ if(evidenceScope)q.set('evidenceScope',evidenceScope);
  for(const key of ['from','to']){
   const v=query.get(key)||'',n=Date.parse(`${v}T00:00:00Z`);
   if(!/^\d{4}-\d{2}-\d{2}$/.test(v)||!Number.isFinite(n)||new Date(n).toISOString().slice(0,10)!==v)fail(422,'INVALID_FILTER');

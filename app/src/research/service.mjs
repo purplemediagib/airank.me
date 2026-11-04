@@ -32,12 +32,27 @@ export function candidateNames(answer){
  }
  return [...new Set(names)];
 }
+function withRoute(row,snapshot){
+ const raw=JSON.parse(row.payload),route=snapshot.routes?.find(r=>r.provider===raw.provider);
+ return {raw:{...raw,route:route?.transport||'not_recorded'},snapshot};
+}
 async function dataset(db,projectId){
- const rows=(await exec(db,'SELECT e.payload,r.snapshot FROM mon_evidence e JOIN mon_runs r ON r.id=e.run_id WHERE r.project_id=? ORDER BY e.observed_at DESC,e.id',[projectId])).rows;
- return rows.map(r=>{
-  const raw=JSON.parse(r.payload),snapshot=JSON.parse(r.snapshot),route=snapshot.routes?.find(r=>r.provider===raw.provider);
-  return{raw:{...raw,route:route?.transport||'not_recorded'},snapshot};
+ // Run snapshots contain the full prompt/cohort configuration. Fetch them once
+ // per run rather than repeating their JSON for every answer over the DB network.
+ // Answers first: an answer inserted concurrently can then only be omitted from
+ // this completed read, never included without its immutable run snapshot.
+ const answers=await exec(db,'SELECT e.run_id,e.payload FROM mon_evidence e JOIN mon_runs r ON r.id=e.run_id WHERE r.project_id=? ORDER BY e.observed_at DESC,e.id',[projectId]);
+ const runs=await exec(db,'SELECT r.id,r.snapshot FROM mon_runs r WHERE r.project_id=? AND EXISTS(SELECT 1 FROM mon_evidence e WHERE e.run_id=r.id)',[projectId]);
+ const snapshots=new Map(runs.rows.map(r=>[r.id,JSON.parse(r.snapshot)]));
+ return answers.rows.map(row=>{
+  const snapshot=snapshots.get(row.run_id);
+  if(!snapshot)fail(503,'RESEARCH_CHANGED'); // Retry a concurrent run insertion; never drop answers.
+  return withRoute(row,snapshot);
  });
+}
+async function evidenceRecord(db,projectId,evidenceId){
+ const row=await one(db,'SELECT e.payload,r.snapshot FROM mon_evidence e JOIN mon_runs r ON r.id=e.run_id WHERE r.project_id=? AND e.id=?',[projectId,evidenceId]);
+ return row?withRoute(row,JSON.parse(row.snapshot)):null;
 }
 function brandInput(body){
  if(typeof body.name!=='string'||body.name.trim().length<2||body.name.length>100||/[<>\n]/.test(body.name)||!Array.isArray(body.aliases)||!Array.isArray(body.domains)||body.aliases.length>30||body.domains.length>20)fail(422,'VALIDATION_FAILED');
@@ -90,7 +105,7 @@ export async function researchService({db,method,path,body,userId,now=Date.now,e
  try{if((await one(db,'SELECT checksum FROM app_migrations WHERE id=?',[id]))?.checksum!==checksum)fail(503,'APP_NOT_CONFIGURED');}catch{fail(503,'APP_NOT_CONFIGURED');}
  const identity=JSON.parse(project.identity_json);
  if(method==='GET'&&evidenceId){
-  const d=(await dataset(db,projectId)).find(d=>d.raw.id===evidenceId);if(!d)fail(404,'NOT_FOUND');
+  const d=await evidenceRecord(db,projectId,evidenceId);if(!d)fail(404,'NOT_FOUND');
   return {status:200,data:{evidence:extract(redact(d.raw),d.snapshot),raw:redact(d.raw),rawAvailable:true}};
  }
  if(method==='POST'&&!evidenceId){

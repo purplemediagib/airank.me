@@ -35,7 +35,11 @@ export async function projectSummaryOnce({db,env=process.env,now=Date.now,buildO
   const filters={...Object.fromEntries(query),provider:query.get('provider')||'all',topic:query.get('topic')||'all',tags:JSON.parse(query.get('tags')||'[]')};
   const projected=builder({analytics:result.data,allEvidence:[...allEvidence.values()],project:JSON.parse(identity.identity_json),filters,now:now()});
   phase='publish';
-  const published=await publishSummary(db,job,{...summary,ui:projected.ui},projected.evidence,now);
+  // Legacy analytics consumers use run-created date selection; the Overview drawer
+  // additionally filters by answer observation date. Preserve both populations explicitly.
+  const evidenceScope=query.get('evidenceScope')==='analytics'?'analytics':'overview';
+  const savedEvidence=evidenceScope==='analytics'?evidence:projected.evidence;
+  const published=await publishSummary(db,job,{...summary,...(evidenceScope==='analytics'?{evidenceScope}:{}),ui:projected.ui},savedEvidence,now);
   return {state:published.published?'published':'retry',...published,projectId:job.project_id,sourceRevision:Number(job.source_revision),durationMs:now()-started};
  }catch(error){
   const code=await failSummary(db,job,error,now());

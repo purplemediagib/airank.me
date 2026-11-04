@@ -516,3 +516,30 @@ test('detail routing accepts the same bounded evidence identifiers as the fronte
   assert.equal(detail.status,200);assert.equal(detail.data.item.id,evidenceId);
  }finally{f.close();}
 });
+
+test('complete analytics evidence is opt-in, generation-isolated and preserves run-date semantics',async()=>{
+ const f=await fixture();try{
+  // A run started inside the period but its answer was observed on the next day.
+  // Raw analytics includes it; the Overview drawer intentionally does not.
+  f.add('late-answer',{at:stamp+10_000,observedAt:stamp+DAY});
+  const raw=(await f.baseline()).data;
+  const overview=(await ready(f)).data;
+  const oldPage=(await f.evidence(overview.readModel.generation,{pageSize:'100'})).data;
+  assert.equal(oldPage.items.some(e=>e.id==='late-answer'),false);
+  const q=query();q.set('evidenceScope','analytics');
+  assert.equal((await f.summary(q)).status,202);
+  assert.equal((await f.build()).state,'published');
+  const saved=(await f.summary(q)).data;
+  assert.equal(saved.evidenceScope,'analytics');
+  assert.notEqual(saved.readModel.generation,overview.readModel.generation);
+  const page=(await f.evidence(saved.readModel.generation,{pageSize:'100'})).data;
+  assert.deepEqual(page.items,raw.evidence);
+  assert.equal(page.total,raw.evidence.length);
+  assert.equal(saved.readModel.evidenceCount,raw.evidence.length);
+  assert.deepEqual(saved.overview,raw.overview);
+  assert.equal((await f.summary()).data.readModel.generation,overview.readModel.generation);
+  await assert.rejects(f.evidence(saved.readModel.generation,{},'a','bob'),e=>e.status===404);
+  const invalid=query();invalid.set('evidenceScope','all-tenants');
+  await assert.rejects(f.summary(invalid),e=>e.status===422);
+ }finally{f.close();}
+});

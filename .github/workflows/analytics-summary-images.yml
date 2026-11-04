@@ -1,7 +1,7 @@
 name: Publish analytics summary candidate images
 on:
   push:
-    branches: [fix/analytics-summary-read-model-20261103]
+    branches: [fix/saved-analytics-pages-20261104]
 permissions:
   contents: read
 concurrency:
@@ -9,7 +9,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   validate:
-    if: github.repository == 'purplemediagib/airank.me' && github.ref == 'refs/heads/fix/analytics-summary-read-model-20261103'
+    if: github.repository == 'purplemediagib/airank.me' && github.ref == 'refs/heads/fix/saved-analytics-pages-20261104'
     uses: ./.github/workflows/ci.yml
   publish:
     needs: validate
