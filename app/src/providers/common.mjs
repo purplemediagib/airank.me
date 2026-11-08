@@ -1,5 +1,7 @@
 import {attachHttpDetails} from './diagnostics.mjs';
 import {fetchRateLimited} from './rate-limit.mjs';
+import {answerCostInstruction} from './answer-policy.mjs';
+export {answerPromptMeta} from './answer-policy.mjs';
 const metadata=new WeakMap();
 export const requestMeta=json=>metadata.get(json)||{};
 export async function requestJson(url,{headers={},body,timeoutMs=60000,redactErrors=false,fetchImpl=fetch,retryOptions={}}={}){
@@ -13,4 +15,4 @@ export async function requestJson(url,{headers={},body,timeoutMs=60000,redactErr
 }
 export function urlsUnique(input){const seen=new Set();const out=[];for(const x of input){const src=typeof x==='string'?{url:x}:x;try{const u=new URL(src.url);if(!['https:','http:'].includes(u.protocol)||seen.has(u.href))continue;seen.add(u.href);out.push({url:u.href,title:String(src.title||'').slice(0,200)});}catch{}}return out.slice(0,40)}
 import {contextInstruction} from '../common/measurement-context.mjs';
-export const promptContext=(prompt,context={})=>`${contextInstruction(context)}\nQuestion: ${prompt}`;
+export const promptContext=(prompt,context={})=>`${contextInstruction(context)}\n${answerCostInstruction}\nQuestion: ${prompt}`;
