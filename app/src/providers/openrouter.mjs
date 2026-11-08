@@ -1,5 +1,5 @@
 import {KIMI_GUEST_ROUTE} from './routing.mjs';
-import {urlsUnique} from './common.mjs';
+import {urlsUnique,answerPromptMeta} from './common.mjs';
 import {apiObservation,responseOccurrences,mistralCollectionMethodVersion,deepseekCollectionMethodVersion} from '../common/observations.mjs';
 import {isMistral,openrouterPrompt,openrouterSearchLimits} from './openrouter-policy.mjs';
 import {attachHttpDetails,httpFailure,safeProviderMeta} from './diagnostics.mjs';
@@ -47,7 +47,7 @@ export async function openrouterSearch(prompt,{model,searchEngine='native',timeo
  const answer=typeof message?.content==='string'?message.content.trim():Array.isArray(message?.content)?message.content.filter(x=>x.type==='text').map(x=>x.text||'').join('\n').trim():'';
  const annotations=[...(message?.annotations||[]),...(Array.isArray(message?.content)?message.content.flatMap(x=>x.annotations||[]):[])];
  const citations=urlsUnique(annotations.filter(x=>x.type==='url_citation').map(x=>x.url_citation||x));
- const meta={...httpMeta,transport:'openrouter',requested_model:model,returned_model:j.model||null,upstream_provider:j.provider||null,response_id:j.id||null,search_engine_requested:searchEngine,search_engine_actual:null,usage:j.usage||null,http_status:res.status,finish_reason:c?.finish_reason||null,max_tokens_requested:outputLimit};
+ const meta={...httpMeta,...answerPromptMeta(),transport:'openrouter',requested_model:model,returned_model:j.model||null,upstream_provider:j.provider||null,response_id:j.id||null,search_engine_requested:searchEngine,search_engine_actual:null,usage:j.usage||null,http_status:res.status,finish_reason:c?.finish_reason||null,max_tokens_requested:outputLimit};
  if(guestKimi)meta.collection_method=KIMI_GUEST_ROUTE.collection_method;
  if(isMistral(model))meta.collection_method=mistralCollectionMethodVersion;
  if(deepseek)meta.collection_method=deepseekCollectionMethodVersion;
