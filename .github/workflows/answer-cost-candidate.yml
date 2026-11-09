@@ -1,18 +1,18 @@
-name: Publish answer-cost worker candidate
+name: Publish collection-recovery worker candidate
 on:
   push:
-    branches: [release/answer-cost-worker-20261108]
+    branches: [fix/collection-recovery-20261109]
 permissions:
   contents: read
 concurrency:
-  group: answer-cost-worker-${{ github.ref }}
+  group: collection-recovery-worker-${{ github.ref }}
   cancel-in-progress: false
 jobs:
   validate:
-    if: github.repository == 'purplemediagib/airank.me' && github.ref == 'refs/heads/release/answer-cost-worker-20261108'
+    if: github.repository == 'purplemediagib/airank.me' && github.ref == 'refs/heads/fix/collection-recovery-20261109'
     uses: ./.github/workflows/ci.yml
   publish:
-    if: github.repository == 'purplemediagib/airank.me' && github.ref == 'refs/heads/release/answer-cost-worker-20261108'
+    if: github.repository == 'purplemediagib/airank.me' && github.ref == 'refs/heads/fix/collection-recovery-20261109'
     needs: validate
     runs-on: ubuntu-latest
     permissions:
@@ -61,4 +61,4 @@ jobs:
           diff -r app/src pulled-source
           cmp app/package-lock.json pulled-source-package-lock.json
           printf '### %s candidate\n\nRevision: `%s`\n\nTag: `%s`\n\nImmutable digest: `%s`\n\nNo deployment, migration or provider call was run.\n' "$SERVICE" "$REVISION" "$image" "$digest" >> "$GITHUB_STEP_SUMMARY"
-          printf 'ANSWER_COST_CANDIDATE service=%s revision=%s image=%s digest=%s\n' "$SERVICE" "$REVISION" "$image" "$digest"
+          printf 'COLLECTION_RECOVERY_CANDIDATE service=%s revision=%s image=%s digest=%s\n' "$SERVICE" "$REVISION" "$image" "$digest"

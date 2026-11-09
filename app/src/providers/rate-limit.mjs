@@ -18,13 +18,14 @@ export function retryAfterMs(value,now=Date.now()){
 export async function fetchRateLimited(url,init,{timeoutMs=60000,fetchImpl=fetch,maxAttempts=maxHttpAttempts,now=Date.now,random=Math.random,sleep=(ms,signal)=>delay(ms,undefined,{signal})}={}){
  if(!Number.isSafeInteger(maxAttempts)||maxAttempts<1||maxAttempts>maxHttpAttempts)throw Error('Invalid HTTP attempt limit');
  const deadline=now()+timeoutMs,signal=AbortSignal.timeout(timeoutMs);
- let attempts=0,retries=0;
+ let attempts=0,retries=0,sawRateLimit=false;
  const meta=()=>({request_attempts:attempts,rate_limit_retries:retries});
  try{
   while(true){
    signal.throwIfAborted();
    attempts++;
    const response=await fetchImpl(url,{...init,signal});
+   if(response.status===429)sawRateLimit=true;
    if(response.status!==429||attempts>=maxAttempts)return {response,meta:meta()};
    const wait=retryAfterMs(response.headers?.get?.('retry-after'),now())??[2000,6000][attempts-1]*(1+Math.min(1,Math.max(0,random()))*0.25);
    // Do not shorten Retry-After to fit a lease or launch after its expiry.
@@ -35,6 +36,6 @@ export async function fetchRateLimited(url,init,{timeoutMs=60000,fetchImpl=fetch
    retries++;
   }
  }catch(error){
-  error.providerMeta={...error.providerMeta,...meta()};throw error;
+  error.providerMeta={...error.providerMeta,...meta(),...(sawRateLimit&&['AbortError','TimeoutError'].includes(error?.name)?{http_status:429,failure_code:'RATE_LIMITED'}:{})};throw error;
  }
 }

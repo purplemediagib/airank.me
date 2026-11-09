@@ -32,8 +32,8 @@ export async function googleAioSearch(prompt,{timeoutMs=60000,context={},catalog
  const model='Google AI Overviews / desktop SERP';
  if(!locale)return {status:'unsupported_context',model,answer:'',citations:[],error:'DataForSEO does not support this requested market/language',meta:{context}};
  const body=[{keyword:prompt,location_code:locale.location_code,language_code:locale.language_code,device:'desktop',depth:10,load_async_ai_overview:true}];
- let attempts=0,httpAttempts=0,rateLimitRetries=0,cost=null,initialCode=null;
- const attemptMeta=()=>({request_attempts:httpAttempts,rate_limit_retries:rateLimitRetries,cost,...(initialCode!==null?{initial_upstream_error_code:String(initialCode)}:{})});
+ let attempts=0,httpAttempts=0,rateLimitRetries=0,cost=null,initialCode=null,costUnknown=false;
+ const attemptMeta=()=>({request_attempts:httpAttempts,rate_limit_retries:rateLimitRetries,cost:costUnknown?null:cost,...(initialCode!==null?{initial_upstream_error_code:String(initialCode)}:{})});
  const call=async()=>{
   const remaining=Math.floor(deadline-now());
   if(remaining<=0)throw new DOMException('Provider deadline reached','TimeoutError');
@@ -42,17 +42,22 @@ export async function googleAioSearch(prompt,{timeoutMs=60000,context={},catalog
    const result=await requestJson('https://api.dataforseo.com/v3/serp/google/organic/live/advanced',{headers,timeoutMs:remaining,redactErrors:true,body});
    httpAttempts+=requestMeta(result).request_attempts||1;rateLimitRetries+=requestMeta(result).rate_limit_retries||0;
    const charged=result.tasks?.[0]?.cost??result.cost;
-   if(typeof charged==='number'&&Number.isFinite(charged)&&charged>=0)cost=(cost??0)+charged;
+   if(typeof charged==='number'&&Number.isFinite(charged)&&charged>=0)cost=(cost??0)+charged;else costUnknown=true;
    return result;
-  }catch(error){httpAttempts+=error.providerMeta?.request_attempts||1;rateLimitRetries+=error.providerMeta?.rate_limit_retries||0;error.providerMeta={...error.providerMeta,...attemptMeta()};throw error;}
+  }catch(error){costUnknown=true;httpAttempts+=error.providerMeta?.request_attempts||1;rateLimitRetries+=error.providerMeta?.rate_limit_retries||0;error.providerMeta={...error.providerMeta,...attemptMeta()};throw error;}
  };
- let j=await call();
- const code=Number(j.tasks?.[0]?.status_code??j.status_code);
- if(transient(code)&&attempts<maxRequests&&deadline-now()>retryDelayMs){
+ let j;
+ while(attempts<maxRequests){
+  let error=null;
+  try{j=await call();}catch(e){error=e;}
+  const code=error?error.providerMeta?.http_status:Number(j.tasks?.[0]?.status_code??j.status_code);
+  // Share the existing two-request reservation across supplier and HTTP failures.
+  // Ambiguous network errors/timeouts, 429, auth and payment failures are terminal.
+  const retryable=error?[500,502,503,504].includes(code):transient(code);
+  if(!retryable||attempts>=maxRequests||deadline-now()<=retryDelayMs){if(error)throw error;break;}
   initialCode=code;
   await sleep(retryDelayMs);
-  // Recheck after sleeping: an expired worker lease must not launch another paid call.
-  if(deadline-now()>0)j=await call();
+  if(deadline-now()<=0){if(error)throw error;break;}
  }
  const task=j.tasks?.[0];
  // Preserve numeric machine-readable diagnostics, never arbitrary supplier messages.
