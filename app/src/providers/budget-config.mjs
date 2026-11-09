@@ -5,6 +5,7 @@ import {claudeOutputBudget} from './claude.mjs';
 import {openrouterDefaultOutputTokens} from './output-limits.mjs';
 import {openrouterPrompt,openrouterSearchLimits} from './openrouter-policy.mjs';
 import {googleAioMaxRequests} from './google-aio.mjs';
+import {recoveryEnabled,recoveryRoute,recoveryOutputTokens} from './recovery-policy.mjs';
 
 export const NANO_USD=1_000_000_000;
 const invalid=()=>{throw Error('API_BUDGET_INVALID_CONFIG');};
@@ -21,7 +22,7 @@ export function completionLimit(provider,route,env){
 
 // A full model context allowance includes server-added search content and replay.
 // Prices and that model-specific context ceiling are operator supplied, never inferred.
-export function apiBudgetPlan({provider,route,prompt,context,env,guest=null}){
+export function apiBudgetPlan({provider,route,prompt,context,env,guest=null,allowRecovery=true}){
  if(guest)return guestBudgetPlan({provider,route,prompt,context,env,guest});
  const outputTokens=completionLimit(provider,route,env);
  if(!env.API_BUDGET_CONFIG_JSON){
@@ -72,9 +73,19 @@ export function apiBudgetPlan({provider,route,prompt,context,env,guest=null}){
    outputUsdPerMillion:outputRate,searchUsdPerCall:searchRate};
  }
  if(!Number.isSafeInteger(reservedNano)||reservedNano<=0)invalid();
- return {version:1,mode:'monetary_reserved',provider,transport:route.transport,model:route.model,
+ const plan={version:1,mode:'monetary_reserved',provider,transport:route.transport,model:route.model,
   ...(route.search_engine?{searchEngine:route.search_engine}:{}),dailyNano,reservedNano,
   maxTokens:outputTokens,maxRequests,maxInputBytes,...limits};
+ if(allowRecovery&&recoveryEnabled(env)&&recoveryRoute(provider,route)){
+  const tokens=Math.min(recoveryOutputTokens(outputTokens),plan.contextWindowTokens);
+  const recovery=apiBudgetPlan({provider,route,prompt,context,allowRecovery:false,
+   env:{...env,...(route.transport==='openrouter'?{OPENROUTER_MAX_TOKENS:String(tokens)}:{CLAUDE_MAX_TOKENS:String(tokens)})}});
+  // Retain both ceilings even if recovery is unnecessary or the first call timed out.
+  plan.reservedNano+=recovery.reservedNano;
+  if(!Number.isSafeInteger(plan.reservedNano))invalid();
+  plan.recovery=recovery;
+ }
+ return plan;
 }
 
 // Free (guest) checks use their own operator-supplied price table and caps in
@@ -93,7 +104,7 @@ function guestBudgetPlan({provider,route,prompt,context,env,guest}){
  if(!guest.providers.includes(provider))throw Error('API_BUDGET_UNBOUNDED_ROUTE');
  const {config,perScanNano,dailyNano}=guestBudgetConfig(env);
  const outputTokens=isGuestKimi(route)?3000:route.transport==='openrouter'?guest.openrouterOutputTokens:completionLimit(provider,route,env);
- const plan=apiBudgetPlan({provider,route,prompt,context,env:{...env,API_BUDGET_CONFIG_JSON:JSON.stringify({dailyUsd:null,routes:config.routes}),
+ const plan=apiBudgetPlan({provider,route,prompt,context,allowRecovery:false,env:{...env,API_BUDGET_CONFIG_JSON:JSON.stringify({dailyUsd:null,routes:config.routes}),
   ...(route.transport==='openrouter'?{OPENROUTER_MAX_TOKENS:String(outputTokens)}:{})}});
  if(plan.mode!=='monetary_reserved')throw Error('API_BUDGET_NOT_CONFIGURED');
  if(plan.reservedNano>perScanNano)throw Error('API_BUDGET_EXHAUSTED');

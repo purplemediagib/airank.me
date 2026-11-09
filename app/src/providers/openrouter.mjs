@@ -24,7 +24,8 @@ export async function openrouterSearch(prompt,{model,searchEngine='native',timeo
  if(!model||/^(openai|anthropic|openrouter)\//.test(model))throw Error('OpenAI and Claude must use direct APIs');
  if(!['native','exa'].includes(searchEngine))throw Error('Unsupported search engine');
  // Reasoning can consume the same allowance as the visible answer.
- // Keep requests bounded and never silently retry a truncated paid call.
+ // Keep each request bounded. Only the monitoring executor may recover a
+ // truncated paid answer after reserving a separate, larger allowance.
  const outputLimit=Number(maxTokens??openrouterDefaultOutputTokens(model));
  if(!Number.isSafeInteger(outputLimit)||outputLimit<256||outputLimit>16384)throw Error('OPENROUTER_MAX_TOKENS must be an integer from 256 to 16384');
  if(budget&&outputLimit!==budget.maxTokens)throw Error('API_BUDGET_LIMIT_MISMATCH');

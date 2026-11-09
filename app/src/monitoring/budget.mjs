@@ -6,7 +6,7 @@ import {id,checksum} from './budget-migration.mjs';
 // The caller must hold the same write transaction that claims mon_tasks.
 // There are deliberately no release/refund operations: every attempted paid
 // sequence remains charged at its ceiling, including ambiguous interruptions.
-export async function reserveApiBudget(tx,task,env,now){
+export async function reserveApiBudget(tx,task,env,now,dailyCalls=null){
  const route=JSON.parse(task.route);
  let plan;
  try{plan=apiBudgetPlan({provider:task.provider,route,prompt:task.text,context:JSON.parse(task.snapshot),env});}
@@ -17,6 +17,7 @@ export async function reserveApiBudget(tx,task,env,now){
  const old=await one(tx,'SELECT config_json FROM mon_api_reservations WHERE task_id=?',[task.id]);
  // Duplicate reservation is not authorization to dispatch a second paid call.
  if(old)return {reason:'API_BUDGET_ALREADY_RESERVED'};
+ if(dailyCalls!==null&&await usedCalls(tx,now-86400000)+(plan.recovery?2:1)>dailyCalls)return {reason:'API_CALL_BUDGET_EXHAUSTED'};
  const used=Number((await one(tx,'SELECT COALESCE(SUM(reserved_nano_usd),0) n FROM mon_api_reservations WHERE reserved_at>?',[now-86400000])).n);
  if(!Number.isSafeInteger(used)||(plan.dailyNano!==null&&used+plan.reservedNano>plan.dailyNano))return {reason:'API_BUDGET_EXHAUSTED'};
  await exec(tx,'INSERT INTO mon_api_reservations VALUES (?,?,?,?)',[task.id,plan.reservedNano,now,JSON.stringify(plan)]);
@@ -25,7 +26,13 @@ export async function reserveApiBudget(tx,task,env,now){
 export async function usedCalls(db,since){
  const legacy=Number((await one(db,'SELECT COUNT(*) n FROM provider_calls WHERE created_at>?',[since])).n);
  const hasMonitor=await one(db,"SELECT name FROM sqlite_master WHERE type='table' AND name='mon_budget'");
- return legacy+(hasMonitor?Number((await one(db,'SELECT COUNT(*) n FROM mon_budget WHERE reserved_at>?',[since])).n):0);
+ if(!hasMonitor)return legacy;
+ const hasReservations=await one(db,"SELECT name FROM sqlite_master WHERE type='table' AND name='mon_api_reservations'");
+ // Call caps count the additional reserved sequence too, even if unused.
+ const query=hasReservations?`SELECT COALESCE(SUM(CASE WHEN json_type(r.config_json,'$.recovery')='object' THEN 2 ELSE 1 END),0) n
+  FROM mon_budget b LEFT JOIN mon_api_reservations r ON r.task_id=b.task_id WHERE b.reserved_at>?`:
+  'SELECT COUNT(*) n FROM mon_budget WHERE reserved_at>?';
+ return legacy+Number((await one(db,query,[since])).n);
 }
 export async function reserveQuickCall(db,{scanId,provider,daily,perRun,now=Date.now()}){
  return transaction(db,async tx=>{

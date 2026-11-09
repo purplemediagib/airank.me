@@ -4,6 +4,7 @@ import {monitoringRoutesFromEnv as routesFromEnv,routeAvailable,publicProviders}
 import {collectionBudget,isCollectorRoute} from '../collectors/config.mjs';
 import {claudeOutputBudget} from '../providers/claude.mjs';
 import {providerDailyLimit,dailyCallLimit} from '../common/daily-limits.mjs';
+import {recoveryEnabled} from '../providers/recovery-policy.mjs';
 export function workerConfiguration(env=process.env){
  const routes=routesFromEnv(env);
  const credentialNames={openai:['OPENAI_API_KEY'],claude:['ANTHROPIC_API_KEY'],grok:['XAI_API_KEY'],perplexity:['PERPLEXITY_API_KEY'],google_aio:['DATAFORSEO_LOGIN','DATAFORSEO_PASSWORD']};
@@ -12,6 +13,7 @@ export function workerConfiguration(env=process.env){
   version:CONFIG.version,
   revision:typeof env.AIRANK_BUILD_REVISION==='string'&&env.AIRANK_BUILD_REVISION.length===40&&/^[a-f0-9]{40}$/i.test(env.AIRANK_BUILD_REVISION)?env.AIRANK_BUILD_REVISION.toLowerCase():null,
   monitoring_enabled:env.MONITORING_ENABLED==='true',
+  monitoring_recovery_enabled:recoveryEnabled(env),
   claude_max_output_tokens:claudeOutputBudget(env),
   consumer_collection_enabled:env.CONSUMER_COLLECTION_ENABLED==='true',
   sentiment_enabled:env.SENTIMENT_ENABLED==='true',

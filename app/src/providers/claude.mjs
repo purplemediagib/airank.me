@@ -16,7 +16,7 @@ export async function claudeSearch(prompt,{model='claude-sonnet-4-5',timeoutMs=6
  const params={model,max_tokens:outputLimit,messages:[{role:'user',content:input}],tools:[{type:'web_search_20250305',name:'web_search',max_uses:budget?.maxSearches??3}]};
  let j=await requestJson('https://api.anthropic.com/v1/messages',{headers:{'x-api-key':process.env.ANTHROPIC_API_KEY,'anthropic-version':'2023-06-01'},body:params,timeoutMs});
  const responses=[j];
- let continuationFailure=null;
+ let continuationFailure=null,continuationError=null;
  // Anthropic's server web-search may return pause_turn. Preserve the assistant blocks when continuing.
  const usedTokens=j.usage?.output_tokens;
  const remainingTokens=Number.isSafeInteger(usedTokens)&&usedTokens>=0?outputLimit-usedTokens:0;
@@ -29,17 +29,19 @@ export async function claudeSearch(prompt,{model='claude-sonnet-4-5',timeoutMs=6
   }else try{
    if(remaining<=0)throw new DOMException('Provider deadline reached','TimeoutError');
    j=await requestJson('https://api.anthropic.com/v1/messages',{headers:{'x-api-key':process.env.ANTHROPIC_API_KEY,'anthropic-version':'2023-06-01'},body:params,timeoutMs:remaining});responses.push(j);
-  }catch(error){continuationFailure=providerFailure(error).meta.failure_code;}
+  }catch(error){continuationError=providerFailure(error).meta;continuationFailure=continuationError.failure_code;}
  }
  const blocks=responses.flatMap(r=>r.content||[]).filter(x=>x.type==='text');
  const answer=blocks.map(x=>x.text||'').join('\n').trim();
  const refs=[];
  for(const block of blocks)for(const a of block.citations||[]){if(a.url)refs.push({url:a.url,title:a.title||''});}
  const citations=urlsUnique(refs);
- const toolFailed=responses.some(r=>(r.content||[]).some(b=>b.type==='web_search_tool_result'&&b.content?.type==='web_search_tool_result_error'));
+ const toolErrors=responses.flatMap(r=>r.content||[]).filter(b=>b.type==='web_search_tool_result'&&b.content?.type==='web_search_tool_result_error').map(b=>b.content.error_code);
+ const toolFailed=toolErrors.length>0;
+ const transientToolFailure=toolFailed&&toolErrors.every(code=>['internal_error','unavailable'].includes(code));
  const complete=!!answer&&j.stop_reason==='end_turn'&&!toolFailed&&!continuationFailure;
  const occurrences=blocks.flatMap((block,blockIndex)=>(block.citations||[]).filter(a=>a.url)
   .map(a=>({url:a.url,title:a.title,blockIndex,provenance:'provider_inline_annotation'})));
  const usage={responses:Object.fromEntries(responses.map((r,i)=>['response_'+i,r.usage||{}]))};
- return {status:!complete?'incomplete':citations.length?'success':'no_grounding',model:j.model||model,answer,citations,observation:apiObservation({complete,occurrences}),meta:{...answerPromptMeta(),request_attempts:responses.reduce((n,r)=>n+(requestMeta(r).request_attempts||1),0),rate_limit_retries:responses.reduce((n,r)=>n+(requestMeta(r).rate_limit_retries||0),0),response_id:j.id,usage:responses.length>1?usage:j.usage||null,stop_reason:j.stop_reason,max_tokens_requested:outputLimit,continuations:responses.length-1,...(!complete?{failure_code:continuationFailure||(j.stop_reason==='max_tokens'?'OUTPUT_TOKEN_LIMIT':toolFailed?'WEB_SEARCH_FAILED':j.stop_reason==='pause_turn'?'CONTINUATION_LIMIT':!answer?'EMPTY_ANSWER':'INCOMPLETE_RESPONSE')}:{})},raw:responses.length>1?{responses}:j};
+ return {status:!complete?'incomplete':citations.length?'success':'no_grounding',model:j.model||model,answer,citations,observation:apiObservation({complete,occurrences}),meta:{...answerPromptMeta(),...continuationError,request_attempts:responses.reduce((n,r)=>n+(requestMeta(r).request_attempts||1),0)+(continuationError?.request_attempts??(continuationError?1:0)),rate_limit_retries:responses.reduce((n,r)=>n+(requestMeta(r).rate_limit_retries||0),0)+(continuationError?.rate_limit_retries??0),response_id:j.id,usage:responses.length>1?usage:j.usage||null,stop_reason:j.stop_reason,max_tokens_requested:outputLimit,continuations:responses.length-1,...(toolFailed?{upstream_error_code:transientToolFailure?'internal_error':'non_retryable_search_error'}:{}),...(!complete?{failure_code:continuationFailure||(j.stop_reason==='max_tokens'?'OUTPUT_TOKEN_LIMIT':toolFailed?'WEB_SEARCH_FAILED':j.stop_reason==='pause_turn'?'CONTINUATION_LIMIT':!answer?'EMPTY_ANSWER':'INCOMPLETE_RESPONSE')}:{})},raw:responses.length>1?{responses}:j};
 }
