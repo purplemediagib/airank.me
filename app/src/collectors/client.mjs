@@ -26,7 +26,9 @@ export function createCollectorClient({env=process.env,transport=fetch}={}){
     if(!catalogs.has(catalogKey)){
      let lists;
      try{lists=await Promise.all(['locations','languages'].map(async path=>{
-      const r=await request(`${root}/${path}${path==='locations'?`/${context.market}`:''}`,undefined,route);
+      // Gemini exposes a single locations catalog, not the country-suffixed ChatGPT route.
+      const suffix=path==='locations'&&provider==='openai'?`/${context.market}`:'';
+      const r=await request(`${root}/${path}${suffix}`,undefined,route);
       if(!r.ok||r.json.status_code!==20000||r.json.tasks?.[0]?.status_code!==20000||!Array.isArray(r.json.tasks[0].result))throw Error('Locale catalog unavailable');
       return r.json.tasks[0].result;
      }));}catch{return {result:{status:'provider_failed',meta:{failure_code:'COLLECTOR_LOCALE_CATALOG_UNAVAILABLE',submission_attempted:false}}};}
