@@ -131,3 +131,21 @@ test('unlimited collector and provider daily limits retain unit reservations and
   assert.equal(f.sqlite.prepare('SELECT SUM(reserved_usd) total FROM mon_collections').get().total,100);
  }finally{f.close();}
 });
+
+test('Gemini uses the unsuffixed locations catalog and preserves US English targeting',async()=>{
+ const calls=[];
+ const client=createCollectorClient({env:{CONSUMER_COLLECTION_ENABLED:'true',DATAFORSEO_LOGIN:'fixture',DATAFORSEO_PASSWORD:'fixture'},transport:async(url,options)=>{
+  calls.push({url,method:options.method,body:options.body&&JSON.parse(options.body)});
+  assert.ok(!url.includes('/locations/'),'Gemini does not expose country-suffixed location catalogs');
+  const result=url.endsWith('/locations')?[{country_iso_code:'US',location_type:'Country',location_code:2840},{country_iso_code:'FI',location_type:'Country',location_code:2246}]:[{language_code:'en'}];
+  return new Response(JSON.stringify({status_code:20000,tasks:[url.endsWith('/task_post')?{id:'gemini-us',status_code:20100}:{status_code:20000,result}]}));
+ }});
+ const result=await client.submit({provider:'gemini',route:{transport:'dataforseo_scraper'},prompt,context:{market:'US',language:'en'},taskId:'us-test'});
+ assert.equal(result.remoteId,'gemini-us');
+ assert.equal(calls.filter(c=>c.method==='POST').length,1);
+ const posted=calls.find(c=>c.method==='POST').body[0];
+ assert.equal(posted.location_code,2840);assert.equal(posted.language_code,'en');assert.equal(posted.keyword,encodeURIComponent(prompt));
+ const unsupported=await client.submit({provider:'gemini',route:{transport:'dataforseo_scraper'},prompt,context:{market:'GI',language:'en'},taskId:'gi-test'});
+ assert.equal(unsupported.result.status,'unsupported_context');
+ assert.equal(calls.filter(c=>c.method==='POST').length,1);
+});
