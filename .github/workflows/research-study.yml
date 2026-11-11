@@ -1,0 +1,24 @@
+# Registration only. No automatic triggers, secrets, checkout or paid work.
+name: Isolated model-agreement research
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        type: choice
+        options: [validate, storage-check, init, qualify, round]
+        default: validate
+      round_number:
+        type: choice
+        options: ['1', '2', '3']
+        default: '1'
+      diagnostic_id:
+        type: string
+        default: ''
+permissions:
+  contents: read
+jobs:
+  inactive-registration:
+    if: ${{ false }}
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo 'Use only the reviewed protected research branch.'
