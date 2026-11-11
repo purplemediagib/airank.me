@@ -102,7 +102,11 @@ def validate(m,prompts,slots,live=False,now=None,qualification=False):
         ordered=sorted(windows,key=lambda x:x['round'])
         if any(utc_epoch(a['end_utc'])>=utc_epoch(b['start_utc']) for a,b in zip(ordered,ordered[1:])):raise RuntimeError('Overlapping rounds')
     for ep,c in m['endpoints'].items():
-        if not c.get('model') or not c.get('allowed_models') or c.get('bound_verified') is not True or not c.get('bound_evidence'):raise RuntimeError('Unverified route/bound '+ep)
+        operational=ep=='openai_api' and c.get('guard_mode')=='account_operational'
+        if operational:
+            if c.get('account_guard_reviewed') is not True or not c.get('account_guard_evidence') or c.get('bound_verified') is not False:raise RuntimeError('Operational account guard unreviewed')
+        elif c.get('bound_verified') is not True or not c.get('bound_evidence'):raise RuntimeError('Unverified route/bound '+ep)
+        if not c.get('model') or not c.get('allowed_models'):raise RuntimeError('Unverified model route '+ep)
         if type(c.get('reservation_micro_usd'))!=int or not 0<c['reservation_micro_usd']<=caps[0]:raise RuntimeError('Invalid reservation')
         if not qualification and c.get('qualified') is not True:raise RuntimeError('Unqualified endpoint '+ep)
         if type(c.get('timeout_seconds'))!=int or not 1<=c['timeout_seconds']<=300:raise RuntimeError('Unbounded timeout')
@@ -143,6 +147,12 @@ CREATE TABLE IF NOT EXISTS rounds(id INTEGER PRIMARY KEY,state TEXT NOT NULL,sta
                 if self.db.execute("SELECT COUNT(*) FROM attempts WHERE kind='diagnostic'").fetchone()[0]>=m['diagnostic_limit']:raise RuntimeError('Diagnostic pool exhausted')
             elif kind!='primary':raise ValueError('Invalid attempt kind')
             if self.summary()['committed_or_held_micro_usd']+bound>m['provider_cap_micro_usd']:raise RuntimeError('Provider cap would be exceeded')
+            c=m['endpoints'][ep];epcap=c.get('local_lifetime_cap_micro_usd')
+            if epcap is not None:
+                used=sum(r['accounted'] if r['accounted'] is not None else r['reserved'] for r in self.rows() if r['endpoint']==ep)
+                if c.get('guard_mode')=='account_operational':
+                    if used>=epcap:raise RuntimeError('Operational local account threshold exhausted')
+                elif used+bound>epcap:raise RuntimeError('Endpoint lifetime reservation would exceed cap')
             aid=f'{slot}:a{n}'
             self.db.execute('INSERT INTO attempts(id,slot,endpoint,kind,n,status,reserved,start) VALUES (?,?,?,?,?,?,?,?)',(aid,slot,ep,kind,n,'reserved',bound,now));self.db.execute('COMMIT');return aid
         except Exception:self.db.execute('ROLLBACK');raise

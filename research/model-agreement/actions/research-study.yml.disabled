@@ -7,7 +7,7 @@ on:
         description: Reviewed one-job operation; requires reviewed release and private snapshot
         required: true
         type: choice
-        options: [validate, storage-check, init, qualify, round]
+        options: [validate, storage-check, init, qualify, activate, round]
         default: validate
       round_number:
         description: Primary round number (1, 2 or 3)
@@ -71,6 +71,21 @@ jobs:
           umask 077
           export RESEARCH_DATA_DIR="$RUNNER_TEMP/model-agreement-v01"
           python3 setup_driver.py "$OPERATION"
+      - name: Promote reviewed qualification without provider credentials
+        if: inputs.operation == 'activate'
+        env:
+          RELEASE_ENABLED: ${{ vars.RESEARCH_RELEASE_ENABLED }}
+          RESEARCH_EXPECTED_HEAD_SHA256: ${{ vars.RESEARCH_EXPECTED_HEAD_SHA256 }}
+          RESEARCH_STORAGE_HOST: ${{ vars.RESEARCH_STORAGE_HOST }}
+          RESEARCH_STORAGE_ZONE: ${{ vars.RESEARCH_STORAGE_ZONE }}
+          RESEARCH_STORAGE_ACCESS_KEY: ${{ secrets.ACCESS_KEY }}
+        run: |
+          set -euo pipefail
+          umask 077
+          test "$RELEASE_ENABLED" = 'reviewed-and-enabled'
+          export RESEARCH_DATA_DIR="$RUNNER_TEMP/model-agreement-v01"
+          export RESEARCH_JOB_DEADLINE_EPOCH="$(( $(date +%s) + 9000 ))"
+          python3 job_driver.py activate
       - name: One restored finite operation
         if: inputs.operation == 'qualify' || inputs.operation == 'round'
         env:

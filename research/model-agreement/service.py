@@ -108,7 +108,7 @@ def execute(root,m,prompts,slots,slot,kind,remote,transport=adapters.http,clock=
             if accounted is None:status='unknown'
             ledger.finish(aid,status,rawpath,sha,accounted,basis,ended,error)
             storage.backup(root,ledger,remote,m)
-            return {'attempt_id':aid,'status':status,'accounted_micro_usd':accounted,'cost_basis':basis,'raw_sha256':sha,'answer_characters':len(parsed['answer']) if parsed else None}
+            return {'attempt_id':aid,'status':status,'accounted_micro_usd':accounted,'cost_basis':basis,'raw_sha256':sha,'answer_characters':len(parsed['answer']) if parsed else None,'citation_count':len(parsed['citations']) if parsed else None,'diagnostic_facts':adapters.diagnostic_facts(r)}
         finally:ledger.close()
 
 def tick(root,m,prompts,slots,remote,now=None,execute_fn=execute,selected_round=None,**kwargs):

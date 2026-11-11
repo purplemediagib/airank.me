@@ -62,3 +62,36 @@ class StorageSetupTests(unittest.TestCase):
         m=json.loads((pathlib.Path(__file__).parent/'manifest_DRAFT.json').read_text())
         self.assertEqual(adapters.reservation_bound(m['endpoints']['claude_api']),6470000)
         self.assertEqual(adapters.reservation_bound(m['endpoints']['kimi_api']),164973)
+
+class OperationalGuardTests(unittest.TestCase):
+    def config(self):return json.loads((pathlib.Path(__file__).parent/'manifest_DRAFT.json').read_text())['endpoints']['openai_api']
+    def test_operational_not_exact(self):
+        import adapters
+        c=self.config();self.assertFalse(c['bound_verified']);self.assertEqual(adapters.reservation_bound(c),10000000)
+    def test_usage_missing_search_unknown(self):
+        import adapters
+        from test_runner import response
+        with self.assertRaises(ValueError):adapters.account('openai_api',response('openai_api'),self.config())
+    def test_usage_search_explicit(self):
+        import adapters
+        from test_runner import response
+        r=response('openai_api');r['usage']['tool_usage']={'web_search':{'num_requests':3}}
+        cost,basis=adapters.account('openai_api',r,self.config());self.assertEqual(cost,30165);self.assertIn('not_invoice',basis)
+    def test_endpoint_lifetime_exhausted(self):
+        from test_runner import Fixture,T,freeze
+        f=Fixture()
+        try:
+            # Isolated ledger fixture config with fixed protocol; no network.
+            m=f.m;m['endpoints']['openai_api']['local_lifetime_cap_micro_usd']=1;freeze(m)
+            import tempfile
+            with tempfile.TemporaryDirectory() as td:
+                l=core.Ledger(pathlib.Path(td),m,True)
+                with self.assertRaises(RuntimeError):l.claim('fixture','openai_api','diagnostic',1000000,m,T)
+                l.close()
+        finally:f.tmp.cleanup()
+
+class DiagnosticOutputTests(unittest.TestCase):
+    def test_no_raw_content_or_urls(self):
+        import adapters
+        facts=adapters.diagnostic_facts({'model':'approved-model','provider':'Novita','output':[{'text':'PRIVATE ANSWER'}],'error':{'code':'rate_limit','message':'PRIVATE ERROR'},'usage':{'input_tokens':12,'secret-custom-field':'PRIVATE'},'citations':['https://private.example']})
+        blob=json.dumps(facts);self.assertNotIn('PRIVATE',blob);self.assertNotIn('https:',blob);self.assertEqual(facts['usage_numbers'],{'input_tokens':12})

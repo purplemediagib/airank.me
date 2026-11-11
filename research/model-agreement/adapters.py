@@ -1,5 +1,5 @@
 """Explicit provider adapters. Network only from an authorized invocation."""
-import copy,json,socket
+import copy,json,socket,re
 from decimal import Decimal,ROUND_CEILING
 from urllib.request import Request,build_opener,HTTPRedirectHandler
 from urllib.error import HTTPError,URLError
@@ -28,6 +28,9 @@ def http(ep,body,key,timeout):
 
 def reservation_bound(c):
     """Arithmetic verification only: reviewed unit ceilings/prices need external evidence."""
+    if c.get('guard_mode')=='account_operational':
+        if c.get('account_guard_reviewed') is not True or not c.get('account_guard_evidence') or c.get('bound_verified') is not False or c.get('account_cap_micro_usd')!=5000000 or c.get('overshoot_reserve_micro_usd')!=5000000 or c.get('reservation_micro_usd')!=10000000:raise RuntimeError('Invalid operational account guard')
+        return 10000000  # Operational exposure allowance, NOT a proven request-cost bound.
     if c.get('bound_verified') is not True or not c.get('bound_evidence') or c.get('billing_units_reviewed') is not True:raise RuntimeError('Unreviewed reservation derivation')
     price=c['price']
     input_rate=max(Decimal(str(price[k])) for k in ('input_per_million','cache_write_per_million','cache_read_per_million') if k in price)
@@ -68,7 +71,7 @@ def request(ep,prompt,c,key,transport=http):
 
 def parse(ep,r,c):
     if r.get('model') not in c['allowed_models']:raise RuntimeError('Returned model differs')
-    if ep=='kimi_api' and r.get('provider') not in c['allowed_providers']:raise RuntimeError('Returned provider differs')
+    if ep=='kimi_api' and str(r.get('provider','')).casefold() not in {v.casefold() for v in c['allowed_providers']}:raise RuntimeError('Returned provider differs')
     citations=[];texts=[];search=[];grounding='unknown';refusal=False
     if ep=='openai_api':
         outputs=r.get('output',[])
@@ -133,7 +136,8 @@ def account(ep,r,c):
         if i>c['verified_max_total_input_tokens'] or o>c['verified_max_total_output_tokens']:raise ValueError('Usage exceeds qualified bound')
         return micro(u['cost']),'provider_reported_charge'
     i,o=tokens(u,'input_tokens'),tokens(u,'output_tokens')
-    if i>c['verified_max_total_input_tokens'] or o>c['verified_max_total_output_tokens']:raise ValueError('Usage exceeds qualified bound')
+    operational=ep=='openai_api' and c.get('guard_mode')=='account_operational'
+    if not operational and (i>c['verified_max_total_input_tokens'] or o>c['verified_max_total_output_tokens']):raise ValueError('Usage exceeds qualified bound')
     price=c['price'];cost=Decimal(i)*Decimal(str(price['input_per_million']))/1000000+Decimal(o)*Decimal(str(price['output_per_million']))/1000000
     if ep=='claude_api':
         total_input=i
@@ -147,8 +151,24 @@ def account(ep,r,c):
         if total_input>c['verified_max_total_input_tokens']:raise ValueError('Total cache plus input exceeds bound')
         server=u.get('server_tool_use',{});calls=server.get('web_search_requests')
         if type(calls)!=int or calls<0 or calls>c['verified_max_search_calls']:raise ValueError('Missing/unbounded Claude search usage')
+    elif operational:
+        calls=u.get('tool_usage',{}).get('web_search',{}).get('num_requests')
+        if type(calls)!=int or calls<0:raise ValueError('Operational search billing units missing; reconcile dashboard before resuming')
     else:
         # Charge maximum permitted searches conservatively; raw search telemetry may omit billing units.
         calls=c['verified_max_search_calls']
     cost+=Decimal(calls)*Decimal(str(price['search_per_call']))
-    return micro(cost),'conservative_usage_upper_bound'
+    return micro(cost),('reported_token_and_search_units_at_reviewed_rates_not_invoice' if operational else 'conservative_usage_upper_bound')
+
+
+def diagnostic_facts(r):
+    """Allowlisted telemetry only; never response text, URL, error message, or request ID."""
+    def label(v):return v if isinstance(v,str) and re.fullmatch(r'[A-Za-z0-9_./: -]{1,100}',v) else None
+    u=r.get('usage') if isinstance(r.get('usage'),dict) else {}
+    names=('input_tokens','output_tokens','prompt_tokens','completion_tokens','cache_creation_input_tokens','cache_read_input_tokens','cost','server_tool_use','tool_usage')
+    facts={'returned_model':label(r.get('model')),'returned_provider':label(r.get('provider')),'provider_status':label(r.get('status')),'stop_reason':label(r.get('stop_reason')),'usage_fields_present':[k for k in names if k in u]}
+    if isinstance(r.get('choices'),list) and r['choices']:facts['finish_reason']=label(r['choices'][0].get('finish_reason'))
+    if isinstance(r.get('error'),dict):facts['provider_error_code']=label(r['error'].get('code'))
+    facts['usage_numbers']={k:u[k] for k in names[:6] if type(u.get(k))==int and u[k]>=0}
+    if type(u.get('cost')) in (int,float) and 0<=u['cost']<100000:facts['provider_reported_cost_usd']=u['cost']
+    return facts

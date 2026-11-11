@@ -24,7 +24,7 @@ def main():
     if os.environ.get('RESEARCH_INIT_ENABLED')!='reviewed-once':raise RuntimeError('Init approval gate closed')
     m,prompts,slots=service.load(str(pathlib.Path(__file__).parent/'manifest_RELEASE.json'))
     initialize(pathlib.Path(os.environ['RESEARCH_DATA_DIR']),m,prompts,slots,remote)
-    print(json.dumps({'initialized':True,'paid_calls':0}))
+    print(json.dumps({'initialized':True,'paid_calls':0,'next_expected_head_sha256':core.digest(core.canonical(remote.head()))}))
 if __name__=='__main__':
     try:main()
     except Exception as e:

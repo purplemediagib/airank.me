@@ -17,7 +17,7 @@ def run_round(root,m,prompts,slots,remote,round_id,deadline,clock=time.time,slee
 
 def main():
     os.umask(0o077)
-    a=argparse.ArgumentParser();a.add_argument('operation',choices=['qualify','round']);a.add_argument('--round',type=int);a.add_argument('--diagnostic-id');args=a.parse_args()
+    a=argparse.ArgumentParser();a.add_argument('operation',choices=['qualify','round','activate']);a.add_argument('--round',type=int);a.add_argument('--diagnostic-id');args=a.parse_args()
     # Job supplies a fixed deadline from its start, never reset after restore.
     deadline=float(os.environ['RESEARCH_JOB_DEADLINE_EPOCH'])
     if not time.time()<deadline<=time.time()+150*60:raise RuntimeError('Invalid finite job deadline')
@@ -25,14 +25,19 @@ def main():
     core.validate(m,prompts,slots,True,time.time(),args.operation=='qualify')
     remote=storage.from_env();root=pathlib.Path(os.environ['RESEARCH_DATA_DIR'])
     recovery.restore(root,m,remote,os.environ['RESEARCH_EXPECTED_HEAD_SHA256'])
-    service.verify_inputs(root,m,prompts,slots)
+    if args.operation=='activate':
+        result=service.activate(root,m,prompts,slots,remote)
+    else:service.verify_inputs(root,m,prompts,slots)
     if args.operation=='round':result=run_round(root,m,prompts,slots,remote,args.round,deadline)
-    else:
+    elif args.operation=='qualify':
         slot=next((s for s in m['diagnostic_slots'] if s['slot_id']==args.diagnostic_id),None)
         if slot is None:raise RuntimeError('Approved diagnostic identity required')
         result=service.execute(root,m,prompts,slots,slot,'diagnostic',remote,dispatch_deadline=deadline)
     # No raw evidence or provider response printed. Full outcome lives in private snapshot.
-    print(json.dumps({'state':result.get('state',result.get('status')),'paid_execution_attempted':True}))
+    ledger=core.Ledger(root,m)
+    try:summary=ledger.summary()
+    finally:ledger.close()
+    print(json.dumps({'state':result.get('state',result.get('status','activated' if result.get('activated') else None)),'paid_execution_attempted':args.operation!='activate','summary':summary,'accounted_micro_usd':result.get('accounted_micro_usd'),'cost_basis':result.get('cost_basis'),'answer_characters':result.get('answer_characters'),'citation_count':result.get('citation_count'),'diagnostic_facts':result.get('diagnostic_facts'),'next_expected_head_sha256':core.digest(core.canonical(remote.head()))}))
 if __name__=='__main__':
     try:main()
     except Exception as e:
