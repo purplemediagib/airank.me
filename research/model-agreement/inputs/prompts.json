@@ -1,142 +1,142 @@
 [
   {
-    "prompt_id": "ACC01",
-    "sector": "Accounting",
-    "text": "Which accounting firms would you recommend to a small business operating in Finland? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
-    "provenance": "Original language-study English prompt; retained verbatim",
-    "review_status": "draft_for_protocol_review"
+    "prompt_id": "HOT01",
+    "sector": "Hotels and accommodation",
+    "text": "Which hotel chains would you recommend for a holiday in Finland? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
+    "provenance": "Fresh five-sector panel approved 11 November 2026; isolated from original Finland language study",
+    "review_status": "user_approved_2026-11-11"
   },
   {
-    "prompt_id": "ACC02",
-    "sector": "Accounting",
-    "text": "Which accounting firms would you recommend to a company with 10 employees operating in Finland that needs outsourced bookkeeping and payroll? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
-    "provenance": "Original language-study English prompt; retained verbatim",
-    "review_status": "draft_for_protocol_review"
+    "prompt_id": "HOT02",
+    "sector": "Hotels and accommodation",
+    "text": "Which hotels would you recommend for a family visiting Helsinki with two young children? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
+    "provenance": "Fresh five-sector panel approved 11 November 2026; isolated from original Finland language study",
+    "review_status": "user_approved_2026-11-11"
   },
   {
-    "prompt_id": "ACC03",
-    "sector": "Accounting",
-    "text": "Which accounting firms would you recommend to an online retailer operating in Finland that needs bookkeeping integrated with its online store? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
-    "provenance": "Original language-study English prompt; retained verbatim",
-    "review_status": "draft_for_protocol_review"
+    "prompt_id": "HOT03",
+    "sector": "Hotels and accommodation",
+    "text": "Which hotels would you recommend for a business trip to Tampere if I need a quiet room and reliable Wi-Fi? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
+    "provenance": "Fresh five-sector panel approved 11 November 2026; isolated from original Finland language study",
+    "review_status": "user_approved_2026-11-11"
   },
   {
-    "prompt_id": "ACC04",
-    "sector": "Accounting",
-    "text": "Which accounting firms would you recommend to a small business in Tampere, Finland, that wants the option of in-person meetings? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
-    "provenance": "Original language-study English prompt; retained verbatim",
-    "review_status": "draft_for_protocol_review"
+    "prompt_id": "HOT04",
+    "sector": "Hotels and accommodation",
+    "text": "Which hotels would you recommend in Rovaniemi for a winter trip without renting a car? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
+    "provenance": "Fresh five-sector panel approved 11 November 2026; isolated from original Finland language study",
+    "review_status": "user_approved_2026-11-11"
   },
   {
-    "prompt_id": "ACC05",
-    "sector": "Accounting",
-    "text": "Which accounting firms would you recommend to a new limited company operating in Finland that needs help setting up bookkeeping and tax reporting? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
-    "provenance": "New draft question",
-    "review_status": "draft_for_protocol_review"
+    "prompt_id": "GYM01",
+    "sector": "Gyms and fitness",
+    "text": "Which gym chains would you recommend in Finland? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
+    "provenance": "Fresh five-sector panel approved 11 November 2026; isolated from original Finland language study",
+    "review_status": "user_approved_2026-11-11"
   },
   {
-    "prompt_id": "ACC06",
-    "sector": "Accounting",
-    "text": "Which accounting firms would you recommend to a small professional services business operating in Finland that needs monthly management accounts and cash-flow reporting? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
-    "provenance": "New draft question",
-    "review_status": "draft_for_protocol_review"
+    "prompt_id": "GYM02",
+    "sector": "Gyms and fitness",
+    "text": "Which gyms would you recommend in Helsinki for a beginner who wants help getting started? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
+    "provenance": "Fresh five-sector panel approved 11 November 2026; isolated from original Finland language study",
+    "review_status": "user_approved_2026-11-11"
   },
   {
-    "prompt_id": "ACC07",
-    "sector": "Accounting",
-    "text": "Which accounting firms would you recommend to a business operating in Finland with both Finnish and international customers that needs VAT reporting support? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
-    "provenance": "New draft question",
-    "review_status": "draft_for_protocol_review"
+    "prompt_id": "GYM03",
+    "sector": "Gyms and fitness",
+    "text": "Which gyms would you recommend in Tampere if I want a membership without a long-term commitment? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
+    "provenance": "Fresh five-sector panel approved 11 November 2026; isolated from original Finland language study",
+    "review_status": "user_approved_2026-11-11"
   },
   {
-    "prompt_id": "IT01",
-    "sector": "Managed IT",
-    "text": "Which managed IT service providers would you recommend to a small business operating in Finland? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
-    "provenance": "Original language-study English prompt; retained verbatim",
-    "review_status": "draft_for_protocol_review"
+    "prompt_id": "GYM04",
+    "sector": "Gyms and fitness",
+    "text": "Which gyms would you recommend in Turku if I need to train early in the morning or late at night? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
+    "provenance": "Fresh five-sector panel approved 11 November 2026; isolated from original Finland language study",
+    "review_status": "user_approved_2026-11-11"
   },
   {
-    "prompt_id": "IT02",
-    "sector": "Managed IT",
-    "text": "Which IT service providers would you recommend to a company with 20 employees operating in Finland that needs outsourced day-to-day IT support? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
-    "provenance": "Original language-study English prompt; retained verbatim",
-    "review_status": "draft_for_protocol_review"
+    "prompt_id": "CLN01",
+    "sector": "Home cleaning",
+    "text": "Which home cleaning companies would you recommend in Finland? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
+    "provenance": "Fresh five-sector panel approved 11 November 2026; isolated from original Finland language study",
+    "review_status": "user_approved_2026-11-11"
   },
   {
-    "prompt_id": "IT03",
-    "sector": "Managed IT",
-    "text": "Which IT service providers would you recommend to a small business operating in Finland that needs ongoing Microsoft 365 administration and employee device management? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
-    "provenance": "Original language-study English prompt; retained verbatim",
-    "review_status": "draft_for_protocol_review"
+    "prompt_id": "CLN02",
+    "sector": "Home cleaning",
+    "text": "Which cleaning companies would you recommend for regular cleaning of a family home in Espoo? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
+    "provenance": "Fresh five-sector panel approved 11 November 2026; isolated from original Finland language study",
+    "review_status": "user_approved_2026-11-11"
   },
   {
-    "prompt_id": "IT04",
-    "sector": "Managed IT",
-    "text": "Which managed IT service providers would you recommend to a small business in Turku, Finland, that needs on-site support when necessary? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
-    "provenance": "Original language-study English prompt; retained verbatim",
-    "review_status": "draft_for_protocol_review"
+    "prompt_id": "CLN03",
+    "sector": "Home cleaning",
+    "text": "Which cleaning companies would you recommend for an end-of-tenancy clean of an apartment in Tampere? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
+    "provenance": "Fresh five-sector panel approved 11 November 2026; isolated from original Finland language study",
+    "review_status": "user_approved_2026-11-11"
   },
   {
-    "prompt_id": "IT05",
-    "sector": "Managed IT",
-    "text": "Which IT service providers would you recommend to a small business operating in Finland that needs managed backups and disaster recovery? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
-    "provenance": "New draft question",
-    "review_status": "draft_for_protocol_review"
+    "prompt_id": "CLN04",
+    "sector": "Home cleaning",
+    "text": "Which home cleaning companies would you recommend in Helsinki if I want to book and manage visits online? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
+    "provenance": "Fresh five-sector panel approved 11 November 2026; isolated from original Finland language study",
+    "review_status": "user_approved_2026-11-11"
   },
   {
-    "prompt_id": "IT06",
-    "sector": "Managed IT",
-    "text": "Which IT service providers would you recommend to a company operating in Finland with remote employees that needs device security and user support? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
-    "provenance": "New draft question",
-    "review_status": "draft_for_protocol_review"
+    "prompt_id": "COW01",
+    "sector": "Coworking and offices",
+    "text": "Which coworking providers would you recommend in Finland? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
+    "provenance": "Fresh five-sector panel approved 11 November 2026; isolated from original Finland language study",
+    "review_status": "user_approved_2026-11-11"
   },
   {
-    "prompt_id": "IT07",
-    "sector": "Managed IT",
-    "text": "Which IT service providers would you recommend to a small business operating in Finland that needs help moving its existing systems to cloud services? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
-    "provenance": "New draft question",
-    "review_status": "draft_for_protocol_review"
+    "prompt_id": "COW02",
+    "sector": "Coworking and offices",
+    "text": "Which coworking spaces would you recommend in Helsinki for a freelancer who needs occasional meeting rooms? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
+    "provenance": "Fresh five-sector panel approved 11 November 2026; isolated from original Finland language study",
+    "review_status": "user_approved_2026-11-11"
   },
   {
-    "prompt_id": "MKT01",
-    "sector": "Marketing agencies",
-    "text": "Which digital marketing agencies would you recommend to a small business operating in Finland? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
-    "provenance": "Original language-study English prompt; retained verbatim",
-    "review_status": "draft_for_protocol_review"
+    "prompt_id": "COW03",
+    "sector": "Coworking and offices",
+    "text": "Which flexible office providers would you recommend in Espoo for a five-person business that does not want a long lease? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
+    "provenance": "Fresh five-sector panel approved 11 November 2026; isolated from original Finland language study",
+    "review_status": "user_approved_2026-11-11"
   },
   {
-    "prompt_id": "MKT02",
-    "sector": "Marketing agencies",
-    "text": "Which digital marketing agencies would you recommend to a company with 20 employees operating in Finland that needs an outsourced marketing partner? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
-    "provenance": "Original language-study English prompt; retained verbatim",
-    "review_status": "draft_for_protocol_review"
+    "prompt_id": "COW04",
+    "sector": "Coworking and offices",
+    "text": "Which coworking spaces would you recommend in Tampere for someone who only needs a desk two days a week? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
+    "provenance": "Fresh five-sector panel approved 11 November 2026; isolated from original Finland language study",
+    "review_status": "user_approved_2026-11-11"
   },
   {
-    "prompt_id": "MKT03",
-    "sector": "Marketing agencies",
-    "text": "Which marketing agencies would you recommend to a B2B software company operating in Finland that needs search engine optimization and content marketing? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
-    "provenance": "Original language-study English prompt; retained verbatim",
-    "review_status": "draft_for_protocol_review"
+    "prompt_id": "PAR01",
+    "sector": "Parcel delivery and logistics",
+    "text": "Which parcel delivery companies would you recommend to a small online shop operating in Finland? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
+    "provenance": "Fresh five-sector panel approved 11 November 2026; isolated from original Finland language study",
+    "review_status": "user_approved_2026-11-11"
   },
   {
-    "prompt_id": "MKT04",
-    "sector": "Marketing agencies",
-    "text": "Which digital marketing agencies would you recommend to a small business in Helsinki, Finland, that wants the option of in-person planning meetings? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
-    "provenance": "Original language-study English prompt; retained verbatim",
-    "review_status": "draft_for_protocol_review"
+    "prompt_id": "PAR02",
+    "sector": "Parcel delivery and logistics",
+    "text": "Which delivery companies would you recommend to a Finnish online shop that wants customers to collect orders from parcel lockers? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
+    "provenance": "Fresh five-sector panel approved 11 November 2026; isolated from original Finland language study",
+    "review_status": "user_approved_2026-11-11"
   },
   {
-    "prompt_id": "MKT05",
-    "sector": "Marketing agencies",
-    "text": "Which digital marketing agencies would you recommend to an online retailer operating in Finland that needs paid search management and conversion measurement? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
-    "provenance": "New draft question",
-    "review_status": "draft_for_protocol_review"
+    "prompt_id": "PAR03",
+    "sector": "Parcel delivery and logistics",
+    "text": "Which delivery companies would you recommend to a small business in Finland sending parcels to customers elsewhere in the EU? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
+    "provenance": "Fresh five-sector panel approved 11 November 2026; isolated from original Finland language study",
+    "review_status": "user_approved_2026-11-11"
   },
   {
-    "prompt_id": "MKT06",
-    "sector": "Marketing agencies",
-    "text": "Which digital marketing agencies would you recommend to a professional services business operating in Finland that wants to generate qualified enquiries through its website? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
-    "provenance": "New draft question",
-    "review_status": "draft_for_protocol_review"
+    "prompt_id": "PAR04",
+    "sector": "Parcel delivery and logistics",
+    "text": "Which courier companies would you recommend to a Helsinki business that needs same-day deliveries within the city? Recommend up to five suitable providers and briefly explain each recommendation. Include sources where available. Do not invent providers. If you cannot recommend any, say so. Answer in English.",
+    "provenance": "Fresh five-sector panel approved 11 November 2026; isolated from original Finland language study",
+    "review_status": "user_approved_2026-11-11"
   }
 ]

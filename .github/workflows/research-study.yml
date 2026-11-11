@@ -1,0 +1,100 @@
+# Manual only; paid operations remain gated off until qualification and review.
+name: Isolated model-agreement research
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Reviewed one-job operation; requires reviewed release and private snapshot
+        required: true
+        type: choice
+        options: [validate, storage-check, init, qualify, round]
+        default: validate
+      round_number:
+        description: Primary round number (1, 2 or 3)
+        type: choice
+        options: ['1', '2', '3']
+        default: '1'
+      diagnostic_id:
+        description: Exact approved diagnostic slot ID (qualification only)
+        type: string
+        default: ''
+permissions:
+  contents: read
+concurrency:
+  group: research-model-agreement-v01
+  cancel-in-progress: false
+jobs:
+  study:
+    # This policy deliberately excludes private repos and self-hosted/larger runners.
+    if: github.event.repository.private == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    environment: airank-research-model-agreement-v01
+    defaults:
+      run:
+        shell: bash
+        working-directory: research/model-agreement
+    steps:
+      - name: Checkout only reviewed study code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # official v4.2.2
+        with:
+          persist-credentials: false
+          sparse-checkout: research/model-agreement
+          sparse-checkout-cone-mode: false
+          submodules: false
+          lfs: false
+          fetch-depth: 1
+      - name: Check immutable reviewed code revision
+        env:
+          APPROVED_SHA: ${{ vars.RESEARCH_APPROVED_COMMIT_SHA }}
+        run: |
+          set -euo pipefail
+          test "${#APPROVED_SHA}" = 40
+          test "$GITHUB_SHA" = "$APPROVED_SHA"
+          test "$(git rev-parse HEAD)" = "$APPROVED_SHA"
+      - name: Offline validation only
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 -m unittest -q test_runner test_shutdown test_recovery test_panel
+          python3 service.py validate
+      - name: Nonpaid private storage setup
+        if: inputs.operation == 'storage-check' || inputs.operation == 'init'
+        env:
+          RESEARCH_INIT_ENABLED: ${{ vars.RESEARCH_INIT_ENABLED }}
+          RESEARCH_STORAGE_HOST: ${{ vars.RESEARCH_STORAGE_HOST }}
+          RESEARCH_STORAGE_ZONE: ${{ vars.RESEARCH_STORAGE_ZONE }}
+          RESEARCH_STORAGE_ACCESS_KEY: ${{ secrets.ACCESS_KEY }}
+          OPERATION: ${{ inputs.operation }}
+        run: |
+          set -euo pipefail
+          umask 077
+          export RESEARCH_DATA_DIR="$RUNNER_TEMP/model-agreement-v01"
+          python3 setup_driver.py "$OPERATION"
+      - name: One restored finite operation
+        if: inputs.operation == 'qualify' || inputs.operation == 'round'
+        env:
+          RELEASE_ENABLED: ${{ vars.RESEARCH_RELEASE_ENABLED }}
+          RESEARCH_EXPECTED_HEAD_SHA256: ${{ vars.RESEARCH_EXPECTED_HEAD_SHA256 }}
+          RESEARCH_STORAGE_HOST: ${{ vars.RESEARCH_STORAGE_HOST }}
+          RESEARCH_STORAGE_ZONE: ${{ vars.RESEARCH_STORAGE_ZONE }}
+          RESEARCH_STORAGE_ACCESS_KEY: ${{ secrets.ACCESS_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPERATION: ${{ inputs.operation }}
+          ROUND_NUMBER: ${{ inputs.round_number }}
+          DIAGNOSTIC_ID: ${{ inputs.diagnostic_id }}
+        run: |
+          set -euo pipefail
+          umask 077
+          test "$RELEASE_ENABLED" = 'reviewed-and-enabled'
+          export RESEARCH_DATA_DIR="$RUNNER_TEMP/model-agreement-v01"
+          export RESEARCH_JOB_DEADLINE_EPOCH="$(( $(date +%s) + 9000 ))"
+          if [ "$OPERATION" = 'round' ]; then
+            python3 job_driver.py round --round "$ROUND_NUMBER"
+          elif [ "$OPERATION" = 'qualify' ]; then
+            python3 job_driver.py qualify --diagnostic-id "$DIAGNOSTIC_ID"
+          else
+            exit 2
+          fi

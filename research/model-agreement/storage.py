@@ -18,7 +18,7 @@ class Remote:
         if study_id!=STUDY or not re.fullmatch(r'[A-Za-z0-9_-]+',zone or '') or not re.fullmatch(r'(?:[a-z]{2}\.)?storage\.bunnycdn\.com',host or '') or not key:raise ValueError('Invalid private storage setup')
         self.base=f'https://{host}/{zone}/{study_id}/';self.key=key;self.transport=transport or self.http
     def http(self,method,name,data=None):
-        if not re.fullmatch(r'[a-zA-Z0-9_.-]+',name):raise ValueError('Unsafe backup key')
+        if name and not re.fullmatch(r'[a-zA-Z0-9_.-]+',name):raise ValueError('Unsafe backup key')
         req=Request(self.base+name,data,{'AccessKey':self.key,'Content-Type':'application/octet-stream'},method=method)
         try:
             with build_opener(NoRedirect).open(req,timeout=45) as r:return r.status,r.read()
@@ -35,6 +35,17 @@ class Remote:
         if immutable and old is not None:
             if old!=data:raise RuntimeError('Immutable remote object differs')
             return
+        # Reserve cumulative uploaded bytes before writing; orphan snapshots still count.
+        # One writer externally enforced. Budget object is never auto-created during resumed work.
+        budget_raw=self.get('storage-budget.json')
+        if budget_raw is None:raise RuntimeError('Private storage budget missing')
+        budget=json.loads(budget_raw)
+        if budget.get('study_id')!=STUDY or budget.get('limit_bytes')!=1000000000:raise RuntimeError('Storage budget identity differs')
+        new_budget=dict(budget,committed_bytes=budget['committed_bytes']+len(data)+4096)
+        if new_budget['committed_bytes']>budget['limit_bytes']:raise RuntimeError('Storage 1GB cumulative upload bound reached')
+        encoded=canonical(new_budget)
+        status,_=self.transport('PUT','storage-budget.json',encoded)
+        if status not in (200,201,204) or self.get('storage-budget.json')!=encoded:raise RuntimeError('Storage reservation unverified')
         status,_=self.transport('PUT',name,data)
         if status not in (200,201,204):raise RuntimeError('Storage PUT failed')
         if self.get(name)!=data:raise RuntimeError('Storage readback failed')
@@ -53,6 +64,10 @@ class Remote:
     def initialize_marker(self,m):
         expected=canonical({'study_id':STUDY,'provider_cap_micro_usd':m['provider_cap_micro_usd'],'protocol_sha256':protocol_hash(m)})
         if self.get('study-marker.json') is not None or self.head() is not None:raise RuntimeError('Remote study already exists; restore, do not initialize')
+        if self.get('storage-budget.json') is not None:raise RuntimeError('Storage budget already exists; do not reset')
+        budget=canonical({'study_id':STUDY,'limit_bytes':1000000000,'committed_bytes':4096})
+        status,_=self.transport('PUT','storage-budget.json',budget)
+        if status not in (200,201,204) or self.get('storage-budget.json')!=budget:raise RuntimeError('Initial storage budget unverified')
         self.put_verified('study-marker.json',expected)
 
 def backup(root,ledger,remote,m,initial=False):

@@ -7,8 +7,8 @@
   "provider_cap_micro_usd": 30000000,
   "hosting_bound_micro_usd": 5000000,
   "contingency_micro_usd": 5000000,
-  "prompt_hash": "cd4c49a65a10053817b71ac745c57ca7f8fdefda026bf9585a9139ba5eed50e3",
-  "schedule_hash": "053d894f8b0df57e6b806215f64b5298d18892bc095c303d4dbb64a0c2980e9c",
+  "prompt_hash": "d0e420cda4d26af3571deee38cf04af4321e7b979d876bba455969acc6174efd",
+  "schedule_hash": "1d077b724f2f511d193efe7bc9bcb1b308071d19343870bf97f6504a6e61f6dd",
   "spend_approved": true,
   "storage_setup_approved": true,
   "protocol_frozen": false,
@@ -21,25 +21,44 @@
   "qualification_enabled": false,
   "schedule_enabled": false,
   "qualification_review_approved": false,
-  "execution_expires_at_utc": null,
-  "rounds": [],
+  "execution_expires_at_utc": "2026-11-18T03:00:00Z",
+  "rounds": [
+    {
+      "round": 1,
+      "start_utc": "2026-11-12T01:00:00Z",
+      "end_utc": "2026-11-12T03:00:00Z",
+      "start_grace_seconds": 600
+    },
+    {
+      "round": 2,
+      "start_utc": "2026-11-14T01:00:00Z",
+      "end_utc": "2026-11-14T03:00:00Z",
+      "start_grace_seconds": 600
+    },
+    {
+      "round": 3,
+      "start_utc": "2026-11-18T01:00:00Z",
+      "end_utc": "2026-11-18T03:00:00Z",
+      "start_grace_seconds": 600
+    }
+  ],
   "diagnostic_limit": 9,
   "retry_limit": 18,
   "diagnostic_slots": [
     {
-      "slot_id": "model-agreement-v01:diagnostic:claude_api:ACC01",
+      "slot_id": "model-agreement-v01:diagnostic:claude_api:HOT01",
       "endpoint": "claude_api",
-      "prompt_id": "ACC01"
+      "prompt_id": "HOT01"
     },
     {
-      "slot_id": "model-agreement-v01:diagnostic:kimi_api:ACC01",
+      "slot_id": "model-agreement-v01:diagnostic:kimi_api:HOT01",
       "endpoint": "kimi_api",
-      "prompt_id": "ACC01"
+      "prompt_id": "HOT01"
     },
     {
-      "slot_id": "model-agreement-v01:diagnostic:openai_api:ACC01",
+      "slot_id": "model-agreement-v01:diagnostic:openai_api:HOT01",
       "endpoint": "openai_api",
-      "prompt_id": "ACC01"
+      "prompt_id": "HOT01"
     }
   ],
   "endpoints": {
@@ -68,59 +87,112 @@
         "country": "FI"
       },
       "location_support": "qualification_required",
-      "require_location_echo": false
+      "require_location_echo": false,
+      "billing_units_reviewed": false,
+      "verified_extra_cost_usd": null
     },
     "kimi_api": {
       "surface": "API, not consumer application",
       "candidate_model": "moonshotai/kimi-k2.5",
-      "model": null,
-      "allowed_models": [],
+      "model": "moonshotai/kimi-k2.5",
+      "allowed_models": [
+        "moonshotai/kimi-k2.5"
+      ],
       "provider": "novita",
-      "allowed_providers": [],
+      "allowed_providers": [
+        "novita"
+      ],
       "qualified": false,
-      "bound_verified": false,
-      "bound_evidence": null,
-      "reservation_micro_usd": null,
-      "request_parameters": null,
-      "price": null,
+      "bound_verified": true,
+      "bound_evidence": "Parent pricing review 2026-11-11:262144input*.57/M+3000output*2.85/M+single Exa plugin<=10results0.007USD=0.16497208. All reasoning within max_tokens,one completion,no fallback. Actual provider response identifier and usage.cost inclusion require qualification.",
+      "reservation_micro_usd": 250000,
+      "request_parameters": {
+        "max_tokens": 3000,
+        "plugins": [
+          {
+            "id": "web",
+            "engine": "exa",
+            "max_results": 10
+          }
+        ]
+      },
+      "price": {
+        "input_per_million": 0.57,
+        "output_per_million": 2.85,
+        "search_per_call": 0
+      },
       "timeout_seconds": 300,
-      "max_prompt_bytes": null,
-      "verified_max_output_tokens": null,
-      "verified_max_total_input_tokens": null,
-      "verified_max_total_output_tokens": null,
-      "verified_max_search_calls": null,
+      "max_prompt_bytes": 8000,
+      "verified_max_output_tokens": 3000,
+      "verified_max_total_input_tokens": 262144,
+      "verified_max_total_output_tokens": 3000,
+      "verified_max_search_calls": 1,
       "usage_cost_verified_all_in": false,
       "requested_location": null,
       "location_support": "prompt_only_Exa_no_native_location",
-      "require_location_echo": false
+      "require_location_echo": false,
+      "billing_units_reviewed": true,
+      "verified_extra_cost_usd": 0.007,
+      "verified_max_search_results": 10
     },
     "claude_api": {
       "surface": "API, not consumer application",
-      "candidate_model": "claude-sonnet-5-5",
-      "model": null,
-      "allowed_models": [],
+      "candidate_model": "claude-sonnet-4-5-20250929",
+      "model": "claude-sonnet-4-5-20250929",
+      "allowed_models": [
+        "claude-sonnet-4-5-20250929"
+      ],
       "provider": null,
       "allowed_providers": [],
       "qualified": false,
-      "bound_verified": false,
-      "bound_evidence": null,
-      "reservation_micro_usd": null,
-      "request_parameters": null,
-      "price": null,
+      "bound_verified": true,
+      "bound_evidence": "Parent pricing review 2026-11-11: Sonnet4.5 200k context,10 server iterations =>2M total input;3k output per iteration=>30k;2searches. No explicit caching; pricing3/15 USD per million,0.01 persearch. Qualification pending.",
+      "reservation_micro_usd": 7000000,
+      "request_parameters": {
+        "max_tokens": 3000,
+        "tools": [
+          {
+            "type": "web_search_20250305",
+            "name": "web_search",
+            "max_uses": 2,
+            "user_location": {
+              "type": "approximate",
+              "country": "FI"
+            }
+          }
+        ]
+      },
+      "price": {
+        "input_per_million": 3,
+        "output_per_million": 15,
+        "search_per_call": 0.01
+      },
       "timeout_seconds": 180,
-      "max_prompt_bytes": null,
-      "verified_max_output_tokens": null,
-      "verified_max_total_input_tokens": null,
-      "verified_max_total_output_tokens": null,
-      "verified_max_search_calls": null,
+      "max_prompt_bytes": 8000,
+      "verified_max_output_tokens": 3000,
+      "verified_max_total_input_tokens": 2000000,
+      "verified_max_total_output_tokens": 30000,
+      "verified_max_search_calls": 2,
       "usage_cost_verified_all_in": false,
       "requested_location": {
         "type": "approximate",
         "country": "FI"
       },
       "location_support": "qualification_required",
-      "require_location_echo": false
+      "require_location_echo": false,
+      "billing_units_reviewed": true,
+      "verified_extra_cost_usd": 0,
+      "verified_search_tool_type": "web_search_20250305"
     }
   },
-  "manifest_sha256": "f91e086dcddd990ddea4a20097fe858e88e0ff96211753722a6c48f235b5d97a"
+  "manifest_sha256": "b396b7995a90d7fedd29d88e5f8f1f0e5b67689afed7d68c0adffeba36e81acf",
+  "storage_policy": {
+    "maximum_cumulative_uploaded_bytes": 1000000000,
+    "region": "Stockholm",
+    "price_usd_per_gb_month": 0.01,
+    "retention_days_proposed": 180,
+    "retention_end_verified": false,
+    "delete_authorized": false,
+    "note": "No automatic delete; retention charge remains until verified end/copy and authority. Bound excludes unverified minimum fees/tax."
+  }
 }

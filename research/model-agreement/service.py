@@ -54,13 +54,14 @@ def activate(root,new,prompts,slots,remote,now=None):
             return {'activated':True,'paid_calls':0,'prior_attempts_retained':ledger.summary()['attempts']}
         finally:ledger.close()
 
-def execute(root,m,prompts,slots,slot,kind,remote,transport=adapters.http,clock=time.time,key_loader=None):
+def execute(root,m,prompts,slots,slot,kind,remote,transport=adapters.http,clock=time.time,key_loader=None,dispatch_deadline=None):
     now=clock();qualification=kind=='diagnostic';core.validate(m,prompts,slots,True,now,qualification)
     root=check_root(root);ep=slot['endpoint'];c=m['endpoints'][ep]
     if kind=='primary' and slot not in slots:raise RuntimeError('Unknown primary slot')
     if kind=='diagnostic':
         approved=m.get('diagnostic_slots',[])
         if slot not in approved or not slot['slot_id'].startswith(core.STUDY+':diagnostic:'):raise RuntimeError('Unapproved diagnostic slot')
+    adapters.reservation_bound(c)  # verify reviewed units fit reservation before claiming or dispatch
     prompt=next(p['text'] for p in prompts if p['prompt_id']==slot['prompt_id'])
     with core.locked(root):
         verify_inputs(root,m,prompts,slots);remote.verify(root,m);ledger=core.Ledger(root,m)
@@ -73,6 +74,7 @@ def execute(root,m,prompts,slots,slot,kind,remote,transport=adapters.http,clock=
             started=clock()
             # Storage upload/readback may be slow. Recheck immediately before the paid dispatch.
             deadline=core.utc_epoch(m['execution_expires_at_utc'])
+            if dispatch_deadline is not None:deadline=min(deadline,dispatch_deadline)
             if kind=='primary':
                 window=next(w for w in m['rounds'] if w['round']==slot['round'])
                 deadline=min(deadline,core.utc_epoch(window['end_utc']))
@@ -109,7 +111,7 @@ def execute(root,m,prompts,slots,slot,kind,remote,transport=adapters.http,clock=
             return {'attempt_id':aid,'status':status,'accounted_micro_usd':accounted,'cost_basis':basis,'raw_sha256':sha,'answer_characters':len(parsed['answer']) if parsed else None}
         finally:ledger.close()
 
-def tick(root,m,prompts,slots,remote,now=None,execute_fn=execute,**kwargs):
+def tick(root,m,prompts,slots,remote,now=None,execute_fn=execute,selected_round=None,**kwargs):
     now=time.time() if now is None else now;core.validate(m,prompts,slots,True,now,False)
     chosen=None
     with core.locked(root):
@@ -118,6 +120,7 @@ def tick(root,m,prompts,slots,remote,now=None,execute_fn=execute,**kwargs):
             summary=ledger.summary()
             if summary['halted'] or summary['unresolved']:return {'state':'blocked','reason':'unresolved_charge_or_halt'}
             for window in sorted(m['rounds'],key=lambda r:r['round']):
+                if selected_round is not None and window['round']!=selected_round:continue
                 start,end=core.utc_epoch(window['start_utc']),core.utc_epoch(window['end_utc']);n=window['round']
                 state=ledger.db.execute('SELECT * FROM rounds WHERE id=?',(n,)).fetchone()
                 if state and state['state'] in ('complete','missed','expired'):continue

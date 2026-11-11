@@ -26,8 +26,24 @@ def http(ep,body,key,timeout):
     except (URLError,TimeoutError,socket.timeout):raise ProviderError('timeout') from None
     except (ValueError,UnicodeDecodeError):raise ProviderError('invalid_response') from None
 
+def reservation_bound(c):
+    """Arithmetic verification only: reviewed unit ceilings/prices need external evidence."""
+    if c.get('bound_verified') is not True or not c.get('bound_evidence') or c.get('billing_units_reviewed') is not True:raise RuntimeError('Unreviewed reservation derivation')
+    price=c['price']
+    input_rate=max(Decimal(str(price[k])) for k in ('input_per_million','cache_write_per_million','cache_read_per_million') if k in price)
+    output_rate=Decimal(str(price['output_per_million']));search_rate=Decimal(str(price['search_per_call']))
+    extra=Decimal(str(c['verified_extra_cost_usd']))
+    if any(not v.is_finite() or v<0 for v in (input_rate,output_rate,search_rate,extra)):raise RuntimeError('Invalid reviewed rates')
+    ceilings=[c[k] for k in ('verified_max_total_input_tokens','verified_max_total_output_tokens','verified_max_search_calls')]
+    if any(type(v)!=int or v<0 for v in ceilings):raise RuntimeError('Invalid unit ceiling')
+    cost=Decimal(ceilings[0])*input_rate/1000000+Decimal(ceilings[1])*output_rate/1000000+Decimal(ceilings[2])*search_rate+extra
+    result=micro(cost)
+    if result>c['reservation_micro_usd']:raise RuntimeError('Reservation below reviewed derivation')
+    return result
+
 def request(ep,prompt,c,key,transport=http):
     if not key:raise RuntimeError('Missing provider credential')
+    reservation_bound(c)
     params=copy.deepcopy(c['request_parameters'])
     if any(k in params for k in ('input','messages','model','instructions','system','stream','previous_response_id','background','store')):raise RuntimeError('Reserved request field')
     # Fully reviewed request body: no hidden SDK retries or fallback routes.
@@ -36,9 +52,15 @@ def request(ep,prompt,c,key,transport=http):
         body={**params,'model':c['model'],'instructions':SYSTEM,'input':prompt,'store':False,'stream':False}
     elif ep=='kimi_api':
         if not 0<params.get('max_tokens',0)<=c['verified_max_output_tokens'] or 'provider' in params:raise RuntimeError('Kimi request cap/provider differs')
+        plugins=params.get('plugins',[])
+        if len(plugins)!=1 or plugins[0].get('id')!='web' or plugins[0].get('engine')!='exa' or type(plugins[0].get('max_results'))!=int or not 0<plugins[0]['max_results']<=c.get('verified_max_search_results',0):raise RuntimeError('Kimi Exa route/bounds differ')
+        if any(k not in ('id','engine','max_results') for k in plugins[0]) or params.get('tools') or params.get('models') or params.get('route') or params.get('n',1)!=1:raise RuntimeError('Unapproved Kimi routing/tools')
+        if not c.get('provider') or c['provider'] not in c['allowed_providers']:raise RuntimeError('Kimi provider pin unapproved')
         body={**params,'model':c['model'],'messages':[{'role':'system','content':SYSTEM},{'role':'user','content':prompt}],'provider':{'only':[c['provider']],'allow_fallbacks':False,'require_parameters':True},'stream':False}
     elif ep=='claude_api':
         if not 0<params.get('max_tokens',0)<=c['verified_max_output_tokens']:raise RuntimeError('Claude request output cap differs')
+        tools=params.get('tools',[])
+        if len(tools)!=1 or tools[0].get('type')!=c.get('verified_search_tool_type') or tools[0].get('name')!='web_search' or type(tools[0].get('max_uses'))!=int or not 0<tools[0]['max_uses']<=c['verified_max_search_calls']:raise RuntimeError('Claude search bounds differ')
         body={**params,'model':c['model'],'system':SYSTEM,'messages':[{'role':'user','content':prompt}],'stream':False}
     else:raise RuntimeError('Unknown endpoint')
     if len(prompt.encode())>c.get('max_prompt_bytes',0):raise RuntimeError('Prompt exceeds reviewed request bound')
@@ -114,12 +136,15 @@ def account(ep,r,c):
     if i>c['verified_max_total_input_tokens'] or o>c['verified_max_total_output_tokens']:raise ValueError('Usage exceeds qualified bound')
     price=c['price'];cost=Decimal(i)*Decimal(str(price['input_per_million']))/1000000+Decimal(o)*Decimal(str(price['output_per_million']))/1000000
     if ep=='claude_api':
+        total_input=i
         for field,rate in [('cache_creation_input_tokens','cache_write_per_million'),('cache_read_input_tokens','cache_read_per_million')]:
             n=u.get(field,0)
             if type(n)!=int or n<0:raise ValueError('Invalid cache usage')
+            total_input+=n
             if n:
                 if rate not in price:raise ValueError('Unpriced cache usage')
                 cost+=Decimal(n)*Decimal(str(price[rate]))/1000000
+        if total_input>c['verified_max_total_input_tokens']:raise ValueError('Total cache plus input exceeds bound')
         server=u.get('server_tool_use',{});calls=server.get('web_search_requests')
         if type(calls)!=int or calls<0 or calls>c['verified_max_search_calls']:raise ValueError('Missing/unbounded Claude search usage')
     else:

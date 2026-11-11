@@ -1,1622 +1,1622 @@
 [
   {
-    "slot_id": "model-agreement-v01:r1:ACC01:openai_api",
-    "comparison_group": "r1:ACC01",
+    "slot_id": "model-agreement-v01:r1:HOT01:openai_api",
+    "comparison_group": "r1:HOT01",
     "round": 1,
-    "prompt_id": "ACC01",
+    "prompt_id": "HOT01",
     "endpoint": "openai_api",
     "order_within_group": 1,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:ACC01:kimi_api",
-    "comparison_group": "r1:ACC01",
+    "slot_id": "model-agreement-v01:r1:HOT01:kimi_api",
+    "comparison_group": "r1:HOT01",
     "round": 1,
-    "prompt_id": "ACC01",
+    "prompt_id": "HOT01",
     "endpoint": "kimi_api",
     "order_within_group": 2,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:ACC01:claude_api",
-    "comparison_group": "r1:ACC01",
+    "slot_id": "model-agreement-v01:r1:HOT01:claude_api",
+    "comparison_group": "r1:HOT01",
     "round": 1,
-    "prompt_id": "ACC01",
+    "prompt_id": "HOT01",
     "endpoint": "claude_api",
     "order_within_group": 3,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:ACC02:kimi_api",
-    "comparison_group": "r1:ACC02",
+    "slot_id": "model-agreement-v01:r1:HOT02:kimi_api",
+    "comparison_group": "r1:HOT02",
     "round": 1,
-    "prompt_id": "ACC02",
+    "prompt_id": "HOT02",
     "endpoint": "kimi_api",
     "order_within_group": 1,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:ACC02:openai_api",
-    "comparison_group": "r1:ACC02",
+    "slot_id": "model-agreement-v01:r1:HOT02:openai_api",
+    "comparison_group": "r1:HOT02",
     "round": 1,
-    "prompt_id": "ACC02",
+    "prompt_id": "HOT02",
     "endpoint": "openai_api",
     "order_within_group": 2,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:ACC02:claude_api",
-    "comparison_group": "r1:ACC02",
+    "slot_id": "model-agreement-v01:r1:HOT02:claude_api",
+    "comparison_group": "r1:HOT02",
     "round": 1,
-    "prompt_id": "ACC02",
+    "prompt_id": "HOT02",
     "endpoint": "claude_api",
     "order_within_group": 3,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:ACC03:claude_api",
-    "comparison_group": "r1:ACC03",
+    "slot_id": "model-agreement-v01:r1:HOT03:claude_api",
+    "comparison_group": "r1:HOT03",
     "round": 1,
-    "prompt_id": "ACC03",
+    "prompt_id": "HOT03",
     "endpoint": "claude_api",
     "order_within_group": 1,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:ACC03:openai_api",
-    "comparison_group": "r1:ACC03",
+    "slot_id": "model-agreement-v01:r1:HOT03:openai_api",
+    "comparison_group": "r1:HOT03",
     "round": 1,
-    "prompt_id": "ACC03",
+    "prompt_id": "HOT03",
     "endpoint": "openai_api",
     "order_within_group": 2,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:ACC03:kimi_api",
-    "comparison_group": "r1:ACC03",
+    "slot_id": "model-agreement-v01:r1:HOT03:kimi_api",
+    "comparison_group": "r1:HOT03",
     "round": 1,
-    "prompt_id": "ACC03",
+    "prompt_id": "HOT03",
     "endpoint": "kimi_api",
     "order_within_group": 3,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:ACC04:claude_api",
-    "comparison_group": "r1:ACC04",
+    "slot_id": "model-agreement-v01:r1:HOT04:claude_api",
+    "comparison_group": "r1:HOT04",
     "round": 1,
-    "prompt_id": "ACC04",
+    "prompt_id": "HOT04",
     "endpoint": "claude_api",
     "order_within_group": 1,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:ACC04:kimi_api",
-    "comparison_group": "r1:ACC04",
+    "slot_id": "model-agreement-v01:r1:HOT04:kimi_api",
+    "comparison_group": "r1:HOT04",
     "round": 1,
-    "prompt_id": "ACC04",
+    "prompt_id": "HOT04",
     "endpoint": "kimi_api",
     "order_within_group": 2,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:ACC04:openai_api",
-    "comparison_group": "r1:ACC04",
+    "slot_id": "model-agreement-v01:r1:HOT04:openai_api",
+    "comparison_group": "r1:HOT04",
     "round": 1,
-    "prompt_id": "ACC04",
+    "prompt_id": "HOT04",
     "endpoint": "openai_api",
     "order_within_group": 3,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:ACC05:kimi_api",
-    "comparison_group": "r1:ACC05",
+    "slot_id": "model-agreement-v01:r1:GYM01:kimi_api",
+    "comparison_group": "r1:GYM01",
     "round": 1,
-    "prompt_id": "ACC05",
+    "prompt_id": "GYM01",
     "endpoint": "kimi_api",
     "order_within_group": 1,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:ACC05:claude_api",
-    "comparison_group": "r1:ACC05",
+    "slot_id": "model-agreement-v01:r1:GYM01:claude_api",
+    "comparison_group": "r1:GYM01",
     "round": 1,
-    "prompt_id": "ACC05",
+    "prompt_id": "GYM01",
     "endpoint": "claude_api",
     "order_within_group": 2,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:ACC05:openai_api",
-    "comparison_group": "r1:ACC05",
+    "slot_id": "model-agreement-v01:r1:GYM01:openai_api",
+    "comparison_group": "r1:GYM01",
     "round": 1,
-    "prompt_id": "ACC05",
+    "prompt_id": "GYM01",
     "endpoint": "openai_api",
     "order_within_group": 3,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:ACC06:openai_api",
-    "comparison_group": "r1:ACC06",
+    "slot_id": "model-agreement-v01:r1:GYM02:openai_api",
+    "comparison_group": "r1:GYM02",
     "round": 1,
-    "prompt_id": "ACC06",
+    "prompt_id": "GYM02",
     "endpoint": "openai_api",
     "order_within_group": 1,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:ACC06:claude_api",
-    "comparison_group": "r1:ACC06",
+    "slot_id": "model-agreement-v01:r1:GYM02:claude_api",
+    "comparison_group": "r1:GYM02",
     "round": 1,
-    "prompt_id": "ACC06",
+    "prompt_id": "GYM02",
     "endpoint": "claude_api",
     "order_within_group": 2,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:ACC06:kimi_api",
-    "comparison_group": "r1:ACC06",
+    "slot_id": "model-agreement-v01:r1:GYM02:kimi_api",
+    "comparison_group": "r1:GYM02",
     "round": 1,
-    "prompt_id": "ACC06",
+    "prompt_id": "GYM02",
     "endpoint": "kimi_api",
     "order_within_group": 3,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:ACC07:openai_api",
-    "comparison_group": "r1:ACC07",
+    "slot_id": "model-agreement-v01:r1:GYM03:openai_api",
+    "comparison_group": "r1:GYM03",
     "round": 1,
-    "prompt_id": "ACC07",
+    "prompt_id": "GYM03",
     "endpoint": "openai_api",
     "order_within_group": 1,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:ACC07:kimi_api",
-    "comparison_group": "r1:ACC07",
+    "slot_id": "model-agreement-v01:r1:GYM03:kimi_api",
+    "comparison_group": "r1:GYM03",
     "round": 1,
-    "prompt_id": "ACC07",
+    "prompt_id": "GYM03",
     "endpoint": "kimi_api",
     "order_within_group": 2,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:ACC07:claude_api",
-    "comparison_group": "r1:ACC07",
+    "slot_id": "model-agreement-v01:r1:GYM03:claude_api",
+    "comparison_group": "r1:GYM03",
     "round": 1,
-    "prompt_id": "ACC07",
+    "prompt_id": "GYM03",
     "endpoint": "claude_api",
     "order_within_group": 3,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:IT01:kimi_api",
-    "comparison_group": "r1:IT01",
+    "slot_id": "model-agreement-v01:r1:GYM04:kimi_api",
+    "comparison_group": "r1:GYM04",
     "round": 1,
-    "prompt_id": "IT01",
+    "prompt_id": "GYM04",
     "endpoint": "kimi_api",
     "order_within_group": 1,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:IT01:openai_api",
-    "comparison_group": "r1:IT01",
+    "slot_id": "model-agreement-v01:r1:GYM04:openai_api",
+    "comparison_group": "r1:GYM04",
     "round": 1,
-    "prompt_id": "IT01",
+    "prompt_id": "GYM04",
     "endpoint": "openai_api",
     "order_within_group": 2,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:IT01:claude_api",
-    "comparison_group": "r1:IT01",
+    "slot_id": "model-agreement-v01:r1:GYM04:claude_api",
+    "comparison_group": "r1:GYM04",
     "round": 1,
-    "prompt_id": "IT01",
+    "prompt_id": "GYM04",
     "endpoint": "claude_api",
     "order_within_group": 3,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:IT02:claude_api",
-    "comparison_group": "r1:IT02",
+    "slot_id": "model-agreement-v01:r1:CLN01:claude_api",
+    "comparison_group": "r1:CLN01",
     "round": 1,
-    "prompt_id": "IT02",
+    "prompt_id": "CLN01",
     "endpoint": "claude_api",
     "order_within_group": 1,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:IT02:openai_api",
-    "comparison_group": "r1:IT02",
+    "slot_id": "model-agreement-v01:r1:CLN01:openai_api",
+    "comparison_group": "r1:CLN01",
     "round": 1,
-    "prompt_id": "IT02",
+    "prompt_id": "CLN01",
     "endpoint": "openai_api",
     "order_within_group": 2,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:IT02:kimi_api",
-    "comparison_group": "r1:IT02",
+    "slot_id": "model-agreement-v01:r1:CLN01:kimi_api",
+    "comparison_group": "r1:CLN01",
     "round": 1,
-    "prompt_id": "IT02",
+    "prompt_id": "CLN01",
     "endpoint": "kimi_api",
     "order_within_group": 3,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:IT03:claude_api",
-    "comparison_group": "r1:IT03",
+    "slot_id": "model-agreement-v01:r1:CLN02:claude_api",
+    "comparison_group": "r1:CLN02",
     "round": 1,
-    "prompt_id": "IT03",
+    "prompt_id": "CLN02",
     "endpoint": "claude_api",
     "order_within_group": 1,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:IT03:kimi_api",
-    "comparison_group": "r1:IT03",
+    "slot_id": "model-agreement-v01:r1:CLN02:kimi_api",
+    "comparison_group": "r1:CLN02",
     "round": 1,
-    "prompt_id": "IT03",
+    "prompt_id": "CLN02",
     "endpoint": "kimi_api",
     "order_within_group": 2,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:IT03:openai_api",
-    "comparison_group": "r1:IT03",
+    "slot_id": "model-agreement-v01:r1:CLN02:openai_api",
+    "comparison_group": "r1:CLN02",
     "round": 1,
-    "prompt_id": "IT03",
+    "prompt_id": "CLN02",
     "endpoint": "openai_api",
     "order_within_group": 3,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:IT04:kimi_api",
-    "comparison_group": "r1:IT04",
+    "slot_id": "model-agreement-v01:r1:CLN03:kimi_api",
+    "comparison_group": "r1:CLN03",
     "round": 1,
-    "prompt_id": "IT04",
+    "prompt_id": "CLN03",
     "endpoint": "kimi_api",
     "order_within_group": 1,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:IT04:claude_api",
-    "comparison_group": "r1:IT04",
+    "slot_id": "model-agreement-v01:r1:CLN03:claude_api",
+    "comparison_group": "r1:CLN03",
     "round": 1,
-    "prompt_id": "IT04",
+    "prompt_id": "CLN03",
     "endpoint": "claude_api",
     "order_within_group": 2,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:IT04:openai_api",
-    "comparison_group": "r1:IT04",
+    "slot_id": "model-agreement-v01:r1:CLN03:openai_api",
+    "comparison_group": "r1:CLN03",
     "round": 1,
-    "prompt_id": "IT04",
+    "prompt_id": "CLN03",
     "endpoint": "openai_api",
     "order_within_group": 3,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:IT05:openai_api",
-    "comparison_group": "r1:IT05",
+    "slot_id": "model-agreement-v01:r1:CLN04:openai_api",
+    "comparison_group": "r1:CLN04",
     "round": 1,
-    "prompt_id": "IT05",
+    "prompt_id": "CLN04",
     "endpoint": "openai_api",
     "order_within_group": 1,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:IT05:claude_api",
-    "comparison_group": "r1:IT05",
+    "slot_id": "model-agreement-v01:r1:CLN04:claude_api",
+    "comparison_group": "r1:CLN04",
     "round": 1,
-    "prompt_id": "IT05",
+    "prompt_id": "CLN04",
     "endpoint": "claude_api",
     "order_within_group": 2,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:IT05:kimi_api",
-    "comparison_group": "r1:IT05",
+    "slot_id": "model-agreement-v01:r1:CLN04:kimi_api",
+    "comparison_group": "r1:CLN04",
     "round": 1,
-    "prompt_id": "IT05",
+    "prompt_id": "CLN04",
     "endpoint": "kimi_api",
     "order_within_group": 3,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:IT06:openai_api",
-    "comparison_group": "r1:IT06",
+    "slot_id": "model-agreement-v01:r1:COW01:openai_api",
+    "comparison_group": "r1:COW01",
     "round": 1,
-    "prompt_id": "IT06",
+    "prompt_id": "COW01",
     "endpoint": "openai_api",
     "order_within_group": 1,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:IT06:kimi_api",
-    "comparison_group": "r1:IT06",
+    "slot_id": "model-agreement-v01:r1:COW01:kimi_api",
+    "comparison_group": "r1:COW01",
     "round": 1,
-    "prompt_id": "IT06",
+    "prompt_id": "COW01",
     "endpoint": "kimi_api",
     "order_within_group": 2,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:IT06:claude_api",
-    "comparison_group": "r1:IT06",
+    "slot_id": "model-agreement-v01:r1:COW01:claude_api",
+    "comparison_group": "r1:COW01",
     "round": 1,
-    "prompt_id": "IT06",
+    "prompt_id": "COW01",
     "endpoint": "claude_api",
     "order_within_group": 3,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:IT07:kimi_api",
-    "comparison_group": "r1:IT07",
+    "slot_id": "model-agreement-v01:r1:COW02:kimi_api",
+    "comparison_group": "r1:COW02",
     "round": 1,
-    "prompt_id": "IT07",
+    "prompt_id": "COW02",
     "endpoint": "kimi_api",
     "order_within_group": 1,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:IT07:openai_api",
-    "comparison_group": "r1:IT07",
+    "slot_id": "model-agreement-v01:r1:COW02:openai_api",
+    "comparison_group": "r1:COW02",
     "round": 1,
-    "prompt_id": "IT07",
+    "prompt_id": "COW02",
     "endpoint": "openai_api",
     "order_within_group": 2,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:IT07:claude_api",
-    "comparison_group": "r1:IT07",
+    "slot_id": "model-agreement-v01:r1:COW02:claude_api",
+    "comparison_group": "r1:COW02",
     "round": 1,
-    "prompt_id": "IT07",
+    "prompt_id": "COW02",
     "endpoint": "claude_api",
     "order_within_group": 3,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:MKT01:claude_api",
-    "comparison_group": "r1:MKT01",
+    "slot_id": "model-agreement-v01:r1:COW03:claude_api",
+    "comparison_group": "r1:COW03",
     "round": 1,
-    "prompt_id": "MKT01",
+    "prompt_id": "COW03",
     "endpoint": "claude_api",
     "order_within_group": 1,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:MKT01:openai_api",
-    "comparison_group": "r1:MKT01",
+    "slot_id": "model-agreement-v01:r1:COW03:openai_api",
+    "comparison_group": "r1:COW03",
     "round": 1,
-    "prompt_id": "MKT01",
+    "prompt_id": "COW03",
     "endpoint": "openai_api",
     "order_within_group": 2,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:MKT01:kimi_api",
-    "comparison_group": "r1:MKT01",
+    "slot_id": "model-agreement-v01:r1:COW03:kimi_api",
+    "comparison_group": "r1:COW03",
     "round": 1,
-    "prompt_id": "MKT01",
+    "prompt_id": "COW03",
     "endpoint": "kimi_api",
     "order_within_group": 3,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:MKT02:claude_api",
-    "comparison_group": "r1:MKT02",
+    "slot_id": "model-agreement-v01:r1:COW04:claude_api",
+    "comparison_group": "r1:COW04",
     "round": 1,
-    "prompt_id": "MKT02",
+    "prompt_id": "COW04",
     "endpoint": "claude_api",
     "order_within_group": 1,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:MKT02:kimi_api",
-    "comparison_group": "r1:MKT02",
+    "slot_id": "model-agreement-v01:r1:COW04:kimi_api",
+    "comparison_group": "r1:COW04",
     "round": 1,
-    "prompt_id": "MKT02",
+    "prompt_id": "COW04",
     "endpoint": "kimi_api",
     "order_within_group": 2,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:MKT02:openai_api",
-    "comparison_group": "r1:MKT02",
+    "slot_id": "model-agreement-v01:r1:COW04:openai_api",
+    "comparison_group": "r1:COW04",
     "round": 1,
-    "prompt_id": "MKT02",
+    "prompt_id": "COW04",
     "endpoint": "openai_api",
     "order_within_group": 3,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:MKT03:kimi_api",
-    "comparison_group": "r1:MKT03",
+    "slot_id": "model-agreement-v01:r1:PAR01:kimi_api",
+    "comparison_group": "r1:PAR01",
     "round": 1,
-    "prompt_id": "MKT03",
+    "prompt_id": "PAR01",
     "endpoint": "kimi_api",
     "order_within_group": 1,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:MKT03:claude_api",
-    "comparison_group": "r1:MKT03",
+    "slot_id": "model-agreement-v01:r1:PAR01:claude_api",
+    "comparison_group": "r1:PAR01",
     "round": 1,
-    "prompt_id": "MKT03",
+    "prompt_id": "PAR01",
     "endpoint": "claude_api",
     "order_within_group": 2,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:MKT03:openai_api",
-    "comparison_group": "r1:MKT03",
+    "slot_id": "model-agreement-v01:r1:PAR01:openai_api",
+    "comparison_group": "r1:PAR01",
     "round": 1,
-    "prompt_id": "MKT03",
+    "prompt_id": "PAR01",
     "endpoint": "openai_api",
     "order_within_group": 3,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:MKT04:openai_api",
-    "comparison_group": "r1:MKT04",
+    "slot_id": "model-agreement-v01:r1:PAR02:openai_api",
+    "comparison_group": "r1:PAR02",
     "round": 1,
-    "prompt_id": "MKT04",
+    "prompt_id": "PAR02",
     "endpoint": "openai_api",
     "order_within_group": 1,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:MKT04:claude_api",
-    "comparison_group": "r1:MKT04",
+    "slot_id": "model-agreement-v01:r1:PAR02:claude_api",
+    "comparison_group": "r1:PAR02",
     "round": 1,
-    "prompt_id": "MKT04",
+    "prompt_id": "PAR02",
     "endpoint": "claude_api",
     "order_within_group": 2,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:MKT04:kimi_api",
-    "comparison_group": "r1:MKT04",
+    "slot_id": "model-agreement-v01:r1:PAR02:kimi_api",
+    "comparison_group": "r1:PAR02",
     "round": 1,
-    "prompt_id": "MKT04",
+    "prompt_id": "PAR02",
     "endpoint": "kimi_api",
     "order_within_group": 3,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:MKT05:openai_api",
-    "comparison_group": "r1:MKT05",
+    "slot_id": "model-agreement-v01:r1:PAR03:openai_api",
+    "comparison_group": "r1:PAR03",
     "round": 1,
-    "prompt_id": "MKT05",
+    "prompt_id": "PAR03",
     "endpoint": "openai_api",
     "order_within_group": 1,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:MKT05:kimi_api",
-    "comparison_group": "r1:MKT05",
+    "slot_id": "model-agreement-v01:r1:PAR03:kimi_api",
+    "comparison_group": "r1:PAR03",
     "round": 1,
-    "prompt_id": "MKT05",
+    "prompt_id": "PAR03",
     "endpoint": "kimi_api",
     "order_within_group": 2,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:MKT05:claude_api",
-    "comparison_group": "r1:MKT05",
+    "slot_id": "model-agreement-v01:r1:PAR03:claude_api",
+    "comparison_group": "r1:PAR03",
     "round": 1,
-    "prompt_id": "MKT05",
+    "prompt_id": "PAR03",
     "endpoint": "claude_api",
     "order_within_group": 3,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:MKT06:kimi_api",
-    "comparison_group": "r1:MKT06",
+    "slot_id": "model-agreement-v01:r1:PAR04:kimi_api",
+    "comparison_group": "r1:PAR04",
     "round": 1,
-    "prompt_id": "MKT06",
+    "prompt_id": "PAR04",
     "endpoint": "kimi_api",
     "order_within_group": 1,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:MKT06:openai_api",
-    "comparison_group": "r1:MKT06",
+    "slot_id": "model-agreement-v01:r1:PAR04:openai_api",
+    "comparison_group": "r1:PAR04",
     "round": 1,
-    "prompt_id": "MKT06",
+    "prompt_id": "PAR04",
     "endpoint": "openai_api",
     "order_within_group": 2,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r1:MKT06:claude_api",
-    "comparison_group": "r1:MKT06",
+    "slot_id": "model-agreement-v01:r1:PAR04:claude_api",
+    "comparison_group": "r1:PAR04",
     "round": 1,
-    "prompt_id": "MKT06",
+    "prompt_id": "PAR04",
     "endpoint": "claude_api",
     "order_within_group": 3,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-12T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r2:ACC01:kimi_api",
-    "comparison_group": "r2:ACC01",
+    "slot_id": "model-agreement-v01:r2:HOT01:kimi_api",
+    "comparison_group": "r2:HOT01",
     "round": 2,
-    "prompt_id": "ACC01",
+    "prompt_id": "HOT01",
     "endpoint": "kimi_api",
     "order_within_group": 1,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r2:ACC01:claude_api",
-    "comparison_group": "r2:ACC01",
+    "slot_id": "model-agreement-v01:r2:HOT01:claude_api",
+    "comparison_group": "r2:HOT01",
     "round": 2,
-    "prompt_id": "ACC01",
+    "prompt_id": "HOT01",
     "endpoint": "claude_api",
     "order_within_group": 2,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r2:ACC01:openai_api",
-    "comparison_group": "r2:ACC01",
+    "slot_id": "model-agreement-v01:r2:HOT01:openai_api",
+    "comparison_group": "r2:HOT01",
     "round": 2,
-    "prompt_id": "ACC01",
+    "prompt_id": "HOT01",
     "endpoint": "openai_api",
     "order_within_group": 3,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r2:ACC02:openai_api",
-    "comparison_group": "r2:ACC02",
+    "slot_id": "model-agreement-v01:r2:HOT02:openai_api",
+    "comparison_group": "r2:HOT02",
     "round": 2,
-    "prompt_id": "ACC02",
-    "endpoint": "openai_api",
-    "order_within_group": 1,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r2:ACC02:claude_api",
-    "comparison_group": "r2:ACC02",
-    "round": 2,
-    "prompt_id": "ACC02",
-    "endpoint": "claude_api",
-    "order_within_group": 2,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r2:ACC02:kimi_api",
-    "comparison_group": "r2:ACC02",
-    "round": 2,
-    "prompt_id": "ACC02",
-    "endpoint": "kimi_api",
-    "order_within_group": 3,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r2:ACC03:openai_api",
-    "comparison_group": "r2:ACC03",
-    "round": 2,
-    "prompt_id": "ACC03",
+    "prompt_id": "HOT02",
     "endpoint": "openai_api",
     "order_within_group": 1,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r2:ACC03:kimi_api",
-    "comparison_group": "r2:ACC03",
+    "slot_id": "model-agreement-v01:r2:HOT02:claude_api",
+    "comparison_group": "r2:HOT02",
     "round": 2,
-    "prompt_id": "ACC03",
-    "endpoint": "kimi_api",
-    "order_within_group": 2,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r2:ACC03:claude_api",
-    "comparison_group": "r2:ACC03",
-    "round": 2,
-    "prompt_id": "ACC03",
-    "endpoint": "claude_api",
-    "order_within_group": 3,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r2:ACC04:kimi_api",
-    "comparison_group": "r2:ACC04",
-    "round": 2,
-    "prompt_id": "ACC04",
-    "endpoint": "kimi_api",
-    "order_within_group": 1,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r2:ACC04:openai_api",
-    "comparison_group": "r2:ACC04",
-    "round": 2,
-    "prompt_id": "ACC04",
-    "endpoint": "openai_api",
-    "order_within_group": 2,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r2:ACC04:claude_api",
-    "comparison_group": "r2:ACC04",
-    "round": 2,
-    "prompt_id": "ACC04",
-    "endpoint": "claude_api",
-    "order_within_group": 3,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r2:ACC05:claude_api",
-    "comparison_group": "r2:ACC05",
-    "round": 2,
-    "prompt_id": "ACC05",
-    "endpoint": "claude_api",
-    "order_within_group": 1,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r2:ACC05:openai_api",
-    "comparison_group": "r2:ACC05",
-    "round": 2,
-    "prompt_id": "ACC05",
-    "endpoint": "openai_api",
-    "order_within_group": 2,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r2:ACC05:kimi_api",
-    "comparison_group": "r2:ACC05",
-    "round": 2,
-    "prompt_id": "ACC05",
-    "endpoint": "kimi_api",
-    "order_within_group": 3,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r2:ACC06:claude_api",
-    "comparison_group": "r2:ACC06",
-    "round": 2,
-    "prompt_id": "ACC06",
-    "endpoint": "claude_api",
-    "order_within_group": 1,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r2:ACC06:kimi_api",
-    "comparison_group": "r2:ACC06",
-    "round": 2,
-    "prompt_id": "ACC06",
-    "endpoint": "kimi_api",
-    "order_within_group": 2,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r2:ACC06:openai_api",
-    "comparison_group": "r2:ACC06",
-    "round": 2,
-    "prompt_id": "ACC06",
-    "endpoint": "openai_api",
-    "order_within_group": 3,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r2:ACC07:kimi_api",
-    "comparison_group": "r2:ACC07",
-    "round": 2,
-    "prompt_id": "ACC07",
-    "endpoint": "kimi_api",
-    "order_within_group": 1,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r2:ACC07:claude_api",
-    "comparison_group": "r2:ACC07",
-    "round": 2,
-    "prompt_id": "ACC07",
+    "prompt_id": "HOT02",
     "endpoint": "claude_api",
     "order_within_group": 2,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r2:ACC07:openai_api",
-    "comparison_group": "r2:ACC07",
+    "slot_id": "model-agreement-v01:r2:HOT02:kimi_api",
+    "comparison_group": "r2:HOT02",
     "round": 2,
-    "prompt_id": "ACC07",
-    "endpoint": "openai_api",
+    "prompt_id": "HOT02",
+    "endpoint": "kimi_api",
     "order_within_group": 3,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r2:IT01:openai_api",
-    "comparison_group": "r2:IT01",
+    "slot_id": "model-agreement-v01:r2:HOT03:openai_api",
+    "comparison_group": "r2:HOT03",
     "round": 2,
-    "prompt_id": "IT01",
+    "prompt_id": "HOT03",
     "endpoint": "openai_api",
     "order_within_group": 1,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r2:IT01:claude_api",
-    "comparison_group": "r2:IT01",
+    "slot_id": "model-agreement-v01:r2:HOT03:kimi_api",
+    "comparison_group": "r2:HOT03",
     "round": 2,
-    "prompt_id": "IT01",
-    "endpoint": "claude_api",
-    "order_within_group": 2,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r2:IT01:kimi_api",
-    "comparison_group": "r2:IT01",
-    "round": 2,
-    "prompt_id": "IT01",
-    "endpoint": "kimi_api",
-    "order_within_group": 3,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r2:IT02:openai_api",
-    "comparison_group": "r2:IT02",
-    "round": 2,
-    "prompt_id": "IT02",
-    "endpoint": "openai_api",
-    "order_within_group": 1,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r2:IT02:kimi_api",
-    "comparison_group": "r2:IT02",
-    "round": 2,
-    "prompt_id": "IT02",
+    "prompt_id": "HOT03",
     "endpoint": "kimi_api",
     "order_within_group": 2,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r2:IT02:claude_api",
-    "comparison_group": "r2:IT02",
+    "slot_id": "model-agreement-v01:r2:HOT03:claude_api",
+    "comparison_group": "r2:HOT03",
     "round": 2,
-    "prompt_id": "IT02",
+    "prompt_id": "HOT03",
     "endpoint": "claude_api",
     "order_within_group": 3,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r2:IT03:kimi_api",
-    "comparison_group": "r2:IT03",
+    "slot_id": "model-agreement-v01:r2:HOT04:kimi_api",
+    "comparison_group": "r2:HOT04",
     "round": 2,
-    "prompt_id": "IT03",
+    "prompt_id": "HOT04",
     "endpoint": "kimi_api",
     "order_within_group": 1,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r2:IT03:openai_api",
-    "comparison_group": "r2:IT03",
+    "slot_id": "model-agreement-v01:r2:HOT04:openai_api",
+    "comparison_group": "r2:HOT04",
     "round": 2,
-    "prompt_id": "IT03",
+    "prompt_id": "HOT04",
     "endpoint": "openai_api",
     "order_within_group": 2,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r2:IT03:claude_api",
-    "comparison_group": "r2:IT03",
+    "slot_id": "model-agreement-v01:r2:HOT04:claude_api",
+    "comparison_group": "r2:HOT04",
     "round": 2,
-    "prompt_id": "IT03",
+    "prompt_id": "HOT04",
     "endpoint": "claude_api",
     "order_within_group": 3,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r2:IT04:claude_api",
-    "comparison_group": "r2:IT04",
+    "slot_id": "model-agreement-v01:r2:GYM01:claude_api",
+    "comparison_group": "r2:GYM01",
     "round": 2,
-    "prompt_id": "IT04",
-    "endpoint": "claude_api",
-    "order_within_group": 1,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r2:IT04:openai_api",
-    "comparison_group": "r2:IT04",
-    "round": 2,
-    "prompt_id": "IT04",
-    "endpoint": "openai_api",
-    "order_within_group": 2,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r2:IT04:kimi_api",
-    "comparison_group": "r2:IT04",
-    "round": 2,
-    "prompt_id": "IT04",
-    "endpoint": "kimi_api",
-    "order_within_group": 3,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r2:IT05:claude_api",
-    "comparison_group": "r2:IT05",
-    "round": 2,
-    "prompt_id": "IT05",
+    "prompt_id": "GYM01",
     "endpoint": "claude_api",
     "order_within_group": 1,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r2:IT05:kimi_api",
-    "comparison_group": "r2:IT05",
+    "slot_id": "model-agreement-v01:r2:GYM01:openai_api",
+    "comparison_group": "r2:GYM01",
     "round": 2,
-    "prompt_id": "IT05",
-    "endpoint": "kimi_api",
+    "prompt_id": "GYM01",
+    "endpoint": "openai_api",
     "order_within_group": 2,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r2:IT05:openai_api",
-    "comparison_group": "r2:IT05",
+    "slot_id": "model-agreement-v01:r2:GYM01:kimi_api",
+    "comparison_group": "r2:GYM01",
     "round": 2,
-    "prompt_id": "IT05",
-    "endpoint": "openai_api",
+    "prompt_id": "GYM01",
+    "endpoint": "kimi_api",
     "order_within_group": 3,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r2:IT06:kimi_api",
-    "comparison_group": "r2:IT06",
+    "slot_id": "model-agreement-v01:r2:GYM02:claude_api",
+    "comparison_group": "r2:GYM02",
     "round": 2,
-    "prompt_id": "IT06",
-    "endpoint": "kimi_api",
+    "prompt_id": "GYM02",
+    "endpoint": "claude_api",
     "order_within_group": 1,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r2:IT06:claude_api",
-    "comparison_group": "r2:IT06",
+    "slot_id": "model-agreement-v01:r2:GYM02:kimi_api",
+    "comparison_group": "r2:GYM02",
     "round": 2,
-    "prompt_id": "IT06",
-    "endpoint": "claude_api",
+    "prompt_id": "GYM02",
+    "endpoint": "kimi_api",
     "order_within_group": 2,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r2:IT06:openai_api",
-    "comparison_group": "r2:IT06",
+    "slot_id": "model-agreement-v01:r2:GYM02:openai_api",
+    "comparison_group": "r2:GYM02",
     "round": 2,
-    "prompt_id": "IT06",
+    "prompt_id": "GYM02",
     "endpoint": "openai_api",
     "order_within_group": 3,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r2:IT07:openai_api",
-    "comparison_group": "r2:IT07",
+    "slot_id": "model-agreement-v01:r2:GYM03:kimi_api",
+    "comparison_group": "r2:GYM03",
     "round": 2,
-    "prompt_id": "IT07",
-    "endpoint": "openai_api",
+    "prompt_id": "GYM03",
+    "endpoint": "kimi_api",
     "order_within_group": 1,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r2:IT07:claude_api",
-    "comparison_group": "r2:IT07",
+    "slot_id": "model-agreement-v01:r2:GYM03:claude_api",
+    "comparison_group": "r2:GYM03",
     "round": 2,
-    "prompt_id": "IT07",
+    "prompt_id": "GYM03",
     "endpoint": "claude_api",
     "order_within_group": 2,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r2:IT07:kimi_api",
-    "comparison_group": "r2:IT07",
+    "slot_id": "model-agreement-v01:r2:GYM03:openai_api",
+    "comparison_group": "r2:GYM03",
     "round": 2,
-    "prompt_id": "IT07",
-    "endpoint": "kimi_api",
+    "prompt_id": "GYM03",
+    "endpoint": "openai_api",
     "order_within_group": 3,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r2:MKT01:openai_api",
-    "comparison_group": "r2:MKT01",
+    "slot_id": "model-agreement-v01:r2:GYM04:openai_api",
+    "comparison_group": "r2:GYM04",
     "round": 2,
-    "prompt_id": "MKT01",
+    "prompt_id": "GYM04",
     "endpoint": "openai_api",
     "order_within_group": 1,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r2:MKT01:kimi_api",
-    "comparison_group": "r2:MKT01",
+    "slot_id": "model-agreement-v01:r2:GYM04:claude_api",
+    "comparison_group": "r2:GYM04",
     "round": 2,
-    "prompt_id": "MKT01",
-    "endpoint": "kimi_api",
+    "prompt_id": "GYM04",
+    "endpoint": "claude_api",
     "order_within_group": 2,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r2:MKT01:claude_api",
-    "comparison_group": "r2:MKT01",
+    "slot_id": "model-agreement-v01:r2:GYM04:kimi_api",
+    "comparison_group": "r2:GYM04",
     "round": 2,
-    "prompt_id": "MKT01",
-    "endpoint": "claude_api",
+    "prompt_id": "GYM04",
+    "endpoint": "kimi_api",
     "order_within_group": 3,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r2:MKT02:kimi_api",
-    "comparison_group": "r2:MKT02",
+    "slot_id": "model-agreement-v01:r2:CLN01:openai_api",
+    "comparison_group": "r2:CLN01",
     "round": 2,
-    "prompt_id": "MKT02",
-    "endpoint": "kimi_api",
+    "prompt_id": "CLN01",
+    "endpoint": "openai_api",
     "order_within_group": 1,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r2:MKT02:openai_api",
-    "comparison_group": "r2:MKT02",
+    "slot_id": "model-agreement-v01:r2:CLN01:kimi_api",
+    "comparison_group": "r2:CLN01",
     "round": 2,
-    "prompt_id": "MKT02",
-    "endpoint": "openai_api",
+    "prompt_id": "CLN01",
+    "endpoint": "kimi_api",
     "order_within_group": 2,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r2:MKT02:claude_api",
-    "comparison_group": "r2:MKT02",
+    "slot_id": "model-agreement-v01:r2:CLN01:claude_api",
+    "comparison_group": "r2:CLN01",
     "round": 2,
-    "prompt_id": "MKT02",
+    "prompt_id": "CLN01",
     "endpoint": "claude_api",
     "order_within_group": 3,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r2:MKT03:claude_api",
-    "comparison_group": "r2:MKT03",
+    "slot_id": "model-agreement-v01:r2:CLN02:kimi_api",
+    "comparison_group": "r2:CLN02",
     "round": 2,
-    "prompt_id": "MKT03",
-    "endpoint": "claude_api",
+    "prompt_id": "CLN02",
+    "endpoint": "kimi_api",
     "order_within_group": 1,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r2:MKT03:openai_api",
-    "comparison_group": "r2:MKT03",
+    "slot_id": "model-agreement-v01:r2:CLN02:openai_api",
+    "comparison_group": "r2:CLN02",
     "round": 2,
-    "prompt_id": "MKT03",
+    "prompt_id": "CLN02",
     "endpoint": "openai_api",
     "order_within_group": 2,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r2:MKT03:kimi_api",
-    "comparison_group": "r2:MKT03",
+    "slot_id": "model-agreement-v01:r2:CLN02:claude_api",
+    "comparison_group": "r2:CLN02",
     "round": 2,
-    "prompt_id": "MKT03",
-    "endpoint": "kimi_api",
+    "prompt_id": "CLN02",
+    "endpoint": "claude_api",
     "order_within_group": 3,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r2:MKT04:claude_api",
-    "comparison_group": "r2:MKT04",
+    "slot_id": "model-agreement-v01:r2:CLN03:claude_api",
+    "comparison_group": "r2:CLN03",
     "round": 2,
-    "prompt_id": "MKT04",
+    "prompt_id": "CLN03",
     "endpoint": "claude_api",
     "order_within_group": 1,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r2:MKT04:kimi_api",
-    "comparison_group": "r2:MKT04",
+    "slot_id": "model-agreement-v01:r2:CLN03:openai_api",
+    "comparison_group": "r2:CLN03",
     "round": 2,
-    "prompt_id": "MKT04",
-    "endpoint": "kimi_api",
+    "prompt_id": "CLN03",
+    "endpoint": "openai_api",
     "order_within_group": 2,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r2:MKT04:openai_api",
-    "comparison_group": "r2:MKT04",
+    "slot_id": "model-agreement-v01:r2:CLN03:kimi_api",
+    "comparison_group": "r2:CLN03",
     "round": 2,
-    "prompt_id": "MKT04",
-    "endpoint": "openai_api",
+    "prompt_id": "CLN03",
+    "endpoint": "kimi_api",
     "order_within_group": 3,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r2:MKT05:kimi_api",
-    "comparison_group": "r2:MKT05",
+    "slot_id": "model-agreement-v01:r2:CLN04:claude_api",
+    "comparison_group": "r2:CLN04",
     "round": 2,
-    "prompt_id": "MKT05",
-    "endpoint": "kimi_api",
+    "prompt_id": "CLN04",
+    "endpoint": "claude_api",
     "order_within_group": 1,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r2:MKT05:claude_api",
-    "comparison_group": "r2:MKT05",
+    "slot_id": "model-agreement-v01:r2:CLN04:kimi_api",
+    "comparison_group": "r2:CLN04",
     "round": 2,
-    "prompt_id": "MKT05",
-    "endpoint": "claude_api",
+    "prompt_id": "CLN04",
+    "endpoint": "kimi_api",
     "order_within_group": 2,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r2:MKT05:openai_api",
-    "comparison_group": "r2:MKT05",
+    "slot_id": "model-agreement-v01:r2:CLN04:openai_api",
+    "comparison_group": "r2:CLN04",
     "round": 2,
-    "prompt_id": "MKT05",
+    "prompt_id": "CLN04",
     "endpoint": "openai_api",
     "order_within_group": 3,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r2:MKT06:openai_api",
-    "comparison_group": "r2:MKT06",
+    "slot_id": "model-agreement-v01:r2:COW01:kimi_api",
+    "comparison_group": "r2:COW01",
     "round": 2,
-    "prompt_id": "MKT06",
-    "endpoint": "openai_api",
+    "prompt_id": "COW01",
+    "endpoint": "kimi_api",
     "order_within_group": 1,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r2:MKT06:claude_api",
-    "comparison_group": "r2:MKT06",
+    "slot_id": "model-agreement-v01:r2:COW01:claude_api",
+    "comparison_group": "r2:COW01",
     "round": 2,
-    "prompt_id": "MKT06",
+    "prompt_id": "COW01",
     "endpoint": "claude_api",
     "order_within_group": 2,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r2:MKT06:kimi_api",
-    "comparison_group": "r2:MKT06",
+    "slot_id": "model-agreement-v01:r2:COW01:openai_api",
+    "comparison_group": "r2:COW01",
     "round": 2,
-    "prompt_id": "MKT06",
-    "endpoint": "kimi_api",
-    "order_within_group": 3,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r3:ACC01:claude_api",
-    "comparison_group": "r3:ACC01",
-    "round": 3,
-    "prompt_id": "ACC01",
-    "endpoint": "claude_api",
-    "order_within_group": 1,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r3:ACC01:openai_api",
-    "comparison_group": "r3:ACC01",
-    "round": 3,
-    "prompt_id": "ACC01",
-    "endpoint": "openai_api",
-    "order_within_group": 2,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r3:ACC01:kimi_api",
-    "comparison_group": "r3:ACC01",
-    "round": 3,
-    "prompt_id": "ACC01",
-    "endpoint": "kimi_api",
-    "order_within_group": 3,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r3:ACC02:claude_api",
-    "comparison_group": "r3:ACC02",
-    "round": 3,
-    "prompt_id": "ACC02",
-    "endpoint": "claude_api",
-    "order_within_group": 1,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r3:ACC02:kimi_api",
-    "comparison_group": "r3:ACC02",
-    "round": 3,
-    "prompt_id": "ACC02",
-    "endpoint": "kimi_api",
-    "order_within_group": 2,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r3:ACC02:openai_api",
-    "comparison_group": "r3:ACC02",
-    "round": 3,
-    "prompt_id": "ACC02",
+    "prompt_id": "COW01",
     "endpoint": "openai_api",
     "order_within_group": 3,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r3:ACC03:kimi_api",
-    "comparison_group": "r3:ACC03",
-    "round": 3,
-    "prompt_id": "ACC03",
-    "endpoint": "kimi_api",
-    "order_within_group": 1,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r3:ACC03:claude_api",
-    "comparison_group": "r3:ACC03",
-    "round": 3,
-    "prompt_id": "ACC03",
-    "endpoint": "claude_api",
-    "order_within_group": 2,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r3:ACC03:openai_api",
-    "comparison_group": "r3:ACC03",
-    "round": 3,
-    "prompt_id": "ACC03",
-    "endpoint": "openai_api",
-    "order_within_group": 3,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r3:ACC04:openai_api",
-    "comparison_group": "r3:ACC04",
-    "round": 3,
-    "prompt_id": "ACC04",
+    "slot_id": "model-agreement-v01:r2:COW02:openai_api",
+    "comparison_group": "r2:COW02",
+    "round": 2,
+    "prompt_id": "COW02",
     "endpoint": "openai_api",
     "order_within_group": 1,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r3:ACC04:claude_api",
-    "comparison_group": "r3:ACC04",
-    "round": 3,
-    "prompt_id": "ACC04",
+    "slot_id": "model-agreement-v01:r2:COW02:claude_api",
+    "comparison_group": "r2:COW02",
+    "round": 2,
+    "prompt_id": "COW02",
     "endpoint": "claude_api",
     "order_within_group": 2,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r3:ACC04:kimi_api",
-    "comparison_group": "r3:ACC04",
-    "round": 3,
-    "prompt_id": "ACC04",
+    "slot_id": "model-agreement-v01:r2:COW02:kimi_api",
+    "comparison_group": "r2:COW02",
+    "round": 2,
+    "prompt_id": "COW02",
     "endpoint": "kimi_api",
     "order_within_group": 3,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r3:ACC05:openai_api",
-    "comparison_group": "r3:ACC05",
-    "round": 3,
-    "prompt_id": "ACC05",
+    "slot_id": "model-agreement-v01:r2:COW03:openai_api",
+    "comparison_group": "r2:COW03",
+    "round": 2,
+    "prompt_id": "COW03",
     "endpoint": "openai_api",
     "order_within_group": 1,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r3:ACC05:kimi_api",
-    "comparison_group": "r3:ACC05",
-    "round": 3,
-    "prompt_id": "ACC05",
+    "slot_id": "model-agreement-v01:r2:COW03:kimi_api",
+    "comparison_group": "r2:COW03",
+    "round": 2,
+    "prompt_id": "COW03",
     "endpoint": "kimi_api",
     "order_within_group": 2,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r3:ACC05:claude_api",
-    "comparison_group": "r3:ACC05",
-    "round": 3,
-    "prompt_id": "ACC05",
+    "slot_id": "model-agreement-v01:r2:COW03:claude_api",
+    "comparison_group": "r2:COW03",
+    "round": 2,
+    "prompt_id": "COW03",
     "endpoint": "claude_api",
     "order_within_group": 3,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r3:ACC06:kimi_api",
-    "comparison_group": "r3:ACC06",
-    "round": 3,
-    "prompt_id": "ACC06",
-    "endpoint": "kimi_api",
-    "order_within_group": 1,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r3:ACC06:openai_api",
-    "comparison_group": "r3:ACC06",
-    "round": 3,
-    "prompt_id": "ACC06",
-    "endpoint": "openai_api",
-    "order_within_group": 2,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r3:ACC06:claude_api",
-    "comparison_group": "r3:ACC06",
-    "round": 3,
-    "prompt_id": "ACC06",
-    "endpoint": "claude_api",
-    "order_within_group": 3,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r3:ACC07:claude_api",
-    "comparison_group": "r3:ACC07",
-    "round": 3,
-    "prompt_id": "ACC07",
-    "endpoint": "claude_api",
-    "order_within_group": 1,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r3:ACC07:openai_api",
-    "comparison_group": "r3:ACC07",
-    "round": 3,
-    "prompt_id": "ACC07",
-    "endpoint": "openai_api",
-    "order_within_group": 2,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r3:ACC07:kimi_api",
-    "comparison_group": "r3:ACC07",
-    "round": 3,
-    "prompt_id": "ACC07",
-    "endpoint": "kimi_api",
-    "order_within_group": 3,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r3:IT01:claude_api",
-    "comparison_group": "r3:IT01",
-    "round": 3,
-    "prompt_id": "IT01",
-    "endpoint": "claude_api",
-    "order_within_group": 1,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r3:IT01:kimi_api",
-    "comparison_group": "r3:IT01",
-    "round": 3,
-    "prompt_id": "IT01",
-    "endpoint": "kimi_api",
-    "order_within_group": 2,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r3:IT01:openai_api",
-    "comparison_group": "r3:IT01",
-    "round": 3,
-    "prompt_id": "IT01",
-    "endpoint": "openai_api",
-    "order_within_group": 3,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r3:IT02:kimi_api",
-    "comparison_group": "r3:IT02",
-    "round": 3,
-    "prompt_id": "IT02",
+    "slot_id": "model-agreement-v01:r2:COW04:kimi_api",
+    "comparison_group": "r2:COW04",
+    "round": 2,
+    "prompt_id": "COW04",
     "endpoint": "kimi_api",
     "order_within_group": 1,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r3:IT02:claude_api",
-    "comparison_group": "r3:IT02",
-    "round": 3,
-    "prompt_id": "IT02",
-    "endpoint": "claude_api",
-    "order_within_group": 2,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r3:IT02:openai_api",
-    "comparison_group": "r3:IT02",
-    "round": 3,
-    "prompt_id": "IT02",
-    "endpoint": "openai_api",
-    "order_within_group": 3,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r3:IT03:openai_api",
-    "comparison_group": "r3:IT03",
-    "round": 3,
-    "prompt_id": "IT03",
-    "endpoint": "openai_api",
-    "order_within_group": 1,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r3:IT03:claude_api",
-    "comparison_group": "r3:IT03",
-    "round": 3,
-    "prompt_id": "IT03",
-    "endpoint": "claude_api",
-    "order_within_group": 2,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r3:IT03:kimi_api",
-    "comparison_group": "r3:IT03",
-    "round": 3,
-    "prompt_id": "IT03",
-    "endpoint": "kimi_api",
-    "order_within_group": 3,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r3:IT04:openai_api",
-    "comparison_group": "r3:IT04",
-    "round": 3,
-    "prompt_id": "IT04",
-    "endpoint": "openai_api",
-    "order_within_group": 1,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r3:IT04:kimi_api",
-    "comparison_group": "r3:IT04",
-    "round": 3,
-    "prompt_id": "IT04",
-    "endpoint": "kimi_api",
-    "order_within_group": 2,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r3:IT04:claude_api",
-    "comparison_group": "r3:IT04",
-    "round": 3,
-    "prompt_id": "IT04",
-    "endpoint": "claude_api",
-    "order_within_group": 3,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r3:IT05:kimi_api",
-    "comparison_group": "r3:IT05",
-    "round": 3,
-    "prompt_id": "IT05",
-    "endpoint": "kimi_api",
-    "order_within_group": 1,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r3:IT05:openai_api",
-    "comparison_group": "r3:IT05",
-    "round": 3,
-    "prompt_id": "IT05",
+    "slot_id": "model-agreement-v01:r2:COW04:openai_api",
+    "comparison_group": "r2:COW04",
+    "round": 2,
+    "prompt_id": "COW04",
     "endpoint": "openai_api",
     "order_within_group": 2,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r3:IT05:claude_api",
-    "comparison_group": "r3:IT05",
-    "round": 3,
-    "prompt_id": "IT05",
+    "slot_id": "model-agreement-v01:r2:COW04:claude_api",
+    "comparison_group": "r2:COW04",
+    "round": 2,
+    "prompt_id": "COW04",
     "endpoint": "claude_api",
     "order_within_group": 3,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r3:IT06:claude_api",
-    "comparison_group": "r3:IT06",
-    "round": 3,
-    "prompt_id": "IT06",
+    "slot_id": "model-agreement-v01:r2:PAR01:claude_api",
+    "comparison_group": "r2:PAR01",
+    "round": 2,
+    "prompt_id": "PAR01",
     "endpoint": "claude_api",
     "order_within_group": 1,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r3:IT06:openai_api",
-    "comparison_group": "r3:IT06",
-    "round": 3,
-    "prompt_id": "IT06",
+    "slot_id": "model-agreement-v01:r2:PAR01:openai_api",
+    "comparison_group": "r2:PAR01",
+    "round": 2,
+    "prompt_id": "PAR01",
     "endpoint": "openai_api",
     "order_within_group": 2,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r3:IT06:kimi_api",
-    "comparison_group": "r3:IT06",
-    "round": 3,
-    "prompt_id": "IT06",
+    "slot_id": "model-agreement-v01:r2:PAR01:kimi_api",
+    "comparison_group": "r2:PAR01",
+    "round": 2,
+    "prompt_id": "PAR01",
     "endpoint": "kimi_api",
     "order_within_group": 3,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r3:IT07:claude_api",
-    "comparison_group": "r3:IT07",
-    "round": 3,
-    "prompt_id": "IT07",
+    "slot_id": "model-agreement-v01:r2:PAR02:claude_api",
+    "comparison_group": "r2:PAR02",
+    "round": 2,
+    "prompt_id": "PAR02",
     "endpoint": "claude_api",
     "order_within_group": 1,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r3:IT07:kimi_api",
-    "comparison_group": "r3:IT07",
-    "round": 3,
-    "prompt_id": "IT07",
+    "slot_id": "model-agreement-v01:r2:PAR02:kimi_api",
+    "comparison_group": "r2:PAR02",
+    "round": 2,
+    "prompt_id": "PAR02",
     "endpoint": "kimi_api",
     "order_within_group": 2,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r3:IT07:openai_api",
-    "comparison_group": "r3:IT07",
-    "round": 3,
-    "prompt_id": "IT07",
+    "slot_id": "model-agreement-v01:r2:PAR02:openai_api",
+    "comparison_group": "r2:PAR02",
+    "round": 2,
+    "prompt_id": "PAR02",
     "endpoint": "openai_api",
     "order_within_group": 3,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r3:MKT01:kimi_api",
-    "comparison_group": "r3:MKT01",
-    "round": 3,
-    "prompt_id": "MKT01",
-    "endpoint": "kimi_api",
-    "order_within_group": 1,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r3:MKT01:claude_api",
-    "comparison_group": "r3:MKT01",
-    "round": 3,
-    "prompt_id": "MKT01",
-    "endpoint": "claude_api",
-    "order_within_group": 2,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r3:MKT01:openai_api",
-    "comparison_group": "r3:MKT01",
-    "round": 3,
-    "prompt_id": "MKT01",
-    "endpoint": "openai_api",
-    "order_within_group": 3,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r3:MKT02:openai_api",
-    "comparison_group": "r3:MKT02",
-    "round": 3,
-    "prompt_id": "MKT02",
-    "endpoint": "openai_api",
-    "order_within_group": 1,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r3:MKT02:claude_api",
-    "comparison_group": "r3:MKT02",
-    "round": 3,
-    "prompt_id": "MKT02",
-    "endpoint": "claude_api",
-    "order_within_group": 2,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r3:MKT02:kimi_api",
-    "comparison_group": "r3:MKT02",
-    "round": 3,
-    "prompt_id": "MKT02",
-    "endpoint": "kimi_api",
-    "order_within_group": 3,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r3:MKT03:openai_api",
-    "comparison_group": "r3:MKT03",
-    "round": 3,
-    "prompt_id": "MKT03",
-    "endpoint": "openai_api",
-    "order_within_group": 1,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r3:MKT03:kimi_api",
-    "comparison_group": "r3:MKT03",
-    "round": 3,
-    "prompt_id": "MKT03",
-    "endpoint": "kimi_api",
-    "order_within_group": 2,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r3:MKT03:claude_api",
-    "comparison_group": "r3:MKT03",
-    "round": 3,
-    "prompt_id": "MKT03",
-    "endpoint": "claude_api",
-    "order_within_group": 3,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r3:MKT04:kimi_api",
-    "comparison_group": "r3:MKT04",
-    "round": 3,
-    "prompt_id": "MKT04",
+    "slot_id": "model-agreement-v01:r2:PAR03:kimi_api",
+    "comparison_group": "r2:PAR03",
+    "round": 2,
+    "prompt_id": "PAR03",
     "endpoint": "kimi_api",
     "order_within_group": 1,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r3:MKT04:openai_api",
-    "comparison_group": "r3:MKT04",
-    "round": 3,
-    "prompt_id": "MKT04",
-    "endpoint": "openai_api",
-    "order_within_group": 2,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r3:MKT04:claude_api",
-    "comparison_group": "r3:MKT04",
-    "round": 3,
-    "prompt_id": "MKT04",
+    "slot_id": "model-agreement-v01:r2:PAR03:claude_api",
+    "comparison_group": "r2:PAR03",
+    "round": 2,
+    "prompt_id": "PAR03",
     "endpoint": "claude_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:PAR03:openai_api",
+    "comparison_group": "r2:PAR03",
+    "round": 2,
+    "prompt_id": "PAR03",
+    "endpoint": "openai_api",
     "order_within_group": 3,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r3:MKT05:claude_api",
-    "comparison_group": "r3:MKT05",
-    "round": 3,
-    "prompt_id": "MKT05",
-    "endpoint": "claude_api",
-    "order_within_group": 1,
-    "scheduled_at_utc": null
-  },
-  {
-    "slot_id": "model-agreement-v01:r3:MKT05:openai_api",
-    "comparison_group": "r3:MKT05",
-    "round": 3,
-    "prompt_id": "MKT05",
+    "slot_id": "model-agreement-v01:r2:PAR04:openai_api",
+    "comparison_group": "r2:PAR04",
+    "round": 2,
+    "prompt_id": "PAR04",
     "endpoint": "openai_api",
-    "order_within_group": 2,
-    "scheduled_at_utc": null
+    "order_within_group": 1,
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r3:MKT05:kimi_api",
-    "comparison_group": "r3:MKT05",
-    "round": 3,
-    "prompt_id": "MKT05",
+    "slot_id": "model-agreement-v01:r2:PAR04:claude_api",
+    "comparison_group": "r2:PAR04",
+    "round": 2,
+    "prompt_id": "PAR04",
+    "endpoint": "claude_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:PAR04:kimi_api",
+    "comparison_group": "r2:PAR04",
+    "round": 2,
+    "prompt_id": "PAR04",
     "endpoint": "kimi_api",
     "order_within_group": 3,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-14T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r3:MKT06:claude_api",
-    "comparison_group": "r3:MKT06",
+    "slot_id": "model-agreement-v01:r3:HOT01:claude_api",
+    "comparison_group": "r3:HOT01",
     "round": 3,
-    "prompt_id": "MKT06",
+    "prompt_id": "HOT01",
     "endpoint": "claude_api",
     "order_within_group": 1,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r3:MKT06:kimi_api",
-    "comparison_group": "r3:MKT06",
+    "slot_id": "model-agreement-v01:r3:HOT01:openai_api",
+    "comparison_group": "r3:HOT01",
     "round": 3,
-    "prompt_id": "MKT06",
+    "prompt_id": "HOT01",
+    "endpoint": "openai_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:HOT01:kimi_api",
+    "comparison_group": "r3:HOT01",
+    "round": 3,
+    "prompt_id": "HOT01",
+    "endpoint": "kimi_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:HOT02:claude_api",
+    "comparison_group": "r3:HOT02",
+    "round": 3,
+    "prompt_id": "HOT02",
+    "endpoint": "claude_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:HOT02:kimi_api",
+    "comparison_group": "r3:HOT02",
+    "round": 3,
+    "prompt_id": "HOT02",
     "endpoint": "kimi_api",
     "order_within_group": 2,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
   },
   {
-    "slot_id": "model-agreement-v01:r3:MKT06:openai_api",
-    "comparison_group": "r3:MKT06",
+    "slot_id": "model-agreement-v01:r3:HOT02:openai_api",
+    "comparison_group": "r3:HOT02",
     "round": 3,
-    "prompt_id": "MKT06",
+    "prompt_id": "HOT02",
     "endpoint": "openai_api",
     "order_within_group": 3,
-    "scheduled_at_utc": null
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:HOT03:kimi_api",
+    "comparison_group": "r3:HOT03",
+    "round": 3,
+    "prompt_id": "HOT03",
+    "endpoint": "kimi_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:HOT03:claude_api",
+    "comparison_group": "r3:HOT03",
+    "round": 3,
+    "prompt_id": "HOT03",
+    "endpoint": "claude_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:HOT03:openai_api",
+    "comparison_group": "r3:HOT03",
+    "round": 3,
+    "prompt_id": "HOT03",
+    "endpoint": "openai_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:HOT04:openai_api",
+    "comparison_group": "r3:HOT04",
+    "round": 3,
+    "prompt_id": "HOT04",
+    "endpoint": "openai_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:HOT04:claude_api",
+    "comparison_group": "r3:HOT04",
+    "round": 3,
+    "prompt_id": "HOT04",
+    "endpoint": "claude_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:HOT04:kimi_api",
+    "comparison_group": "r3:HOT04",
+    "round": 3,
+    "prompt_id": "HOT04",
+    "endpoint": "kimi_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:GYM01:openai_api",
+    "comparison_group": "r3:GYM01",
+    "round": 3,
+    "prompt_id": "GYM01",
+    "endpoint": "openai_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:GYM01:kimi_api",
+    "comparison_group": "r3:GYM01",
+    "round": 3,
+    "prompt_id": "GYM01",
+    "endpoint": "kimi_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:GYM01:claude_api",
+    "comparison_group": "r3:GYM01",
+    "round": 3,
+    "prompt_id": "GYM01",
+    "endpoint": "claude_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:GYM02:kimi_api",
+    "comparison_group": "r3:GYM02",
+    "round": 3,
+    "prompt_id": "GYM02",
+    "endpoint": "kimi_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:GYM02:openai_api",
+    "comparison_group": "r3:GYM02",
+    "round": 3,
+    "prompt_id": "GYM02",
+    "endpoint": "openai_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:GYM02:claude_api",
+    "comparison_group": "r3:GYM02",
+    "round": 3,
+    "prompt_id": "GYM02",
+    "endpoint": "claude_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:GYM03:claude_api",
+    "comparison_group": "r3:GYM03",
+    "round": 3,
+    "prompt_id": "GYM03",
+    "endpoint": "claude_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:GYM03:openai_api",
+    "comparison_group": "r3:GYM03",
+    "round": 3,
+    "prompt_id": "GYM03",
+    "endpoint": "openai_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:GYM03:kimi_api",
+    "comparison_group": "r3:GYM03",
+    "round": 3,
+    "prompt_id": "GYM03",
+    "endpoint": "kimi_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:GYM04:claude_api",
+    "comparison_group": "r3:GYM04",
+    "round": 3,
+    "prompt_id": "GYM04",
+    "endpoint": "claude_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:GYM04:kimi_api",
+    "comparison_group": "r3:GYM04",
+    "round": 3,
+    "prompt_id": "GYM04",
+    "endpoint": "kimi_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:GYM04:openai_api",
+    "comparison_group": "r3:GYM04",
+    "round": 3,
+    "prompt_id": "GYM04",
+    "endpoint": "openai_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:CLN01:kimi_api",
+    "comparison_group": "r3:CLN01",
+    "round": 3,
+    "prompt_id": "CLN01",
+    "endpoint": "kimi_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:CLN01:claude_api",
+    "comparison_group": "r3:CLN01",
+    "round": 3,
+    "prompt_id": "CLN01",
+    "endpoint": "claude_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:CLN01:openai_api",
+    "comparison_group": "r3:CLN01",
+    "round": 3,
+    "prompt_id": "CLN01",
+    "endpoint": "openai_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:CLN02:openai_api",
+    "comparison_group": "r3:CLN02",
+    "round": 3,
+    "prompt_id": "CLN02",
+    "endpoint": "openai_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:CLN02:claude_api",
+    "comparison_group": "r3:CLN02",
+    "round": 3,
+    "prompt_id": "CLN02",
+    "endpoint": "claude_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:CLN02:kimi_api",
+    "comparison_group": "r3:CLN02",
+    "round": 3,
+    "prompt_id": "CLN02",
+    "endpoint": "kimi_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:CLN03:openai_api",
+    "comparison_group": "r3:CLN03",
+    "round": 3,
+    "prompt_id": "CLN03",
+    "endpoint": "openai_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:CLN03:kimi_api",
+    "comparison_group": "r3:CLN03",
+    "round": 3,
+    "prompt_id": "CLN03",
+    "endpoint": "kimi_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:CLN03:claude_api",
+    "comparison_group": "r3:CLN03",
+    "round": 3,
+    "prompt_id": "CLN03",
+    "endpoint": "claude_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:CLN04:kimi_api",
+    "comparison_group": "r3:CLN04",
+    "round": 3,
+    "prompt_id": "CLN04",
+    "endpoint": "kimi_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:CLN04:openai_api",
+    "comparison_group": "r3:CLN04",
+    "round": 3,
+    "prompt_id": "CLN04",
+    "endpoint": "openai_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:CLN04:claude_api",
+    "comparison_group": "r3:CLN04",
+    "round": 3,
+    "prompt_id": "CLN04",
+    "endpoint": "claude_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:COW01:claude_api",
+    "comparison_group": "r3:COW01",
+    "round": 3,
+    "prompt_id": "COW01",
+    "endpoint": "claude_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:COW01:openai_api",
+    "comparison_group": "r3:COW01",
+    "round": 3,
+    "prompt_id": "COW01",
+    "endpoint": "openai_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:COW01:kimi_api",
+    "comparison_group": "r3:COW01",
+    "round": 3,
+    "prompt_id": "COW01",
+    "endpoint": "kimi_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:COW02:claude_api",
+    "comparison_group": "r3:COW02",
+    "round": 3,
+    "prompt_id": "COW02",
+    "endpoint": "claude_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:COW02:kimi_api",
+    "comparison_group": "r3:COW02",
+    "round": 3,
+    "prompt_id": "COW02",
+    "endpoint": "kimi_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:COW02:openai_api",
+    "comparison_group": "r3:COW02",
+    "round": 3,
+    "prompt_id": "COW02",
+    "endpoint": "openai_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:COW03:kimi_api",
+    "comparison_group": "r3:COW03",
+    "round": 3,
+    "prompt_id": "COW03",
+    "endpoint": "kimi_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:COW03:claude_api",
+    "comparison_group": "r3:COW03",
+    "round": 3,
+    "prompt_id": "COW03",
+    "endpoint": "claude_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:COW03:openai_api",
+    "comparison_group": "r3:COW03",
+    "round": 3,
+    "prompt_id": "COW03",
+    "endpoint": "openai_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:COW04:openai_api",
+    "comparison_group": "r3:COW04",
+    "round": 3,
+    "prompt_id": "COW04",
+    "endpoint": "openai_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:COW04:claude_api",
+    "comparison_group": "r3:COW04",
+    "round": 3,
+    "prompt_id": "COW04",
+    "endpoint": "claude_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:COW04:kimi_api",
+    "comparison_group": "r3:COW04",
+    "round": 3,
+    "prompt_id": "COW04",
+    "endpoint": "kimi_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:PAR01:openai_api",
+    "comparison_group": "r3:PAR01",
+    "round": 3,
+    "prompt_id": "PAR01",
+    "endpoint": "openai_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:PAR01:kimi_api",
+    "comparison_group": "r3:PAR01",
+    "round": 3,
+    "prompt_id": "PAR01",
+    "endpoint": "kimi_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:PAR01:claude_api",
+    "comparison_group": "r3:PAR01",
+    "round": 3,
+    "prompt_id": "PAR01",
+    "endpoint": "claude_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:PAR02:kimi_api",
+    "comparison_group": "r3:PAR02",
+    "round": 3,
+    "prompt_id": "PAR02",
+    "endpoint": "kimi_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:PAR02:openai_api",
+    "comparison_group": "r3:PAR02",
+    "round": 3,
+    "prompt_id": "PAR02",
+    "endpoint": "openai_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:PAR02:claude_api",
+    "comparison_group": "r3:PAR02",
+    "round": 3,
+    "prompt_id": "PAR02",
+    "endpoint": "claude_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:PAR03:claude_api",
+    "comparison_group": "r3:PAR03",
+    "round": 3,
+    "prompt_id": "PAR03",
+    "endpoint": "claude_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:PAR03:openai_api",
+    "comparison_group": "r3:PAR03",
+    "round": 3,
+    "prompt_id": "PAR03",
+    "endpoint": "openai_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:PAR03:kimi_api",
+    "comparison_group": "r3:PAR03",
+    "round": 3,
+    "prompt_id": "PAR03",
+    "endpoint": "kimi_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:PAR04:claude_api",
+    "comparison_group": "r3:PAR04",
+    "round": 3,
+    "prompt_id": "PAR04",
+    "endpoint": "claude_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:PAR04:kimi_api",
+    "comparison_group": "r3:PAR04",
+    "round": 3,
+    "prompt_id": "PAR04",
+    "endpoint": "kimi_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:PAR04:openai_api",
+    "comparison_group": "r3:PAR04",
+    "round": 3,
+    "prompt_id": "PAR04",
+    "endpoint": "openai_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": "2026-11-18T01:00:00Z"
   }
 ]
