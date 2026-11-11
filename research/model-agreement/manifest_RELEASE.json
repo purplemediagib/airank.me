@@ -1,6 +1,6 @@
 {
   "study_id": "model-agreement-v01",
-  "status": "QUALIFICATION_CANDIDATE_NOT_INITIALIZED",
+  "status": "PRIMARY_RELEASE_REQUIRES_AUDITED_ACTIVATION",
   "market": "FI",
   "language": "en",
   "approved_total_micro_usd": 40000000,
@@ -18,9 +18,9 @@
   "hosting_bound_evidence": "Verified public repository standard ubuntu-latest hosted job; no Bunny compute/IP/volumes. Storage cumulative runnerwrites<=1GB Stockholm0.01USD/GBmonth;5USD allowance for storage,12USD fees/contingency. Retention remains separately managed.",
   "hosting_stop_evidence": "GitHub180min hardjob timeout, driver150min deadline, no persistent compute. Existing storage-check43077169998 verified access; init/restore require remote marker/head integrity before dispatch.",
   "paid_enabled": true,
-  "qualification_enabled": true,
-  "schedule_enabled": false,
-  "qualification_review_approved": false,
+  "qualification_enabled": false,
+  "schedule_enabled": true,
+  "qualification_review_approved": true,
   "execution_expires_at_utc": "2026-11-18T03:00:00Z",
   "rounds": [
     {
@@ -71,7 +71,7 @@
       ],
       "provider": null,
       "allowed_providers": [],
-      "qualified": false,
+      "qualified": true,
       "bound_verified": false,
       "bound_evidence": null,
       "reservation_micro_usd": 10000000,
@@ -113,7 +113,8 @@
       "account_guard_evidence": "Parent-approved operational control 2026-11-11: dedicated provider project monthly5USD verified; local lifetime5 before month reset; one flight; reserve full5plus5overshoot allowance. NOT a mathematically proven cost cap. Unknown usage halts; dashboard reconciliation required.",
       "account_cap_micro_usd": 5000000,
       "local_lifetime_cap_micro_usd": 5000000,
-      "overshoot_reserve_micro_usd": 5000000
+      "overshoot_reserve_micro_usd": 5000000,
+      "accounting_mode": "expected_search_estimate"
     },
     "kimi_api": {
       "surface": "API, not consumer application",
@@ -126,7 +127,7 @@
       "allowed_providers": [
         "novita"
       ],
-      "qualified": false,
+      "qualified": true,
       "bound_verified": true,
       "bound_evidence": "Parent pricing review 2026-11-11:262144input*.57/M+3000output*2.85/M+single Exa plugin<=10results0.007USD=0.16497208. All reasoning within max_tokens,one completion,no fallback. Actual provider response identifier and usage.cost inclusion require qualification. Official OpenRouter usage-accounting docs cost is total charged account, includes Exa; do not double-add plugin to reported cost. https://openrouter.ai/docs/cookbook/administration/usage-accounting",
       "reservation_micro_usd": 250000,
@@ -169,7 +170,7 @@
       ],
       "provider": null,
       "allowed_providers": [],
-      "qualified": false,
+      "qualified": true,
       "bound_verified": true,
       "bound_evidence": "Parent pricing review 2026-11-11: Sonnet4.5 200k context,10 server iterations =>2M total input;3k output per iteration=>30k;2searches. No explicit caching; pricing3/15 USD per million,0.01 persearch. Qualification pending.",
       "reservation_micro_usd": 7000000,
@@ -208,10 +209,10 @@
       "billing_units_reviewed": true,
       "verified_extra_cost_usd": 0,
       "verified_search_tool_type": "web_search_20250305",
-      "local_lifetime_cap_micro_usd": 8000000
+      "local_lifetime_cap_micro_usd": 15000000
     }
   },
-  "manifest_sha256": "446a217eec07269f13e751a9534b46f44d9683f20a84f8e39a75dfbc9b191607",
+  "manifest_sha256": "992af014d454616826758b56e3bef19c69e7ef7369a9a3702f416c5e13d3916c",
   "storage_policy": {
     "maximum_cumulative_uploaded_bytes": 1000000000,
     "region": "Stockholm",

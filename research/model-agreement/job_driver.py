@@ -24,9 +24,16 @@ def main():
     m,prompts,slots=service.load(str(pathlib.Path(__file__).parent/'manifest_RELEASE.json'))
     core.validate(m,prompts,slots,True,time.time(),args.operation=='qualify')
     remote=storage.from_env();root=pathlib.Path(os.environ['RESEARCH_DATA_DIR'])
-    recovery.restore(root,m,remote,os.environ['RESEARCH_EXPECTED_HEAD_SHA256'])
+    amendment=args.operation=='activate' and os.environ.get('RESEARCH_CLAUDE_REALLOCATION')=='approved-8-to-15'
+    oa_amendment=args.operation=='activate' and os.environ.get('RESEARCH_OA_RECONCILIATION')=='approved-known-qualifier-estimate'
+    restore_manifest=json.loads(core.canonical(m))
+    if oa_amendment:restore_manifest['endpoints']['openai_api'].pop('accounting_mode',None)
+    if amendment:
+        restore_manifest['endpoints']['claude_api']['local_lifetime_cap_micro_usd']=8000000
+        restore_manifest['manifest_sha256']=core.manifest_hash(restore_manifest)
+    recovery.restore(root,restore_manifest,remote,os.environ['RESEARCH_EXPECTED_HEAD_SHA256'])
     if args.operation=='activate':
-        result=service.activate(root,m,prompts,slots,remote)
+        result=service.activate(root,m,prompts,slots,remote,claude_reallocation=amendment,oa_reconciliation=oa_amendment)
     else:service.verify_inputs(root,m,prompts,slots)
     if args.operation=='round':result=run_round(root,m,prompts,slots,remote,args.round,deadline)
     elif args.operation=='qualify':

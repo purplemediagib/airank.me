@@ -153,12 +153,17 @@ def account(ep,r,c):
         if type(calls)!=int or calls<0 or calls>c['verified_max_search_calls']:raise ValueError('Missing/unbounded Claude search usage')
     elif operational:
         calls=u.get('tool_usage',{}).get('web_search',{}).get('num_requests')
-        if type(calls)!=int or calls<0:raise ValueError('Operational search billing units missing; reconcile dashboard before resuming')
+        if calls is None:
+            if c.get('accounting_mode')=='expected_search_estimate':calls=c['request_parameters']['max_tool_calls']
+            else:raise ValueError('Operational search billing units missing; reconcile dashboard before resuming')
+        elif type(calls)!=int or calls<0:raise ValueError('Invalid operational search billing units')
     else:
         # Charge maximum permitted searches conservatively; raw search telemetry may omit billing units.
         calls=c['verified_max_search_calls']
     cost+=Decimal(calls)*Decimal(str(price['search_per_call']))
-    return micro(cost),('reported_token_and_search_units_at_reviewed_rates_not_invoice' if operational else 'conservative_usage_upper_bound')
+    basis='conservative_usage_upper_bound'
+    if operational:basis='expected_search_allowance_plus_reported_tokens_ESTIMATE_NOT_UPPER_BOUND_OR_INVOICE' if c.get('accounting_mode')=='expected_search_estimate' and not isinstance(u.get('tool_usage',{}).get('web_search',{}).get('num_requests'),int) else 'reported_token_and_search_units_at_reviewed_rates_not_invoice'
+    return micro(cost),basis
 
 
 def diagnostic_facts(r):

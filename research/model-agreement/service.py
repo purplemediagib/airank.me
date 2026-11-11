@@ -31,23 +31,63 @@ def verify_inputs(root,m,prompts,slots):
     for name,obj in [('manifest.json',m),('prompts.json',prompts),('schedule.json',slots)]:
         if (pathlib.Path(root)/name).read_bytes()!=core.canonical(obj):raise RuntimeError('Local frozen inputs differ')
 
-def activate(root,new,prompts,slots,remote,now=None):
+OA_RECONCILE_RAW_SHA='b98ba10646a0ff7525454ad9f87b14254e2be3940eac3850710d89d380c5773f'
+OA_RECONCILE_ATTEMPT=core.STUDY+':diagnostic:openai_api:HOT01:a1'
+def verify_known_oa_receipt(root,ledger,old):
+    rows=ledger.rows();unresolved=[r for r in rows if r['accounted'] is None]
+    if len(unresolved)!=1:raise RuntimeError('Only the single approved unresolved qualifier may reconcile')
+    r=unresolved[0]
+    if r['id']!=OA_RECONCILE_ATTEMPT or r['status']!='unknown' or r['reserved']!=10000000 or r['raw_hash']!=OA_RECONCILE_RAW_SHA:raise RuntimeError('Unknown hold is not the approved qualifier')
+    halt=ledger.db.execute("SELECT v FROM config WHERE k='halt'").fetchone()
+    if not halt or halt['v']!='uncertain_or_excess_charge_or_fatal':raise RuntimeError('Unexpected halt reason')
+    data=(pathlib.Path(root)/r['raw_path']).read_bytes()
+    if core.digest(data)!=OA_RECONCILE_RAW_SHA:raise RuntimeError('Approved raw digest differs')
+    response=json.loads(data)['response'];u=response['usage']
+    if u.get('input_tokens')!=8804 or u.get('output_tokens')!=637 or u.get('input_tokens_details',{}).get('cached_tokens',0)!=0:raise RuntimeError('Receipt token cohort differs')
+    if not adapters.parse('openai_api',response,old['endpoints']['openai_api'])['complete']:raise RuntimeError('Known qualifier not complete')
+    return {'prior_attempt':r,'estimated_micro_usd':19470,'basis':'dashboard_one_billed_search_plus_reported_tokens_at_reviewed_prices_ESTIMATE_NOT_FINAL_INVOICE','raw_sha256':OA_RECONCILE_RAW_SHA}
+
+def activate(root,new,prompts,slots,remote,now=None,claude_reallocation=False,oa_reconciliation=False):
     """Explicit qualification->primary transition. Never resets ledger, prices or study history."""
     root=check_root(root);old=json.loads((root/'manifest.json').read_text())
     core.validate(old,prompts,slots);core.validate(new,prompts,slots,True,time.time() if now is None else now,False)
     if old.get('schedule_enabled') is True:raise RuntimeError('Already activated; no schedule amendment here')
-    if core.protocol_hash(old)!=core.protocol_hash(new):raise RuntimeError('Activation cannot alter immutable protocol/routes/budget')
+    changed=core.protocol_hash(old)!=core.protocol_hash(new)
+    if changed:
+        adjusted=json.loads(core.canonical(old))
+        if claude_reallocation:
+            if old['endpoints']['claude_api'].get('local_lifetime_cap_micro_usd')!=8000000 or new['endpoints']['claude_api'].get('local_lifetime_cap_micro_usd')!=15000000:raise RuntimeError('Unapproved Claude amendment')
+            adjusted['endpoints']['claude_api']['local_lifetime_cap_micro_usd']=15000000
+        if oa_reconciliation:
+            if old['endpoints']['openai_api'].get('accounting_mode') is not None or new['endpoints']['openai_api'].get('accounting_mode')!='expected_search_estimate':raise RuntimeError('Unapproved OpenAI accounting amendment')
+            adjusted['endpoints']['openai_api']['accounting_mode']='expected_search_estimate'
+        if core.protocol_hash(adjusted)!=core.protocol_hash(new):raise RuntimeError('Only exact approved preprimary amendments permitted')
     if new.get('qualification_review_approved') is not True or new.get('qualification_enabled') is not False:raise RuntimeError('Qualification review/closure required')
     with core.locked(root):
         verify_inputs(root,old,prompts,slots);remote.verify(root,old);ledger=core.Ledger(root,old)
         try:
-            if ledger.summary()['halted'] or ledger.summary()['unresolved']:raise RuntimeError('Unresolved qualification')
+            receipt=verify_known_oa_receipt(root,ledger,old) if oa_reconciliation else None
+            if not receipt and (ledger.summary()['halted'] or ledger.summary()['unresolved']):raise RuntimeError('Unresolved qualification')
+            if changed and ledger.db.execute("SELECT 1 FROM attempts WHERE kind='primary'").fetchone():raise RuntimeError('No amendment after primary work')
             for ep in core.ENDPOINTS:
                 expected=[s for s in old.get('diagnostic_slots',[]) if s['endpoint']==ep]
                 if not expected:raise RuntimeError('No qualification slots for endpoint')
                 for slot in expected:
                     row=ledger.db.execute('SELECT * FROM attempts WHERE slot=?',(slot['slot_id'],)).fetchone()
+                    if receipt and row and row['id']==OA_RECONCILE_ATTEMPT:continue
                     if not row or row['status']!='complete' or row['accounted'] is None:raise RuntimeError('Qualification evidence incomplete')
+            if receipt:
+                core.write_once(root/'raw'/'approved-oa-qualifier-reconciliation.json',core.canonical(receipt))
+                ledger.db.execute("UPDATE attempts SET status='complete',accounted=19470,cost_basis=?,error='approved_receipt_estimate_reconciled' WHERE id=?",(receipt['basis'],OA_RECONCILE_ATTEMPT))
+                ledger.db.execute("DELETE FROM config WHERE k='halt' AND v='uncertain_or_excess_charge_or_fatal'")
+            if changed:
+                audit={'kind':'approved_preprimary_amendments','claude_reallocation':claude_reallocation,'oa_receipt_reconciliation':oa_reconciliation,'old_protocol_sha256':core.protocol_hash(old),'new_protocol_sha256':core.protocol_hash(new),'old_cap_micro_usd':8000000,'new_cap_micro_usd':15000000,'approved_total_micro_usd':40000000,'provider_cap_micro_usd':new['provider_cap_micro_usd'],'prior_attempts_retained':ledger.summary()['attempts'],'at_epoch':time.time() if now is None else now}
+                core.write_once(root/'raw'/'claude-cap-amendment.json',core.canonical(audit))
+                old_marker=remote.get('study-marker.json')
+                remote.put_verified('study-marker-before-'+core.protocol_hash(old)+'.json',old_marker)
+                new_marker=core.canonical({'study_id':core.STUDY,'provider_cap_micro_usd':new['provider_cap_micro_usd'],'protocol_sha256':core.protocol_hash(new)})
+                remote.put_verified('study-marker.json',new_marker,immutable=False)
+                ledger.db.execute("UPDATE config SET v=? WHERE k='protocol_sha256'",(core.protocol_hash(new),))
             core.write_once(root/'manifests'/(new['manifest_sha256']+'.json'),core.canonical(new))
             core.atomic(root/'manifest.json',core.canonical(new))
             storage.backup(root,ledger,remote,new)

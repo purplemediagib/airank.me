@@ -1,4 +1,4 @@
-# Manual reviewed research only; schedule remains closed pending qualification.
+# OFFLINE TEMPLATE ONLY. Do not move into .github/workflows before review.
 name: Isolated model-agreement research
 on:
   workflow_dispatch:
@@ -56,7 +56,7 @@ jobs:
         run: |
           set -euo pipefail
           umask 077
-          python3 -m unittest -q test_runner test_shutdown test_recovery test_panel
+          python3 -m unittest -q test_runner test_shutdown test_recovery test_panel test_amendment
           python3 service.py validate
       - name: Nonpaid private storage setup
         if: inputs.operation == 'storage-check' || inputs.operation == 'init'
@@ -74,6 +74,8 @@ jobs:
       - name: Promote reviewed qualification without provider credentials
         if: inputs.operation == 'activate'
         env:
+          RESEARCH_OA_RECONCILIATION: ${{ vars.RESEARCH_OA_RECONCILIATION }}
+          RESEARCH_CLAUDE_REALLOCATION: ${{ vars.RESEARCH_CLAUDE_REALLOCATION }}
           RELEASE_ENABLED: ${{ vars.RESEARCH_RELEASE_ENABLED }}
           RESEARCH_EXPECTED_HEAD_SHA256: ${{ vars.RESEARCH_EXPECTED_HEAD_SHA256 }}
           RESEARCH_STORAGE_HOST: ${{ vars.RESEARCH_STORAGE_HOST }}
