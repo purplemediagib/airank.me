@@ -1,0 +1,1622 @@
+[
+  {
+    "slot_id": "model-agreement-v01:r1:ACC01:openai_api",
+    "comparison_group": "r1:ACC01",
+    "round": 1,
+    "prompt_id": "ACC01",
+    "endpoint": "openai_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:ACC01:kimi_api",
+    "comparison_group": "r1:ACC01",
+    "round": 1,
+    "prompt_id": "ACC01",
+    "endpoint": "kimi_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:ACC01:claude_api",
+    "comparison_group": "r1:ACC01",
+    "round": 1,
+    "prompt_id": "ACC01",
+    "endpoint": "claude_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:ACC02:kimi_api",
+    "comparison_group": "r1:ACC02",
+    "round": 1,
+    "prompt_id": "ACC02",
+    "endpoint": "kimi_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:ACC02:openai_api",
+    "comparison_group": "r1:ACC02",
+    "round": 1,
+    "prompt_id": "ACC02",
+    "endpoint": "openai_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:ACC02:claude_api",
+    "comparison_group": "r1:ACC02",
+    "round": 1,
+    "prompt_id": "ACC02",
+    "endpoint": "claude_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:ACC03:claude_api",
+    "comparison_group": "r1:ACC03",
+    "round": 1,
+    "prompt_id": "ACC03",
+    "endpoint": "claude_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:ACC03:openai_api",
+    "comparison_group": "r1:ACC03",
+    "round": 1,
+    "prompt_id": "ACC03",
+    "endpoint": "openai_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:ACC03:kimi_api",
+    "comparison_group": "r1:ACC03",
+    "round": 1,
+    "prompt_id": "ACC03",
+    "endpoint": "kimi_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:ACC04:claude_api",
+    "comparison_group": "r1:ACC04",
+    "round": 1,
+    "prompt_id": "ACC04",
+    "endpoint": "claude_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:ACC04:kimi_api",
+    "comparison_group": "r1:ACC04",
+    "round": 1,
+    "prompt_id": "ACC04",
+    "endpoint": "kimi_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:ACC04:openai_api",
+    "comparison_group": "r1:ACC04",
+    "round": 1,
+    "prompt_id": "ACC04",
+    "endpoint": "openai_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:ACC05:kimi_api",
+    "comparison_group": "r1:ACC05",
+    "round": 1,
+    "prompt_id": "ACC05",
+    "endpoint": "kimi_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:ACC05:claude_api",
+    "comparison_group": "r1:ACC05",
+    "round": 1,
+    "prompt_id": "ACC05",
+    "endpoint": "claude_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:ACC05:openai_api",
+    "comparison_group": "r1:ACC05",
+    "round": 1,
+    "prompt_id": "ACC05",
+    "endpoint": "openai_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:ACC06:openai_api",
+    "comparison_group": "r1:ACC06",
+    "round": 1,
+    "prompt_id": "ACC06",
+    "endpoint": "openai_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:ACC06:claude_api",
+    "comparison_group": "r1:ACC06",
+    "round": 1,
+    "prompt_id": "ACC06",
+    "endpoint": "claude_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:ACC06:kimi_api",
+    "comparison_group": "r1:ACC06",
+    "round": 1,
+    "prompt_id": "ACC06",
+    "endpoint": "kimi_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:ACC07:openai_api",
+    "comparison_group": "r1:ACC07",
+    "round": 1,
+    "prompt_id": "ACC07",
+    "endpoint": "openai_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:ACC07:kimi_api",
+    "comparison_group": "r1:ACC07",
+    "round": 1,
+    "prompt_id": "ACC07",
+    "endpoint": "kimi_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:ACC07:claude_api",
+    "comparison_group": "r1:ACC07",
+    "round": 1,
+    "prompt_id": "ACC07",
+    "endpoint": "claude_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:IT01:kimi_api",
+    "comparison_group": "r1:IT01",
+    "round": 1,
+    "prompt_id": "IT01",
+    "endpoint": "kimi_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:IT01:openai_api",
+    "comparison_group": "r1:IT01",
+    "round": 1,
+    "prompt_id": "IT01",
+    "endpoint": "openai_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:IT01:claude_api",
+    "comparison_group": "r1:IT01",
+    "round": 1,
+    "prompt_id": "IT01",
+    "endpoint": "claude_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:IT02:claude_api",
+    "comparison_group": "r1:IT02",
+    "round": 1,
+    "prompt_id": "IT02",
+    "endpoint": "claude_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:IT02:openai_api",
+    "comparison_group": "r1:IT02",
+    "round": 1,
+    "prompt_id": "IT02",
+    "endpoint": "openai_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:IT02:kimi_api",
+    "comparison_group": "r1:IT02",
+    "round": 1,
+    "prompt_id": "IT02",
+    "endpoint": "kimi_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:IT03:claude_api",
+    "comparison_group": "r1:IT03",
+    "round": 1,
+    "prompt_id": "IT03",
+    "endpoint": "claude_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:IT03:kimi_api",
+    "comparison_group": "r1:IT03",
+    "round": 1,
+    "prompt_id": "IT03",
+    "endpoint": "kimi_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:IT03:openai_api",
+    "comparison_group": "r1:IT03",
+    "round": 1,
+    "prompt_id": "IT03",
+    "endpoint": "openai_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:IT04:kimi_api",
+    "comparison_group": "r1:IT04",
+    "round": 1,
+    "prompt_id": "IT04",
+    "endpoint": "kimi_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:IT04:claude_api",
+    "comparison_group": "r1:IT04",
+    "round": 1,
+    "prompt_id": "IT04",
+    "endpoint": "claude_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:IT04:openai_api",
+    "comparison_group": "r1:IT04",
+    "round": 1,
+    "prompt_id": "IT04",
+    "endpoint": "openai_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:IT05:openai_api",
+    "comparison_group": "r1:IT05",
+    "round": 1,
+    "prompt_id": "IT05",
+    "endpoint": "openai_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:IT05:claude_api",
+    "comparison_group": "r1:IT05",
+    "round": 1,
+    "prompt_id": "IT05",
+    "endpoint": "claude_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:IT05:kimi_api",
+    "comparison_group": "r1:IT05",
+    "round": 1,
+    "prompt_id": "IT05",
+    "endpoint": "kimi_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:IT06:openai_api",
+    "comparison_group": "r1:IT06",
+    "round": 1,
+    "prompt_id": "IT06",
+    "endpoint": "openai_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:IT06:kimi_api",
+    "comparison_group": "r1:IT06",
+    "round": 1,
+    "prompt_id": "IT06",
+    "endpoint": "kimi_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:IT06:claude_api",
+    "comparison_group": "r1:IT06",
+    "round": 1,
+    "prompt_id": "IT06",
+    "endpoint": "claude_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:IT07:kimi_api",
+    "comparison_group": "r1:IT07",
+    "round": 1,
+    "prompt_id": "IT07",
+    "endpoint": "kimi_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:IT07:openai_api",
+    "comparison_group": "r1:IT07",
+    "round": 1,
+    "prompt_id": "IT07",
+    "endpoint": "openai_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:IT07:claude_api",
+    "comparison_group": "r1:IT07",
+    "round": 1,
+    "prompt_id": "IT07",
+    "endpoint": "claude_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:MKT01:claude_api",
+    "comparison_group": "r1:MKT01",
+    "round": 1,
+    "prompt_id": "MKT01",
+    "endpoint": "claude_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:MKT01:openai_api",
+    "comparison_group": "r1:MKT01",
+    "round": 1,
+    "prompt_id": "MKT01",
+    "endpoint": "openai_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:MKT01:kimi_api",
+    "comparison_group": "r1:MKT01",
+    "round": 1,
+    "prompt_id": "MKT01",
+    "endpoint": "kimi_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:MKT02:claude_api",
+    "comparison_group": "r1:MKT02",
+    "round": 1,
+    "prompt_id": "MKT02",
+    "endpoint": "claude_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:MKT02:kimi_api",
+    "comparison_group": "r1:MKT02",
+    "round": 1,
+    "prompt_id": "MKT02",
+    "endpoint": "kimi_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:MKT02:openai_api",
+    "comparison_group": "r1:MKT02",
+    "round": 1,
+    "prompt_id": "MKT02",
+    "endpoint": "openai_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:MKT03:kimi_api",
+    "comparison_group": "r1:MKT03",
+    "round": 1,
+    "prompt_id": "MKT03",
+    "endpoint": "kimi_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:MKT03:claude_api",
+    "comparison_group": "r1:MKT03",
+    "round": 1,
+    "prompt_id": "MKT03",
+    "endpoint": "claude_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:MKT03:openai_api",
+    "comparison_group": "r1:MKT03",
+    "round": 1,
+    "prompt_id": "MKT03",
+    "endpoint": "openai_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:MKT04:openai_api",
+    "comparison_group": "r1:MKT04",
+    "round": 1,
+    "prompt_id": "MKT04",
+    "endpoint": "openai_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:MKT04:claude_api",
+    "comparison_group": "r1:MKT04",
+    "round": 1,
+    "prompt_id": "MKT04",
+    "endpoint": "claude_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:MKT04:kimi_api",
+    "comparison_group": "r1:MKT04",
+    "round": 1,
+    "prompt_id": "MKT04",
+    "endpoint": "kimi_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:MKT05:openai_api",
+    "comparison_group": "r1:MKT05",
+    "round": 1,
+    "prompt_id": "MKT05",
+    "endpoint": "openai_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:MKT05:kimi_api",
+    "comparison_group": "r1:MKT05",
+    "round": 1,
+    "prompt_id": "MKT05",
+    "endpoint": "kimi_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:MKT05:claude_api",
+    "comparison_group": "r1:MKT05",
+    "round": 1,
+    "prompt_id": "MKT05",
+    "endpoint": "claude_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:MKT06:kimi_api",
+    "comparison_group": "r1:MKT06",
+    "round": 1,
+    "prompt_id": "MKT06",
+    "endpoint": "kimi_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:MKT06:openai_api",
+    "comparison_group": "r1:MKT06",
+    "round": 1,
+    "prompt_id": "MKT06",
+    "endpoint": "openai_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r1:MKT06:claude_api",
+    "comparison_group": "r1:MKT06",
+    "round": 1,
+    "prompt_id": "MKT06",
+    "endpoint": "claude_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:ACC01:kimi_api",
+    "comparison_group": "r2:ACC01",
+    "round": 2,
+    "prompt_id": "ACC01",
+    "endpoint": "kimi_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:ACC01:claude_api",
+    "comparison_group": "r2:ACC01",
+    "round": 2,
+    "prompt_id": "ACC01",
+    "endpoint": "claude_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:ACC01:openai_api",
+    "comparison_group": "r2:ACC01",
+    "round": 2,
+    "prompt_id": "ACC01",
+    "endpoint": "openai_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:ACC02:openai_api",
+    "comparison_group": "r2:ACC02",
+    "round": 2,
+    "prompt_id": "ACC02",
+    "endpoint": "openai_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:ACC02:claude_api",
+    "comparison_group": "r2:ACC02",
+    "round": 2,
+    "prompt_id": "ACC02",
+    "endpoint": "claude_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:ACC02:kimi_api",
+    "comparison_group": "r2:ACC02",
+    "round": 2,
+    "prompt_id": "ACC02",
+    "endpoint": "kimi_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:ACC03:openai_api",
+    "comparison_group": "r2:ACC03",
+    "round": 2,
+    "prompt_id": "ACC03",
+    "endpoint": "openai_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:ACC03:kimi_api",
+    "comparison_group": "r2:ACC03",
+    "round": 2,
+    "prompt_id": "ACC03",
+    "endpoint": "kimi_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:ACC03:claude_api",
+    "comparison_group": "r2:ACC03",
+    "round": 2,
+    "prompt_id": "ACC03",
+    "endpoint": "claude_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:ACC04:kimi_api",
+    "comparison_group": "r2:ACC04",
+    "round": 2,
+    "prompt_id": "ACC04",
+    "endpoint": "kimi_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:ACC04:openai_api",
+    "comparison_group": "r2:ACC04",
+    "round": 2,
+    "prompt_id": "ACC04",
+    "endpoint": "openai_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:ACC04:claude_api",
+    "comparison_group": "r2:ACC04",
+    "round": 2,
+    "prompt_id": "ACC04",
+    "endpoint": "claude_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:ACC05:claude_api",
+    "comparison_group": "r2:ACC05",
+    "round": 2,
+    "prompt_id": "ACC05",
+    "endpoint": "claude_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:ACC05:openai_api",
+    "comparison_group": "r2:ACC05",
+    "round": 2,
+    "prompt_id": "ACC05",
+    "endpoint": "openai_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:ACC05:kimi_api",
+    "comparison_group": "r2:ACC05",
+    "round": 2,
+    "prompt_id": "ACC05",
+    "endpoint": "kimi_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:ACC06:claude_api",
+    "comparison_group": "r2:ACC06",
+    "round": 2,
+    "prompt_id": "ACC06",
+    "endpoint": "claude_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:ACC06:kimi_api",
+    "comparison_group": "r2:ACC06",
+    "round": 2,
+    "prompt_id": "ACC06",
+    "endpoint": "kimi_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:ACC06:openai_api",
+    "comparison_group": "r2:ACC06",
+    "round": 2,
+    "prompt_id": "ACC06",
+    "endpoint": "openai_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:ACC07:kimi_api",
+    "comparison_group": "r2:ACC07",
+    "round": 2,
+    "prompt_id": "ACC07",
+    "endpoint": "kimi_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:ACC07:claude_api",
+    "comparison_group": "r2:ACC07",
+    "round": 2,
+    "prompt_id": "ACC07",
+    "endpoint": "claude_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:ACC07:openai_api",
+    "comparison_group": "r2:ACC07",
+    "round": 2,
+    "prompt_id": "ACC07",
+    "endpoint": "openai_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:IT01:openai_api",
+    "comparison_group": "r2:IT01",
+    "round": 2,
+    "prompt_id": "IT01",
+    "endpoint": "openai_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:IT01:claude_api",
+    "comparison_group": "r2:IT01",
+    "round": 2,
+    "prompt_id": "IT01",
+    "endpoint": "claude_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:IT01:kimi_api",
+    "comparison_group": "r2:IT01",
+    "round": 2,
+    "prompt_id": "IT01",
+    "endpoint": "kimi_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:IT02:openai_api",
+    "comparison_group": "r2:IT02",
+    "round": 2,
+    "prompt_id": "IT02",
+    "endpoint": "openai_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:IT02:kimi_api",
+    "comparison_group": "r2:IT02",
+    "round": 2,
+    "prompt_id": "IT02",
+    "endpoint": "kimi_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:IT02:claude_api",
+    "comparison_group": "r2:IT02",
+    "round": 2,
+    "prompt_id": "IT02",
+    "endpoint": "claude_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:IT03:kimi_api",
+    "comparison_group": "r2:IT03",
+    "round": 2,
+    "prompt_id": "IT03",
+    "endpoint": "kimi_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:IT03:openai_api",
+    "comparison_group": "r2:IT03",
+    "round": 2,
+    "prompt_id": "IT03",
+    "endpoint": "openai_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:IT03:claude_api",
+    "comparison_group": "r2:IT03",
+    "round": 2,
+    "prompt_id": "IT03",
+    "endpoint": "claude_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:IT04:claude_api",
+    "comparison_group": "r2:IT04",
+    "round": 2,
+    "prompt_id": "IT04",
+    "endpoint": "claude_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:IT04:openai_api",
+    "comparison_group": "r2:IT04",
+    "round": 2,
+    "prompt_id": "IT04",
+    "endpoint": "openai_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:IT04:kimi_api",
+    "comparison_group": "r2:IT04",
+    "round": 2,
+    "prompt_id": "IT04",
+    "endpoint": "kimi_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:IT05:claude_api",
+    "comparison_group": "r2:IT05",
+    "round": 2,
+    "prompt_id": "IT05",
+    "endpoint": "claude_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:IT05:kimi_api",
+    "comparison_group": "r2:IT05",
+    "round": 2,
+    "prompt_id": "IT05",
+    "endpoint": "kimi_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:IT05:openai_api",
+    "comparison_group": "r2:IT05",
+    "round": 2,
+    "prompt_id": "IT05",
+    "endpoint": "openai_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:IT06:kimi_api",
+    "comparison_group": "r2:IT06",
+    "round": 2,
+    "prompt_id": "IT06",
+    "endpoint": "kimi_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:IT06:claude_api",
+    "comparison_group": "r2:IT06",
+    "round": 2,
+    "prompt_id": "IT06",
+    "endpoint": "claude_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:IT06:openai_api",
+    "comparison_group": "r2:IT06",
+    "round": 2,
+    "prompt_id": "IT06",
+    "endpoint": "openai_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:IT07:openai_api",
+    "comparison_group": "r2:IT07",
+    "round": 2,
+    "prompt_id": "IT07",
+    "endpoint": "openai_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:IT07:claude_api",
+    "comparison_group": "r2:IT07",
+    "round": 2,
+    "prompt_id": "IT07",
+    "endpoint": "claude_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:IT07:kimi_api",
+    "comparison_group": "r2:IT07",
+    "round": 2,
+    "prompt_id": "IT07",
+    "endpoint": "kimi_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:MKT01:openai_api",
+    "comparison_group": "r2:MKT01",
+    "round": 2,
+    "prompt_id": "MKT01",
+    "endpoint": "openai_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:MKT01:kimi_api",
+    "comparison_group": "r2:MKT01",
+    "round": 2,
+    "prompt_id": "MKT01",
+    "endpoint": "kimi_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:MKT01:claude_api",
+    "comparison_group": "r2:MKT01",
+    "round": 2,
+    "prompt_id": "MKT01",
+    "endpoint": "claude_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:MKT02:kimi_api",
+    "comparison_group": "r2:MKT02",
+    "round": 2,
+    "prompt_id": "MKT02",
+    "endpoint": "kimi_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:MKT02:openai_api",
+    "comparison_group": "r2:MKT02",
+    "round": 2,
+    "prompt_id": "MKT02",
+    "endpoint": "openai_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:MKT02:claude_api",
+    "comparison_group": "r2:MKT02",
+    "round": 2,
+    "prompt_id": "MKT02",
+    "endpoint": "claude_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:MKT03:claude_api",
+    "comparison_group": "r2:MKT03",
+    "round": 2,
+    "prompt_id": "MKT03",
+    "endpoint": "claude_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:MKT03:openai_api",
+    "comparison_group": "r2:MKT03",
+    "round": 2,
+    "prompt_id": "MKT03",
+    "endpoint": "openai_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:MKT03:kimi_api",
+    "comparison_group": "r2:MKT03",
+    "round": 2,
+    "prompt_id": "MKT03",
+    "endpoint": "kimi_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:MKT04:claude_api",
+    "comparison_group": "r2:MKT04",
+    "round": 2,
+    "prompt_id": "MKT04",
+    "endpoint": "claude_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:MKT04:kimi_api",
+    "comparison_group": "r2:MKT04",
+    "round": 2,
+    "prompt_id": "MKT04",
+    "endpoint": "kimi_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:MKT04:openai_api",
+    "comparison_group": "r2:MKT04",
+    "round": 2,
+    "prompt_id": "MKT04",
+    "endpoint": "openai_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:MKT05:kimi_api",
+    "comparison_group": "r2:MKT05",
+    "round": 2,
+    "prompt_id": "MKT05",
+    "endpoint": "kimi_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:MKT05:claude_api",
+    "comparison_group": "r2:MKT05",
+    "round": 2,
+    "prompt_id": "MKT05",
+    "endpoint": "claude_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:MKT05:openai_api",
+    "comparison_group": "r2:MKT05",
+    "round": 2,
+    "prompt_id": "MKT05",
+    "endpoint": "openai_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:MKT06:openai_api",
+    "comparison_group": "r2:MKT06",
+    "round": 2,
+    "prompt_id": "MKT06",
+    "endpoint": "openai_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:MKT06:claude_api",
+    "comparison_group": "r2:MKT06",
+    "round": 2,
+    "prompt_id": "MKT06",
+    "endpoint": "claude_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r2:MKT06:kimi_api",
+    "comparison_group": "r2:MKT06",
+    "round": 2,
+    "prompt_id": "MKT06",
+    "endpoint": "kimi_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:ACC01:claude_api",
+    "comparison_group": "r3:ACC01",
+    "round": 3,
+    "prompt_id": "ACC01",
+    "endpoint": "claude_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:ACC01:openai_api",
+    "comparison_group": "r3:ACC01",
+    "round": 3,
+    "prompt_id": "ACC01",
+    "endpoint": "openai_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:ACC01:kimi_api",
+    "comparison_group": "r3:ACC01",
+    "round": 3,
+    "prompt_id": "ACC01",
+    "endpoint": "kimi_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:ACC02:claude_api",
+    "comparison_group": "r3:ACC02",
+    "round": 3,
+    "prompt_id": "ACC02",
+    "endpoint": "claude_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:ACC02:kimi_api",
+    "comparison_group": "r3:ACC02",
+    "round": 3,
+    "prompt_id": "ACC02",
+    "endpoint": "kimi_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:ACC02:openai_api",
+    "comparison_group": "r3:ACC02",
+    "round": 3,
+    "prompt_id": "ACC02",
+    "endpoint": "openai_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:ACC03:kimi_api",
+    "comparison_group": "r3:ACC03",
+    "round": 3,
+    "prompt_id": "ACC03",
+    "endpoint": "kimi_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:ACC03:claude_api",
+    "comparison_group": "r3:ACC03",
+    "round": 3,
+    "prompt_id": "ACC03",
+    "endpoint": "claude_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:ACC03:openai_api",
+    "comparison_group": "r3:ACC03",
+    "round": 3,
+    "prompt_id": "ACC03",
+    "endpoint": "openai_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:ACC04:openai_api",
+    "comparison_group": "r3:ACC04",
+    "round": 3,
+    "prompt_id": "ACC04",
+    "endpoint": "openai_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:ACC04:claude_api",
+    "comparison_group": "r3:ACC04",
+    "round": 3,
+    "prompt_id": "ACC04",
+    "endpoint": "claude_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:ACC04:kimi_api",
+    "comparison_group": "r3:ACC04",
+    "round": 3,
+    "prompt_id": "ACC04",
+    "endpoint": "kimi_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:ACC05:openai_api",
+    "comparison_group": "r3:ACC05",
+    "round": 3,
+    "prompt_id": "ACC05",
+    "endpoint": "openai_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:ACC05:kimi_api",
+    "comparison_group": "r3:ACC05",
+    "round": 3,
+    "prompt_id": "ACC05",
+    "endpoint": "kimi_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:ACC05:claude_api",
+    "comparison_group": "r3:ACC05",
+    "round": 3,
+    "prompt_id": "ACC05",
+    "endpoint": "claude_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:ACC06:kimi_api",
+    "comparison_group": "r3:ACC06",
+    "round": 3,
+    "prompt_id": "ACC06",
+    "endpoint": "kimi_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:ACC06:openai_api",
+    "comparison_group": "r3:ACC06",
+    "round": 3,
+    "prompt_id": "ACC06",
+    "endpoint": "openai_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:ACC06:claude_api",
+    "comparison_group": "r3:ACC06",
+    "round": 3,
+    "prompt_id": "ACC06",
+    "endpoint": "claude_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:ACC07:claude_api",
+    "comparison_group": "r3:ACC07",
+    "round": 3,
+    "prompt_id": "ACC07",
+    "endpoint": "claude_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:ACC07:openai_api",
+    "comparison_group": "r3:ACC07",
+    "round": 3,
+    "prompt_id": "ACC07",
+    "endpoint": "openai_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:ACC07:kimi_api",
+    "comparison_group": "r3:ACC07",
+    "round": 3,
+    "prompt_id": "ACC07",
+    "endpoint": "kimi_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:IT01:claude_api",
+    "comparison_group": "r3:IT01",
+    "round": 3,
+    "prompt_id": "IT01",
+    "endpoint": "claude_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:IT01:kimi_api",
+    "comparison_group": "r3:IT01",
+    "round": 3,
+    "prompt_id": "IT01",
+    "endpoint": "kimi_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:IT01:openai_api",
+    "comparison_group": "r3:IT01",
+    "round": 3,
+    "prompt_id": "IT01",
+    "endpoint": "openai_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:IT02:kimi_api",
+    "comparison_group": "r3:IT02",
+    "round": 3,
+    "prompt_id": "IT02",
+    "endpoint": "kimi_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:IT02:claude_api",
+    "comparison_group": "r3:IT02",
+    "round": 3,
+    "prompt_id": "IT02",
+    "endpoint": "claude_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:IT02:openai_api",
+    "comparison_group": "r3:IT02",
+    "round": 3,
+    "prompt_id": "IT02",
+    "endpoint": "openai_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:IT03:openai_api",
+    "comparison_group": "r3:IT03",
+    "round": 3,
+    "prompt_id": "IT03",
+    "endpoint": "openai_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:IT03:claude_api",
+    "comparison_group": "r3:IT03",
+    "round": 3,
+    "prompt_id": "IT03",
+    "endpoint": "claude_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:IT03:kimi_api",
+    "comparison_group": "r3:IT03",
+    "round": 3,
+    "prompt_id": "IT03",
+    "endpoint": "kimi_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:IT04:openai_api",
+    "comparison_group": "r3:IT04",
+    "round": 3,
+    "prompt_id": "IT04",
+    "endpoint": "openai_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:IT04:kimi_api",
+    "comparison_group": "r3:IT04",
+    "round": 3,
+    "prompt_id": "IT04",
+    "endpoint": "kimi_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:IT04:claude_api",
+    "comparison_group": "r3:IT04",
+    "round": 3,
+    "prompt_id": "IT04",
+    "endpoint": "claude_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:IT05:kimi_api",
+    "comparison_group": "r3:IT05",
+    "round": 3,
+    "prompt_id": "IT05",
+    "endpoint": "kimi_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:IT05:openai_api",
+    "comparison_group": "r3:IT05",
+    "round": 3,
+    "prompt_id": "IT05",
+    "endpoint": "openai_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:IT05:claude_api",
+    "comparison_group": "r3:IT05",
+    "round": 3,
+    "prompt_id": "IT05",
+    "endpoint": "claude_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:IT06:claude_api",
+    "comparison_group": "r3:IT06",
+    "round": 3,
+    "prompt_id": "IT06",
+    "endpoint": "claude_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:IT06:openai_api",
+    "comparison_group": "r3:IT06",
+    "round": 3,
+    "prompt_id": "IT06",
+    "endpoint": "openai_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:IT06:kimi_api",
+    "comparison_group": "r3:IT06",
+    "round": 3,
+    "prompt_id": "IT06",
+    "endpoint": "kimi_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:IT07:claude_api",
+    "comparison_group": "r3:IT07",
+    "round": 3,
+    "prompt_id": "IT07",
+    "endpoint": "claude_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:IT07:kimi_api",
+    "comparison_group": "r3:IT07",
+    "round": 3,
+    "prompt_id": "IT07",
+    "endpoint": "kimi_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:IT07:openai_api",
+    "comparison_group": "r3:IT07",
+    "round": 3,
+    "prompt_id": "IT07",
+    "endpoint": "openai_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:MKT01:kimi_api",
+    "comparison_group": "r3:MKT01",
+    "round": 3,
+    "prompt_id": "MKT01",
+    "endpoint": "kimi_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:MKT01:claude_api",
+    "comparison_group": "r3:MKT01",
+    "round": 3,
+    "prompt_id": "MKT01",
+    "endpoint": "claude_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:MKT01:openai_api",
+    "comparison_group": "r3:MKT01",
+    "round": 3,
+    "prompt_id": "MKT01",
+    "endpoint": "openai_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:MKT02:openai_api",
+    "comparison_group": "r3:MKT02",
+    "round": 3,
+    "prompt_id": "MKT02",
+    "endpoint": "openai_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:MKT02:claude_api",
+    "comparison_group": "r3:MKT02",
+    "round": 3,
+    "prompt_id": "MKT02",
+    "endpoint": "claude_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:MKT02:kimi_api",
+    "comparison_group": "r3:MKT02",
+    "round": 3,
+    "prompt_id": "MKT02",
+    "endpoint": "kimi_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:MKT03:openai_api",
+    "comparison_group": "r3:MKT03",
+    "round": 3,
+    "prompt_id": "MKT03",
+    "endpoint": "openai_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:MKT03:kimi_api",
+    "comparison_group": "r3:MKT03",
+    "round": 3,
+    "prompt_id": "MKT03",
+    "endpoint": "kimi_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:MKT03:claude_api",
+    "comparison_group": "r3:MKT03",
+    "round": 3,
+    "prompt_id": "MKT03",
+    "endpoint": "claude_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:MKT04:kimi_api",
+    "comparison_group": "r3:MKT04",
+    "round": 3,
+    "prompt_id": "MKT04",
+    "endpoint": "kimi_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:MKT04:openai_api",
+    "comparison_group": "r3:MKT04",
+    "round": 3,
+    "prompt_id": "MKT04",
+    "endpoint": "openai_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:MKT04:claude_api",
+    "comparison_group": "r3:MKT04",
+    "round": 3,
+    "prompt_id": "MKT04",
+    "endpoint": "claude_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:MKT05:claude_api",
+    "comparison_group": "r3:MKT05",
+    "round": 3,
+    "prompt_id": "MKT05",
+    "endpoint": "claude_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:MKT05:openai_api",
+    "comparison_group": "r3:MKT05",
+    "round": 3,
+    "prompt_id": "MKT05",
+    "endpoint": "openai_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:MKT05:kimi_api",
+    "comparison_group": "r3:MKT05",
+    "round": 3,
+    "prompt_id": "MKT05",
+    "endpoint": "kimi_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:MKT06:claude_api",
+    "comparison_group": "r3:MKT06",
+    "round": 3,
+    "prompt_id": "MKT06",
+    "endpoint": "claude_api",
+    "order_within_group": 1,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:MKT06:kimi_api",
+    "comparison_group": "r3:MKT06",
+    "round": 3,
+    "prompt_id": "MKT06",
+    "endpoint": "kimi_api",
+    "order_within_group": 2,
+    "scheduled_at_utc": null
+  },
+  {
+    "slot_id": "model-agreement-v01:r3:MKT06:openai_api",
+    "comparison_group": "r3:MKT06",
+    "round": 3,
+    "prompt_id": "MKT06",
+    "endpoint": "openai_api",
+    "order_within_group": 3,
+    "scheduled_at_utc": null
+  }
+]

@@ -1,0 +1,21 @@
+{
+  "study_id": "model-agreement-v01",
+  "app_id": null,
+  "expected_name": "model-agreement-v01",
+  "identity_verified": false,
+  "status_schema_verified": false,
+  "external_controller_verified": false,
+  "id_field": null,
+  "name_field": null,
+  "status_field": null,
+  "stopped_values": [],
+  "stop_at_utc": null,
+  "hosting": {
+    "resource_limits_verified": false,
+    "finite_lifetime_verified": false,
+    "network_cap_verified": false,
+    "storage_retention_verified": false,
+    "no_ip_no_volumes_verified": false,
+    "prices_verified": false
+  }
+}
