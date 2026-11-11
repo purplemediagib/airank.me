@@ -169,3 +169,22 @@ test('Claude failed continuations preserve HTTP status and all request counts fo
   else{assert.equal(calls,status===429?4:2);assert.equal(result.meta.recovery_retries,0);assert.equal(result.meta.http_status,status);}
  }}finally{globalThis.fetch=old;}
 });
+
+test('Kimi engine uses five-minute first attempt and bounded recovery lease without changing reservations',async()=>{
+ for(const enabled of ['true','false']){
+  const e={ENABLED_PROVIDERS:'kimi',OPENROUTER_MODELS_JSON:JSON.stringify({kimi:'moonshotai/kimi-k2.5'}),OPENROUTER_SEARCH_ENGINE:'exa',MONITORING_RECOVERY_ENABLED:enabled};
+  e.API_BUDGET_CONFIG_JSON=fixtureBudgetConfig(e);
+  const f=await fixture({...e,MONITORING_PROVIDER_TIMEOUT_MS:'180000'});try{
+   await f.run();const seen=[];
+   const worker=createMonitoringEngine({db:f.db,env:f.env,now:f.now,available:()=>true,logger:()=>{},call:async(provider,prompt,route,timeout)=>{
+    assert.equal(provider,'kimi');seen.push(timeout);
+    const task=f.sqlite.prepare('SELECT lease_until FROM mon_tasks').get();
+    assert.equal(task.lease_until-f.now(),enabled==='true'?600000:300000);
+    return seen.length===1&&enabled==='true'?failed('PROVIDER_TIMEOUT'):good;
+   }});
+   await worker.tick();await worker.tick();
+   assert.deepEqual(seen,enabled==='true'?[300000,300000]:[300000]);
+   assert.equal(evidence(f).status,'success');
+  }finally{f.close();}
+ }
+});

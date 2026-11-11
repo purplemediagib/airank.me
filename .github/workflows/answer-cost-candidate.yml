@@ -1,18 +1,18 @@
-name: Publish gemini-catalog worker candidate
+name: Publish gemini-location-kimi-timeout worker candidate
 on:
   push:
-    branches: [fix/gemini-catalog-20261110]
+    branches: [fix/gemini-location-kimi-timeout-20261111]
 permissions:
   contents: read
 concurrency:
-  group: gemini-catalog-worker-${{ github.ref }}
+  group: gemini-location-kimi-timeout-worker-${{ github.ref }}
   cancel-in-progress: false
 jobs:
   validate:
-    if: github.repository == 'purplemediagib/airank.me' && github.ref == 'refs/heads/fix/gemini-catalog-20261110'
+    if: github.repository == 'purplemediagib/airank.me' && github.ref == 'refs/heads/fix/gemini-location-kimi-timeout-20261111'
     uses: ./.github/workflows/ci.yml
   publish:
-    if: github.repository == 'purplemediagib/airank.me' && github.ref == 'refs/heads/fix/gemini-catalog-20261110'
+    if: github.repository == 'purplemediagib/airank.me' && github.ref == 'refs/heads/fix/gemini-location-kimi-timeout-20261111'
     needs: validate
     runs-on: ubuntu-latest
     permissions:
@@ -61,4 +61,4 @@ jobs:
           diff -r app/src pulled-source
           cmp app/package-lock.json pulled-source-package-lock.json
           printf '### %s candidate\n\nRevision: `%s`\n\nTag: `%s`\n\nImmutable digest: `%s`\n\nNo deployment, migration or provider call was run.\n' "$SERVICE" "$REVISION" "$image" "$digest" >> "$GITHUB_STEP_SUMMARY"
-          printf 'GEMINI_CATALOG_CANDIDATE service=%s revision=%s image=%s digest=%s\n' "$SERVICE" "$REVISION" "$image" "$digest"
+          printf 'GEMINI_KIMI_CANDIDATE service=%s revision=%s image=%s digest=%s\n' "$SERVICE" "$REVISION" "$image" "$digest"

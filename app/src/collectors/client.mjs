@@ -2,8 +2,8 @@ import {measurementContext} from '../common/measurement-context.mjs';
 import {httpFailure} from '../providers/diagnostics.mjs';
 const engines={openai:'chat_gpt',gemini:'gemini'};
 const validId=id=>typeof id==='string'&&/^[\w-]{1,200}$/.test(id);
-export function createCollectorClient({env=process.env,transport=fetch}={}){
- const catalogs=new Map();
+export function createCollectorClient({env=process.env,transport=fetch,sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms))}={}){
+ const catalogs=new Map(),pendingCatalogs=new Map();
  async function request(url,body,route){
   const dfs=route.transport==='dataforseo_scraper';
   const headers=dfs?{authorization:'Basic '+Buffer.from(`${env.DATAFORSEO_LOGIN}:${env.DATAFORSEO_PASSWORD}`).toString('base64')}:{'x-api-token':env.SCRAPELESS_API_TOKEN};
@@ -21,18 +21,31 @@ export function createCollectorClient({env=process.env,transport=fetch}={}){
    if(route.transport==='dataforseo_scraper'){
     const engine=engines[provider];if(!engine)throw Error('Unsupported consumer platform');
     const root=`https://api.dataforseo.com/v3/ai_optimization/${engine}/llm_scraper`;
-    const catalogKey=`${engine}:${context.market}`;
+    const catalogKey=provider==='gemini'?engine:`${engine}:${context.market}`;
     if(catalogs.get(catalogKey)?.expires<Date.now())catalogs.delete(catalogKey);
     if(!catalogs.has(catalogKey)){
-     let lists;
-     try{lists=await Promise.all(['locations','languages'].map(async path=>{
-      // Gemini exposes a single locations catalog, not the country-suffixed ChatGPT route.
-      const suffix=path==='locations'&&provider==='openai'?`/${context.market}`:'';
-      const r=await request(`${root}/${path}${suffix}`,undefined,route);
-      if(!r.ok||r.json.status_code!==20000||r.json.tasks?.[0]?.status_code!==20000||!Array.isArray(r.json.tasks[0].result))throw Error('Locale catalog unavailable');
-      return r.json.tasks[0].result;
-     }));}catch{return {result:{status:'provider_failed',meta:{failure_code:'COLLECTOR_LOCALE_CATALOG_UNAVAILABLE',submission_attempted:false}}};}
-     catalogs.set(catalogKey,{expires:Date.now()+3600000,locations:lists[0],languages:lists[1]});
+     if(!pendingCatalogs.has(catalogKey))pendingCatalogs.set(catalogKey,(async()=>{
+      const lists=await Promise.all(['locations','languages'].map(async path=>{
+       // Catalog GETs are non-billable; retry only transient failures, never task_post.
+       const suffix=path==='locations'&&provider==='openai'?`/${context.market}`:'';
+       for(let attempt=1;attempt<=3;attempt++){
+        let r;
+        try{r=await request(`${root}/${path}${suffix}`,undefined,route);}
+        catch{
+         if(attempt<3){await sleep(attempt*500);continue;}
+         throw {stage:path,attempts:attempt};
+        }
+        if(r.ok&&r.json.status_code===20000&&r.json.tasks?.[0]?.status_code===20000&&Array.isArray(r.json.tasks[0].result))return r.json.tasks[0].result;
+        const code=r.json.tasks?.[0]?.status_code??r.json.status_code;
+        const transient=r.http===429||r.http>=500||code>=50000&&code<60000;
+        if(transient&&attempt<3){await sleep(attempt*500);continue;}
+        throw {stage:path,http:r.http,code,attempts:attempt};
+       }
+      }));
+      catalogs.set(catalogKey,{expires:Date.now()+3600000,locations:lists[0],languages:lists[1]});
+     })().finally(()=>pendingCatalogs.delete(catalogKey)));
+     try{await pendingCatalogs.get(catalogKey);}catch(e){return {result:{status:'provider_failed',meta:{failure_code:'COLLECTOR_LOCALE_CATALOG_UNAVAILABLE',submission_attempted:false,
+      catalog_stage:e.stage,http_status:e.http,catalog_status_code:e.code,catalog_attempts:e.attempts}}};}
     }
     const catalog=catalogs.get(catalogKey);
     const location=catalog.locations.find(x=>x.country_iso_code===context.market&&x.location_type==='Country');

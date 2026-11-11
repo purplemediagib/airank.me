@@ -149,3 +149,28 @@ test('Gemini uses the unsuffixed locations catalog and preserves US English targ
  assert.equal(unsupported.result.status,'unsupported_context');
  assert.equal(calls.filter(c=>c.method==='POST').length,1);
 });
+
+test('Gemini retries free transient catalog GETs, shares catalog across markets, preserves requested Finland targeting',async()=>{
+ const calls=[];let locations=0;
+ const client=createCollectorClient({env:{CONSUMER_COLLECTION_ENABLED:'true'},sleep:async()=>{},transport:async(url,options)=>{
+  calls.push({url,method:options.method,body:options.body&&JSON.parse(options.body)});
+  if(url.endsWith('/locations')&&++locations===1)return new Response('{}',{status:503});
+  const result=url.endsWith('/locations')?[{country_iso_code:'FI',location_type:'Country',location_code:2246},{country_iso_code:'US',location_type:'Country',location_code:2840}]:[{language_code:'fi'},{language_code:'en'}];
+  return new Response(JSON.stringify({status_code:20000,tasks:[options.method==='POST'?{id:'known-id',status_code:20100}:{status_code:20000,result}]}));
+ }});
+ for(const [market,language]of [['FI','fi'],['US','en']])assert.equal((await client.submit({provider:'gemini',route:{transport:'dataforseo_scraper'},prompt,context:{market,language},taskId:market})).remoteId,'known-id');
+ assert.equal(locations,2);assert.equal(calls.filter(c=>c.url.endsWith('/languages')).length,1);
+ assert.deepEqual(calls.filter(c=>c.method==='POST').map(c=>[c.body[0].location_code,c.body[0].language_code]),[[2246,'fi'],[2840,'en']]);
+});
+test('catalog failures retain safe stage/status, do not bill, and never substitute another market',async()=>{
+ for(const [http,status,attempts]of [[401,40100,1],[503,50301,3]]){
+  let posts=0,locations=0;
+  const client=createCollectorClient({env:{CONSUMER_COLLECTION_ENABLED:'true'},sleep:async()=>{},transport:async(url,options)=>{
+   if(options.method==='POST')posts++;
+   if(url.endsWith('/locations')){locations++;return new Response(JSON.stringify({status_code:status}),{status:http});}
+   return new Response(JSON.stringify({status_code:20000,tasks:[{status_code:20000,result:[{language_code:'fi'}]}]}));
+  }});
+  const r=await client.submit({provider:'gemini',route:{transport:'dataforseo_scraper'},prompt,context:{market:'FI',language:'fi'},taskId:'test'});
+  assert.equal(posts,0);assert.equal(locations,attempts);assert.equal(r.result.meta.catalog_stage,'locations');assert.equal(r.result.meta.http_status,http);assert.equal(r.result.meta.catalog_status_code,status);assert.equal(r.result.meta.catalog_attempts,attempts);
+ }
+});

@@ -14,13 +14,14 @@ import {providerDailyLimit} from '../common/daily-limits.mjs';
 import {providerConcurrency} from './provider-concurrency.mjs';
 import {recoveryEnabled,recoveryTimeoutMs} from '../providers/recovery-policy.mjs';
 import {executeMonitoringCall} from './recovery.mjs';
+import {monitoringTimeouts} from './provider-timeouts.mjs';
 
 // Persistent state machine: queued -> executing -> recorded -> done.
 // An expired executing lease WITHOUT a receipt is ambiguous and is NEVER replayed.
 export function createMonitoringEngine({db,env=process.env,now=Date.now,call=callRoute,available=routeAvailable,storeEvidence,logger=logEvent,collectorClient}){
  const concurrency=setting(env,'MONITORING_CONCURRENCY',2,1,8);
  const providerLimits=providerConcurrency(env);
- const timeout=setting(env,'MONITORING_PROVIDER_TIMEOUT_MS',120000,10,600000);
+ const timeouts=monitoringTimeouts(env);
  recoveryEnabled(env); // Invalid opt-in values fail before a paid task is claimed.
  const daily=providerDailyLimit(env);
  const buffered=new Map();
@@ -106,6 +107,7 @@ export function createMonitoringEngine({db,env=process.env,now=Date.now,call=cal
    t.route=JSON.stringify(route);
    await exec(tx,'UPDATE mon_tasks SET route=? WHERE id=?',[t.route,t.id]);
   }
+  const timeout=t.provider==='kimi'?timeouts.kimi:timeouts.default;
   const sequenceTimeout=route.api_budget?.recovery?Math.min(600000,timeout+recoveryTimeoutMs(timeout)+2000):timeout;
   const token=uuid(),lease=Math.min(Number(t.deadline_at),now()+sequenceTimeout);
   await exec(tx,'INSERT INTO mon_budget VALUES (?,?)',[t.id,now()]);
@@ -120,7 +122,7 @@ export function createMonitoringEngine({db,env=process.env,now=Date.now,call=cal
   const route=JSON.parse(task.route);
   try{
    result=await observeProvider({provider:task.provider,route,timeoutMs:duration,ids:{run_id:task.run_id,task_id:task.id},logger,call:()=>route.api_budget?.recovery?executeMonitoringCall({
-    provider:task.provider,prompt:task.text,route,context:JSON.parse(task.snapshot),timeoutMs:timeout,deadline:task.lease_until,call,now,
+    provider:task.provider,prompt:task.text,route,context:JSON.parse(task.snapshot),timeoutMs:task.provider==='kimi'?timeouts.kimi:timeouts.default,deadline:task.lease_until,call,now,
     logger:(event,fields)=>logger(event,{run_id:task.run_id,task_id:task.id,...fields}),
     canRetry:async()=>{
      const current=await one(db,'SELECT t.status,t.claim_token,t.lease_until,p.status AS project_status FROM mon_tasks t JOIN mon_runs r ON r.id=t.run_id JOIN app_projects p ON p.id=r.project_id WHERE t.id=?',[task.id]);
