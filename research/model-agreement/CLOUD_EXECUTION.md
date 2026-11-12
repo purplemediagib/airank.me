@@ -28,3 +28,13 @@ independent no-replay history guard is therefore required.
 No raw answers, prompts, credentials or public artifacts are logged. Provider
 pins, the scientific panel, prices, qualification and $40 allocation stay fixed.
 OpenAI accounting remains an explicitly labelled estimate, not a hard billing cap.
+
+## 12 November follow-up amendment
+
+Owner approved moving only missed round 1 to 14:00 Europe/Gibraltar
+(13:00 UTC) on 12 November, window ends15:00 UTC, ten-minute start grace.
+Rounds 2 and 3 remain at10:00 Gibraltar on14 and18 November.
+`amend-schedule` now accepts only the prior10am frozen protocol and exactly
+this round-one four-hour change. It rejects any existing primary attempt,
+preserves qualification receipts, earlier manifests and chained storage history.
+No provider call occurs in the amendment or preflight operations.

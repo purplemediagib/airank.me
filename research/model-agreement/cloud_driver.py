@@ -45,17 +45,18 @@ def safe_ledger(root,m,round_id=None):
     finally:ledger.close()
 
 def amend_schedule(root,old,new,prompts,slots,remote,now=None):
-    """Only explicitly approved 8-hour shift, no scientific or budget changes."""
-    old_slots=json.loads((ROOT/'inputs/schedule_PRE_10AM.json').read_text())
+    """Only explicitly approved round-one 4-hour shift, no scientific or budget changes."""
+    old_slots=json.loads((ROOT/'inputs/schedule_PRE_2PM.json').read_text())
     expected_slots=json.loads(core.canonical(old_slots))
     for slot in expected_slots:
-        slot['scheduled_at_utc']=(datetime.datetime.fromisoformat(slot['scheduled_at_utc'].replace('Z','+00:00'))+datetime.timedelta(hours=8)).isoformat().replace('+00:00','Z')
-    if slots!=expected_slots:raise RuntimeError('Only exact 8-hour slot shift permitted')
+        if slot['round']!=1:continue
+        slot['scheduled_at_utc']=(datetime.datetime.fromisoformat(slot['scheduled_at_utc'].replace('Z','+00:00'))+datetime.timedelta(hours=4)).isoformat().replace('+00:00','Z')
+    if slots!=expected_slots:raise RuntimeError('Only exact round-one 4-hour slot shift permitted')
     expected=json.loads(core.canonical(old));expected['schedule_hash']=core.digest(core.canonical(slots));expected['execution_expires_at_utc']='2026-11-18T11:00:00Z'
     dates={1:'2026-11-12',2:'2026-11-14',3:'2026-11-18'}
     for w in expected['rounds']:
-        if w!={'round':w['round'],'start_utc':dates[w['round']]+'T01:00:00Z','end_utc':dates[w['round']]+'T03:00:00Z','start_grace_seconds':600}:raise RuntimeError('Old windows differ')
-        w['start_utc']=dates[w['round']]+'T09:00:00Z';w['end_utc']=dates[w['round']]+'T11:00:00Z'
+        if w!={'round':w['round'],'start_utc':dates[w['round']]+'T09:00:00Z','end_utc':dates[w['round']]+'T11:00:00Z','start_grace_seconds':600}:raise RuntimeError('Old windows differ')
+        if w['round']==1:w['start_utc']=dates[1]+'T13:00:00Z';w['end_utc']=dates[1]+'T15:00:00Z'
     expected['manifest_sha256']=core.manifest_hash(expected)
     if new!=expected:raise RuntimeError('Unapproved schedule amendment')
     core.validate(new,prompts,slots,True,time.time() if now is None else now)
@@ -63,8 +64,8 @@ def amend_schedule(root,old,new,prompts,slots,remote,now=None):
         service.verify_inputs(root,old,prompts,old_slots);remote.verify(root,old);info=safe_ledger(root,old);ledger=core.Ledger(root,old)
         try:
             if info['rounds'] or ledger.db.execute("SELECT 1 FROM attempts WHERE kind='primary'").fetchone():raise RuntimeError('Primary work exists; do not reschedule')
-            audit={'kind':'owner_approved_10am_Gibraltar_schedule','prior_head_sha256':core.digest(core.canonical(remote.head())),'old_manifest_sha256':old['manifest_sha256'],'new_manifest_sha256':new['manifest_sha256'],'old_rounds':old['rounds'],'new_rounds':new['rounds'],'old_schedule':old_slots,'new_schedule_hash':new['schedule_hash'],'prior_attempts_retained':info['summary']['attempts'],'approved_total_micro_usd':40000000,'at_epoch':time.time() if now is None else now}
-            core.write_once(pathlib.Path(root)/'raw'/'schedule-10am-amendment.json',core.canonical(audit))
+            audit={'kind':'owner_approved_round1_2pm_Gibraltar_schedule','prior_head_sha256':core.digest(core.canonical(remote.head())),'old_manifest_sha256':old['manifest_sha256'],'new_manifest_sha256':new['manifest_sha256'],'old_rounds':old['rounds'],'new_rounds':new['rounds'],'old_schedule':old_slots,'new_schedule_hash':new['schedule_hash'],'prior_attempts_retained':info['summary']['attempts'],'approved_total_micro_usd':40000000,'at_epoch':time.time() if now is None else now}
+            core.write_once(pathlib.Path(root)/'raw'/'schedule-round1-2pm-amendment.json',core.canonical(audit))
             remote.put_verified('study-marker-before-'+core.protocol_hash(old)+'.json',remote.get('study-marker.json'))
             remote.put_verified('study-marker.json',core.canonical({'study_id':core.STUDY,'provider_cap_micro_usd':new['provider_cap_micro_usd'],'protocol_sha256':core.protocol_hash(new)}),immutable=False)
             ledger.db.execute("UPDATE config SET v=? WHERE k='protocol_sha256'",(core.protocol_hash(new),))
@@ -74,9 +75,9 @@ def amend_schedule(root,old,new,prompts,slots,remote,now=None):
     return {'schedule_amended':True,'paid_calls':0}
 
 def prepare(root,m,prompts,slots,remote,operation,round_id=None,anchor=TRUSTED_ANCHOR,now=None):
-    head=verify_chain(remote,anchor);old=json.loads((ROOT/'manifest_PRE_10AM.json').read_text())
+    head=verify_chain(remote,anchor);old=json.loads((ROOT/'manifest_PRE_2PM.json').read_text())
     restore_m=old if head['protocol_sha256']==core.protocol_hash(old) else m
-    restore_slots=json.loads((ROOT/'inputs/schedule_PRE_10AM.json').read_text()) if restore_m==old else slots
+    restore_slots=json.loads((ROOT/'inputs/schedule_PRE_2PM.json').read_text()) if restore_m==old else slots
     recovery.restore(root,restore_m,remote,core.digest(core.canonical(head)));service.verify_inputs(root,restore_m,prompts,restore_slots)
     if operation=='reschedule':
         if restore_m==m:raise RuntimeError('Schedule already amended; no repeated write')

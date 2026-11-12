@@ -26,9 +26,9 @@ class CloudTests(unittest.TestCase):
 class ScheduleTests(unittest.TestCase):
     def setUp(self):
         self.f=Fixture();self.f.tmp.cleanup();self.f=Fixture();self.f.objects.clear();self.tmp=tempfile.TemporaryDirectory();self.root=pathlib.Path(self.tmp.name)/core.STUDY
-        self.old=json.loads((cloud_driver.ROOT/'manifest_PRE_10AM.json').read_text());self.new=json.loads((cloud_driver.ROOT/'manifest_RELEASE.json').read_text())
-        self.prompts=json.loads((cloud_driver.ROOT/'inputs/prompts.json').read_text());self.slots=json.loads((cloud_driver.ROOT/'inputs/schedule_DRAFT.json').read_text());self.old_slots=json.loads((cloud_driver.ROOT/'inputs/schedule_PRE_10AM.json').read_text());service.init(self.root,self.old,self.prompts,self.old_slots,self.f.remote)
-        self.anchor=core.digest(core.canonical(self.f.remote.head()));self.now=core.utc_epoch('2026-11-12T08:00:00Z')
+        self.old=json.loads((cloud_driver.ROOT/'manifest_PRE_2PM.json').read_text());self.new=json.loads((cloud_driver.ROOT/'manifest_RELEASE.json').read_text())
+        self.prompts=json.loads((cloud_driver.ROOT/'inputs/prompts.json').read_text());self.slots=json.loads((cloud_driver.ROOT/'inputs/schedule_DRAFT.json').read_text());self.old_slots=json.loads((cloud_driver.ROOT/'inputs/schedule_PRE_2PM.json').read_text());service.init(self.root,self.old,self.prompts,self.old_slots,self.f.remote)
+        self.anchor=core.digest(core.canonical(self.f.remote.head()));self.now=core.utc_epoch('2026-11-12T12:00:00Z')
     def tearDown(self):self.tmp.cleanup();self.f.tmp.cleanup()
     def amend(self):return cloud_driver.amend_schedule(self.root,self.old,self.new,self.prompts,self.slots,self.f.remote,now=self.now)
     def test_preserves_and_restores(self):
@@ -41,6 +41,15 @@ class ScheduleTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):self.amend()
     def test_reject_other_change(self):
         self.new['provider_cap_micro_usd']-=1;self.new['manifest_sha256']=core.manifest_hash(self.new)
+        with self.assertRaises(RuntimeError):self.amend()
+    def test_future_rounds_unchanged(self):
+        self.assertEqual(self.new['rounds'][1:],self.old['rounds'][1:])
+        self.assertEqual([x for x in self.slots if x['round']!=1],[x for x in self.old_slots if x['round']!=1])
+        self.assertEqual(self.new['rounds'][0]['start_utc'],'2026-11-12T13:00:00Z')
+        self.assertEqual(self.new['rounds'][0]['end_utc'],'2026-11-12T15:00:00Z')
+    def test_reject_second_round_shift(self):
+        self.new['rounds'][1]['start_utc']='2026-11-14T13:00:00Z'
+        self.new['manifest_sha256']=core.manifest_hash(self.new)
         with self.assertRaises(RuntimeError):self.amend()
     def test_reject_started(self):
         l=core.Ledger(self.root,self.old);l.db.execute("INSERT INTO rounds VALUES (1,'active',1,NULL,NULL)");storage.backup(self.root,l,self.f.remote,self.old);l.close()
