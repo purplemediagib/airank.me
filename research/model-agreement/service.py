@@ -139,7 +139,7 @@ def execute(root,m,prompts,slots,slot,kind,remote,transport=adapters.http,clock=
             rawpath='raw/'+core.digest(aid.encode())+'.json';sha=core.write_once(root/rawpath,core.canonical(raw))
             # Parse and account independently: a semantic/provenance failure must not erase known spend.
             accounted=None;basis='unresolved_charge';status='unknown';error=None;parsed=None
-            try:accounted,basis=adapters.account(ep,r,c)
+            try:accounted,basis=adapters.account(ep,r,c,enforce_cost_bounds=m.get('spend_safeguards_removed')!='owner-approved-2026-11-12')
             except (ValueError,KeyError,TypeError):error='usage_or_cost_unverified'
             try:
                 parsed=adapters.parse(ep,r,c)
@@ -151,7 +151,7 @@ def execute(root,m,prompts,slots,slot,kind,remote,transport=adapters.http,clock=
             return {'attempt_id':aid,'status':status,'accounted_micro_usd':accounted,'cost_basis':basis,'raw_sha256':sha,'answer_characters':len(parsed['answer']) if parsed else None,'citation_count':len(parsed['citations']) if parsed else None,'diagnostic_facts':adapters.diagnostic_facts(r)}
         finally:ledger.close()
 
-def tick(root,m,prompts,slots,remote,now=None,execute_fn=execute,selected_round=None,**kwargs):
+def tick(root,m,prompts,slots,remote,now=None,execute_fn=execute,selected_round=None,untouched_only=False,**kwargs):
     now=time.time() if now is None else now;core.validate(m,prompts,slots,True,now,False)
     chosen=None
     with core.locked(root):
@@ -175,6 +175,9 @@ def tick(root,m,prompts,slots,remote,now=None,execute_fn=execute,selected_round=
                     prior=ledger.db.execute('SELECT * FROM attempts WHERE slot=? ORDER BY n',(slot['slot_id'],)).fetchall()
                     if not prior:chosen=slot;break
                     last=prior[-1]
+                    if untouched_only:
+                        if last['accounted'] is None or last['status'] in ('reserved','fatal','unknown'):return {'state':'blocked','reason':'slot_requires_review'}
+                        continue
                     if last['status']=='retryable' and len(prior)==1:
                         if now<last['retry_at']:return {'state':'waiting_retry','wake_at':last['retry_at']}
                         chosen=slot;break

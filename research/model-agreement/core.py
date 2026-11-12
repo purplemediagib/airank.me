@@ -79,6 +79,8 @@ def validate(m,prompts,slots,live=False,now=None,qualification=False):
     for p in ids:
         for ep in ENDPOINTS:
             if {s['order_within_group'] for s in slots if s['prompt_id']==p and s['endpoint']==ep}!={1,2,3}:raise ValueError('Endpoint order is not counterbalanced')
+    if m.get('spend_safeguards_removed') not in (None, 'owner-approved-2026-11-12'):
+        raise ValueError('Unknown spending policy')
     if not live:return
     for name in ('spend_approved','protocol_frozen','storage_verified','singleton_verified','hosting_bound_verified','paid_enabled'):
         if m.get(name) is not True:raise RuntimeError('Closed gate: '+name)
@@ -115,6 +117,7 @@ def validate(m,prompts,slots,live=False,now=None,qualification=False):
 
 class Ledger:
     def __init__(self,root,m,initialize=False):
+        self.spending_unrestricted=m.get('spend_safeguards_removed')=='owner-approved-2026-11-12'
         self.root=pathlib.Path(root);path=self.root/'ledger.sqlite'
         if not initialize and not path.exists():raise RuntimeError('Missing ledger; never reset')
         self.db=sqlite3.connect(path,isolation_level=None);self.db.row_factory=sqlite3.Row
@@ -146,9 +149,9 @@ CREATE TABLE IF NOT EXISTS rounds(id INTEGER PRIMARY KEY,state TEXT NOT NULL,sta
             elif kind=='diagnostic':
                 if self.db.execute("SELECT COUNT(*) FROM attempts WHERE kind='diagnostic'").fetchone()[0]>=m['diagnostic_limit']:raise RuntimeError('Diagnostic pool exhausted')
             elif kind!='primary':raise ValueError('Invalid attempt kind')
-            if self.summary()['committed_or_held_micro_usd']+bound>m['provider_cap_micro_usd']:raise RuntimeError('Provider cap would be exceeded')
+            if not self.spending_unrestricted and self.summary()['committed_or_held_micro_usd']+bound>m['provider_cap_micro_usd']:raise RuntimeError('Provider cap would be exceeded')
             c=m['endpoints'][ep];epcap=c.get('local_lifetime_cap_micro_usd')
-            if epcap is not None:
+            if epcap is not None and not self.spending_unrestricted:
                 used=sum(r['accounted'] if r['accounted'] is not None else r['reserved'] for r in self.rows() if r['endpoint']==ep)
                 if c.get('guard_mode')=='account_operational':
                     if used>=epcap:raise RuntimeError('Operational local account threshold exhausted')
@@ -165,6 +168,6 @@ CREATE TABLE IF NOT EXISTS rounds(id INTEGER PRIMARY KEY,state TEXT NOT NULL,sta
             if status not in ('complete','incomplete','retryable','fatal','unknown'):raise ValueError('Invalid outcome')
             if status=='retryable' and error not in ('timeout','429','5xx'):raise ValueError('Content retry forbidden')
             self.db.execute('UPDATE attempts SET status=?,accounted=?,cost_basis=?,end=?,error=?,raw_path=?,raw_hash=?,retry_at=? WHERE id=?',(status,accounted,basis,end,error,raw_path,raw_hash,end+max(60,retry_after),aid))
-            if status in ('fatal','unknown') or accounted is None or accounted>r['reserved']:self.halt('uncertain_or_excess_charge_or_fatal')
+            if status in ('fatal','unknown') or accounted is None or (not self.spending_unrestricted and accounted>r['reserved']):self.halt('uncertain_or_excess_charge_or_fatal')
             self.db.execute('COMMIT')
         except Exception:self.db.execute('ROLLBACK');raise

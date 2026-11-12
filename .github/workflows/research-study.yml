@@ -8,7 +8,7 @@ on:
         description: Reviewed one-job operation; requires reviewed release and private snapshot
         required: true
         type: choice
-        options: [validate, storage-check, init, qualify, activate, round, preflight, amend-schedule, cloud-round]
+        options: [validate, storage-check, init, qualify, activate, round, preflight, amend-schedule, cloud-round, continuation-amend, continuation-run]
         default: validate
       round_number:
         description: Primary round number (1, 2 or 3)
@@ -57,8 +57,9 @@ jobs:
         run: |
           set -euo pipefail
           umask 077
-          python3 -m unittest -q test_runner test_shutdown test_recovery test_panel test_amendment test_cloud
+          python3 -m unittest -q test_runner test_shutdown test_recovery test_panel test_amendment test_cloud test_continuation
           python3 service.py validate --manifest manifest_RELEASE.json
+          python3 service.py validate --manifest manifest_CONTINUATION.json
       - name: Nonpaid private storage setup
         if: inputs.operation == 'storage-check' || inputs.operation == 'init'
         env:
@@ -151,3 +152,32 @@ jobs:
           export RESEARCH_DATA_DIR="$RUNNER_TEMP/model-agreement-v01"
           export RESEARCH_JOB_DEADLINE_EPOCH="$(( $(date +%s) + 9000 ))"
           python3 cloud_driver.py round --round "$ROUND_NUMBER"
+
+      - name: Reviewed private continuation amendment, no provider credentials
+        if: inputs.operation == 'continuation-amend'
+        env:
+          RESEARCH_RELEASE_ENABLED: ${{ vars.RESEARCH_RELEASE_ENABLED }}
+          RESEARCH_STORAGE_HOST: ${{ vars.RESEARCH_STORAGE_HOST }}
+          RESEARCH_STORAGE_ZONE: ${{ vars.RESEARCH_STORAGE_ZONE }}
+          RESEARCH_STORAGE_ACCESS_KEY: ${{ secrets.ACCESS_KEY }}
+        run: |
+          set -euo pipefail
+          umask 077
+          export RESEARCH_DATA_DIR="$RUNNER_TEMP/model-agreement-v01"
+          python3 continuation.py amend
+      - name: One-use untouched-slot continuation
+        if: inputs.operation == 'continuation-run' && inputs.round_number == '1'
+        env:
+          RESEARCH_RELEASE_ENABLED: ${{ vars.RESEARCH_RELEASE_ENABLED }}
+          RESEARCH_STORAGE_HOST: ${{ vars.RESEARCH_STORAGE_HOST }}
+          RESEARCH_STORAGE_ZONE: ${{ vars.RESEARCH_STORAGE_ZONE }}
+          RESEARCH_STORAGE_ACCESS_KEY: ${{ secrets.ACCESS_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          set -euo pipefail
+          umask 077
+          export RESEARCH_DATA_DIR="$RUNNER_TEMP/model-agreement-v01"
+          export RESEARCH_JOB_DEADLINE_EPOCH="$(( $(date +%s) + 9000 ))"
+          python3 continuation.py run

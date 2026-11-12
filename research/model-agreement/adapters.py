@@ -126,18 +126,18 @@ def tokens(u,k):
     if type(v)!=int or v<0:raise ValueError('Missing/invalid token usage')
     return v
 
-def account(ep,r,c):
+def account(ep,r,c,enforce_cost_bounds=True):
     """Return conservative charged-usage upper bound, never a made-up invoice figure."""
     u=r.get('usage')
     if not isinstance(u,dict):raise ValueError('Missing usage')
     if ep=='kimi_api':
         if c.get('usage_cost_verified_all_in') is not True or u.get('cost') is None:raise ValueError('No verified all-in charge')
         i,o=tokens(u,'prompt_tokens'),tokens(u,'completion_tokens')
-        if i>c['verified_max_total_input_tokens'] or o>c['verified_max_total_output_tokens']:raise ValueError('Usage exceeds qualified bound')
+        if enforce_cost_bounds and (i>c['verified_max_total_input_tokens'] or o>c['verified_max_total_output_tokens']):raise ValueError('Usage exceeds qualified bound')
         return micro(u['cost']),'provider_reported_charge'
     i,o=tokens(u,'input_tokens'),tokens(u,'output_tokens')
     operational=ep=='openai_api' and c.get('guard_mode')=='account_operational'
-    if not operational and (i>c['verified_max_total_input_tokens'] or o>c['verified_max_total_output_tokens']):raise ValueError('Usage exceeds qualified bound')
+    if enforce_cost_bounds and not operational and (i>c['verified_max_total_input_tokens'] or o>c['verified_max_total_output_tokens']):raise ValueError('Usage exceeds qualified bound')
     price=c['price'];cost=Decimal(i)*Decimal(str(price['input_per_million']))/1000000+Decimal(o)*Decimal(str(price['output_per_million']))/1000000
     if ep=='claude_api':
         total_input=i
@@ -148,9 +148,9 @@ def account(ep,r,c):
             if n:
                 if rate not in price:raise ValueError('Unpriced cache usage')
                 cost+=Decimal(n)*Decimal(str(price[rate]))/1000000
-        if total_input>c['verified_max_total_input_tokens']:raise ValueError('Total cache plus input exceeds bound')
+        if enforce_cost_bounds and total_input>c['verified_max_total_input_tokens']:raise ValueError('Total cache plus input exceeds bound')
         server=u.get('server_tool_use',{});calls=server.get('web_search_requests')
-        if type(calls)!=int or calls<0 or calls>c['verified_max_search_calls']:raise ValueError('Missing/unbounded Claude search usage')
+        if type(calls)!=int or calls<0 or (enforce_cost_bounds and calls>c['verified_max_search_calls']):raise ValueError('Missing/unbounded Claude search usage')
     elif operational:
         calls=u.get('tool_usage',{}).get('web_search',{}).get('num_requests')
         if calls is None:

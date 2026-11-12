@@ -1,0 +1,225 @@
+{
+  "study_id": "model-agreement-v01",
+  "status": "PRIMARY_RELEASE_REQUIRES_AUDITED_ACTIVATION",
+  "market": "FI",
+  "language": "en",
+  "approved_total_micro_usd": 40000000,
+  "provider_cap_micro_usd": 23000000,
+  "hosting_bound_micro_usd": 5000000,
+  "contingency_micro_usd": 12000000,
+  "prompt_hash": "d0e420cda4d26af3571deee38cf04af4321e7b979d876bba455969acc6174efd",
+  "schedule_hash": "8c1d3931807703799997c2847d60e68124b4f19e6cf974ffac0e3d97a22d8dce",
+  "spend_approved": true,
+  "storage_setup_approved": true,
+  "protocol_frozen": true,
+  "storage_verified": true,
+  "singleton_verified": true,
+  "hosting_bound_verified": true,
+  "hosting_bound_evidence": "Verified public repository standard ubuntu-latest hosted job; no Bunny compute/IP/volumes. Storage cumulative runnerwrites<=1GB Stockholm0.01USD/GBmonth;5USD allowance for storage,12USD fees/contingency. Retention remains separately managed.",
+  "hosting_stop_evidence": "GitHub180min hardjob timeout, driver150min deadline, no persistent compute. Existing storage-check43077169998 verified access; init/restore require remote marker/head integrity before dispatch.",
+  "paid_enabled": true,
+  "qualification_enabled": false,
+  "schedule_enabled": true,
+  "qualification_review_approved": true,
+  "execution_expires_at_utc": "2026-11-18T11:00:00Z",
+  "rounds": [
+    {
+      "round": 1,
+      "start_utc": "2026-11-12T13:00:00Z",
+      "end_utc": "2026-11-12T15:00:00Z",
+      "start_grace_seconds": 600
+    },
+    {
+      "round": 2,
+      "start_utc": "2026-11-14T09:00:00Z",
+      "end_utc": "2026-11-14T11:00:00Z",
+      "start_grace_seconds": 600
+    },
+    {
+      "round": 3,
+      "start_utc": "2026-11-18T09:00:00Z",
+      "end_utc": "2026-11-18T11:00:00Z",
+      "start_grace_seconds": 600
+    }
+  ],
+  "diagnostic_limit": 9,
+  "retry_limit": 18,
+  "diagnostic_slots": [
+    {
+      "slot_id": "model-agreement-v01:diagnostic:claude_api:HOT01",
+      "endpoint": "claude_api",
+      "prompt_id": "HOT01"
+    },
+    {
+      "slot_id": "model-agreement-v01:diagnostic:kimi_api:HOT01",
+      "endpoint": "kimi_api",
+      "prompt_id": "HOT01"
+    },
+    {
+      "slot_id": "model-agreement-v01:diagnostic:openai_api:HOT01",
+      "endpoint": "openai_api",
+      "prompt_id": "HOT01"
+    }
+  ],
+  "endpoints": {
+    "openai_api": {
+      "surface": "API, not consumer application",
+      "candidate_model": "gpt-5.4-mini-2026-03-17",
+      "model": "gpt-5.4-mini-2026-03-17",
+      "allowed_models": [
+        "gpt-5.4-mini-2026-03-17"
+      ],
+      "provider": null,
+      "allowed_providers": [],
+      "qualified": true,
+      "bound_verified": false,
+      "bound_evidence": null,
+      "reservation_micro_usd": 10000000,
+      "request_parameters": {
+        "max_output_tokens": 3000,
+        "max_tool_calls": 2,
+        "tools": [
+          {
+            "type": "web_search",
+            "user_location": {
+              "type": "approximate",
+              "country": "FI"
+            }
+          }
+        ]
+      },
+      "price": {
+        "input_per_million": 0.75,
+        "output_per_million": 4.5,
+        "search_per_call": 0.01
+      },
+      "timeout_seconds": 180,
+      "max_prompt_bytes": 8000,
+      "verified_max_output_tokens": 3000,
+      "verified_max_total_input_tokens": null,
+      "verified_max_total_output_tokens": null,
+      "verified_max_search_calls": 2,
+      "usage_cost_verified_all_in": false,
+      "requested_location": {
+        "type": "approximate",
+        "country": "FI"
+      },
+      "location_support": "qualification_required",
+      "require_location_echo": false,
+      "billing_units_reviewed": false,
+      "verified_extra_cost_usd": null,
+      "guard_mode": "account_operational",
+      "account_guard_reviewed": true,
+      "account_guard_evidence": "Parent-approved operational control 2026-11-11: dedicated provider project monthly5USD verified; local lifetime5 before month reset; one flight; reserve full5plus5overshoot allowance. NOT a mathematically proven cost cap. Unknown usage halts; dashboard reconciliation required.",
+      "account_cap_micro_usd": 5000000,
+      "local_lifetime_cap_micro_usd": 5000000,
+      "overshoot_reserve_micro_usd": 5000000,
+      "accounting_mode": "expected_search_estimate"
+    },
+    "kimi_api": {
+      "surface": "API, not consumer application",
+      "candidate_model": "moonshotai/kimi-k2.5",
+      "model": "moonshotai/kimi-k2.5",
+      "allowed_models": [
+        "moonshotai/kimi-k2.5"
+      ],
+      "provider": "novita",
+      "allowed_providers": [
+        "novita"
+      ],
+      "qualified": true,
+      "bound_verified": true,
+      "bound_evidence": "Parent pricing review 2026-11-11:262144input*.57/M+3000output*2.85/M+single Exa plugin<=10results0.007USD=0.16497208. All reasoning within max_tokens,one completion,no fallback. Actual provider response identifier and usage.cost inclusion require qualification. Official OpenRouter usage-accounting docs cost is total charged account, includes Exa; do not double-add plugin to reported cost. https://openrouter.ai/docs/cookbook/administration/usage-accounting",
+      "reservation_micro_usd": 250000,
+      "request_parameters": {
+        "max_tokens": 3000,
+        "plugins": [
+          {
+            "id": "web",
+            "engine": "exa",
+            "max_results": 10
+          }
+        ]
+      },
+      "price": {
+        "input_per_million": 0.57,
+        "output_per_million": 2.85,
+        "search_per_call": 0
+      },
+      "timeout_seconds": 300,
+      "max_prompt_bytes": 8000,
+      "verified_max_output_tokens": 3000,
+      "verified_max_total_input_tokens": 262144,
+      "verified_max_total_output_tokens": 3000,
+      "verified_max_search_calls": 1,
+      "usage_cost_verified_all_in": true,
+      "requested_location": null,
+      "location_support": "prompt_only_Exa_no_native_location",
+      "require_location_echo": false,
+      "billing_units_reviewed": true,
+      "verified_extra_cost_usd": 0.007,
+      "verified_max_search_results": 10,
+      "local_lifetime_cap_micro_usd": 5000000
+    },
+    "claude_api": {
+      "surface": "API, not consumer application",
+      "candidate_model": "claude-sonnet-4-5-20250929",
+      "model": "claude-sonnet-4-5-20250929",
+      "allowed_models": [
+        "claude-sonnet-4-5-20250929"
+      ],
+      "provider": null,
+      "allowed_providers": [],
+      "qualified": true,
+      "bound_verified": true,
+      "bound_evidence": "Parent pricing review 2026-11-11: Sonnet4.5 200k context,10 server iterations =>2M total input;3k output per iteration=>30k;2searches. No explicit caching; pricing3/15 USD per million,0.01 persearch. Qualification pending.",
+      "reservation_micro_usd": 7000000,
+      "request_parameters": {
+        "max_tokens": 3000,
+        "tools": [
+          {
+            "type": "web_search_20250305",
+            "name": "web_search",
+            "max_uses": 2,
+            "user_location": {
+              "type": "approximate",
+              "country": "FI"
+            }
+          }
+        ]
+      },
+      "price": {
+        "input_per_million": 3,
+        "output_per_million": 15,
+        "search_per_call": 0.01
+      },
+      "timeout_seconds": 180,
+      "max_prompt_bytes": 8000,
+      "verified_max_output_tokens": 3000,
+      "verified_max_total_input_tokens": 2000000,
+      "verified_max_total_output_tokens": 30000,
+      "verified_max_search_calls": 2,
+      "usage_cost_verified_all_in": false,
+      "requested_location": {
+        "type": "approximate",
+        "country": "FI"
+      },
+      "location_support": "qualification_required",
+      "require_location_echo": false,
+      "billing_units_reviewed": true,
+      "verified_extra_cost_usd": 0,
+      "verified_search_tool_type": "web_search_20250305",
+      "local_lifetime_cap_micro_usd": 15000000
+    }
+  },
+  "manifest_sha256": "4c86e93d6c00d26a96adae57bcf4806642551acc731db5a44bb47c1315d9fcff",
+  "storage_policy": {
+    "maximum_cumulative_uploaded_bytes": 1000000000,
+    "region": "Stockholm",
+    "price_usd_per_gb_month": 0.01,
+    "retention_days_proposed": 180,
+    "retention_end_verified": false,
+    "delete_authorized": false,
+    "note": "No automatic delete; retention charge remains until verified end/copy and authority. Bound excludes unverified minimum fees/tax."
+  }
+}
