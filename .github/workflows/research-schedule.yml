@@ -1,0 +1,62 @@
+name: Finite research cloud scheduler
+on:
+  schedule:
+    - cron: '45 8 12,14,18 11 *'
+permissions:
+  contents: read
+  actions: write
+concurrency:
+  group: research-model-agreement-scheduler
+  cancel-in-progress: false
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Dispatch only the reviewed finite study
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          python3 - <<'PYTHON'
+          """Finite native scheduler: no provider secrets, no paid calls, no dispatch retry."""
+          import datetime,json,os,sys
+          from urllib.request import Request,urlopen
+          REPOSITORY='purplemediagib/airank.me'
+          BRANCH='research/model-agreement-v01'
+          APPROVED_SHA='3c72436dd4560198d37bd312b1a47e5af053bc75'
+          DATES={'2026-11-12':'1','2026-11-14':'2','2026-11-18':'3'}
+          def eligible(now):
+              day=now.date().isoformat();minute=now.hour*60+now.minute
+              return DATES.get(day) if 8*60+30<=minute<=9*60+10 else None
+          
+          def main():
+              now=datetime.datetime.now(datetime.timezone.utc)
+              round_number=eligible(now)
+              if not round_number:
+                  print('Outside the three approved dates/start windows; no dispatch.');return
+              if os.environ.get('GITHUB_REPOSITORY')!=REPOSITORY or os.environ.get('GITHUB_EVENT_NAME')!='schedule':
+                  raise RuntimeError('Unexpected repository or trigger')
+              token=os.environ['GH_TOKEN']
+              def api(path,data=None):
+                  request=Request('https://api.github.com/repos/'+REPOSITORY+path,
+                      None if data is None else json.dumps(data).encode(),
+                      {'Authorization':'Bearer '+token,'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'},
+                      method='GET' if data is None else 'POST')
+                  with urlopen(request,timeout=30) as response:
+                      raw=response.read();return json.loads(raw) if raw else None
+              if api('/git/ref/heads/'+BRANCH)['object']['sha']!=APPROVED_SHA:
+                  raise RuntimeError('Research branch no longer matches reviewed code; no dispatch')
+              runs=api('/actions/workflows/research-study.yml/runs?branch=research%2Fmodel-agreement-v01&per_page=100')['workflow_runs']
+              label='research cloud-round round '+round_number
+              if any(r.get('display_title')==label for r in runs):
+                  print('Round already has a workflow attempt; no retry or duplicate.');return
+              if any(r['status']!='completed' for r in runs):
+                  raise RuntimeError('Another research job is pending or active; no dispatch')
+              api('/actions/workflows/research-study.yml/dispatches',{'ref':BRANCH,'inputs':{'operation':'cloud-round','round_number':round_number,'diagnostic_id':''}})
+              print('Accepted one dispatch for research round '+round_number+'. Completion must be verified in research workflow/private ledger.')
+          if __name__=='__main__':
+              try:main()
+              except Exception:
+                  print('Scheduler blocked or dispatch outcome uncertain. Inspect Actions before any retry.');sys.exit(2)
+          PYTHON
