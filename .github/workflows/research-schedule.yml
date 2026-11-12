@@ -29,7 +29,7 @@ jobs:
           REPOSITORY='purplemediagib/airank.me'
           OWNER='purplemediagib'
           BRANCH='research/model-agreement-v01'
-          APPROVED_SHA='93ddd341fdaf93bc66ad37025af8b9210189eea8'
+          APPROVED_SHA='6c769409d40358997c691eec18e0db36a42ef709'
           SLOTS={'1':'2026-11-12T13:00:00Z','2':'2026-11-14T09:00:00Z','3':'2026-11-18T09:00:00Z'}
           def eligible(now):
               for number,stamp in SLOTS.items():
