@@ -1,7 +1,10 @@
 name: Finite research cloud scheduler
 on:
   schedule:
-    - cron: '45 8 12,14,18 11 *'
+    - cron: '45 12 12 11 *'
+    - cron: '45 8 14,18 11 *'
+  issues:
+    types: [opened]
 permissions:
   contents: read
   actions: write
@@ -10,6 +13,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   dispatch:
+    if: github.event_name == 'schedule' || (github.event_name == 'issues' && github.actor == 'purplemediagib' && github.event.issue.user.login == 'purplemediagib')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -19,24 +23,43 @@ jobs:
         shell: bash
         run: |
           python3 - <<'PYTHON'
-          """Finite native scheduler: no provider secrets, no paid calls, no dispatch retry."""
+          """Finite scheduler plus owner-only issue fallback; no provider calls or retry."""
           import datetime,json,os,sys
           from urllib.request import Request,urlopen
           REPOSITORY='purplemediagib/airank.me'
+          OWNER='purplemediagib'
           BRANCH='research/model-agreement-v01'
-          APPROVED_SHA='3c72436dd4560198d37bd312b1a47e5af053bc75'
-          DATES={'2026-11-12':'1','2026-11-14':'2','2026-11-18':'3'}
+          APPROVED_SHA='93ddd341fdaf93bc66ad37025af8b9210189eea8'
+          SLOTS={'1':'2026-11-12T13:00:00Z','2':'2026-11-14T09:00:00Z','3':'2026-11-18T09:00:00Z'}
           def eligible(now):
-              day=now.date().isoformat();minute=now.hour*60+now.minute
-              return DATES.get(day) if 8*60+30<=minute<=9*60+10 else None
-          
+              for number,stamp in SLOTS.items():
+                  start=datetime.datetime.fromisoformat(stamp.replace('Z','+00:00'))
+                  if start-datetime.timedelta(minutes=30)<=now<=start+datetime.timedelta(minutes=10):
+                      return number
+              return None
+          def marker(number):
+              return ('Research round '+number, 'Scheduled UTC: '+SLOTS[number])
+          def validate_event(event_name,actor,event,number):
+              if event_name=='schedule':
+                  return
+              if event_name!='issues' or event.get('action')!='opened' or actor!=OWNER:
+                  raise RuntimeError('Unexpected trigger or actor')
+              issue=event.get('issue',{})
+              if issue.get('user',{}).get('login')!=OWNER or 'pull_request' in issue:
+                  raise RuntimeError('Unexpected issue author')
+              title,body=marker(number)
+              if issue.get('title')!=title or issue.get('body')!=body:
+                  raise RuntimeError('Issue does not exactly match the approved round/time marker')
           def main():
               now=datetime.datetime.now(datetime.timezone.utc)
               round_number=eligible(now)
               if not round_number:
                   print('Outside the three approved dates/start windows; no dispatch.');return
-              if os.environ.get('GITHUB_REPOSITORY')!=REPOSITORY or os.environ.get('GITHUB_EVENT_NAME')!='schedule':
-                  raise RuntimeError('Unexpected repository or trigger')
+              if os.environ.get('GITHUB_REPOSITORY')!=REPOSITORY:
+                  raise RuntimeError('Unexpected repository')
+              with open(os.environ['GITHUB_EVENT_PATH']) as source:
+                  event=json.load(source)
+              validate_event(os.environ.get('GITHUB_EVENT_NAME'),os.environ.get('GITHUB_ACTOR'),event,round_number)
               token=os.environ['GH_TOKEN']
               def api(path,data=None):
                   request=Request('https://api.github.com/repos/'+REPOSITORY+path,
@@ -47,7 +70,14 @@ jobs:
                       raw=response.read();return json.loads(raw) if raw else None
               if api('/git/ref/heads/'+BRANCH)['object']['sha']!=APPROVED_SHA:
                   raise RuntimeError('Research branch no longer matches reviewed code; no dispatch')
-              runs=api('/actions/workflows/research-study.yml/runs?branch=research%2Fmodel-agreement-v01&per_page=100')['workflow_runs']
+              # Paginate instead of silently ignoring older attempts beyond the first 100.
+              runs=[]
+              for page in range(1,11):
+                  batch=api('/actions/workflows/research-study.yml/runs?branch=research%2Fmodel-agreement-v01&per_page=100&page='+str(page))['workflow_runs']
+                  runs.extend(batch)
+                  if len(batch)<100:break
+              else:
+                  raise RuntimeError('History exceeds inspection limit; no dispatch')
               label='research cloud-round round '+round_number
               if any(r.get('display_title')==label for r in runs):
                   print('Round already has a workflow attempt; no retry or duplicate.');return
