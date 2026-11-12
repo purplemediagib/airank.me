@@ -88,7 +88,10 @@ def backup(root,ledger,remote,m,initial=False):
         data=buf.getvalue();sha=digest(data);name='snapshot-'+sha+'.tar.gz'
         head=remote.head();sequence=1 if head is None else head['sequence']+1
         remote.put_verified(name,data)
+        if head is not None:remote.put_verified('head-'+digest(canonical(head))+'.json',canonical(head))
         new={'study_id':STUDY,'archive':name,'sha256':sha,'sequence':sequence,'protocol_sha256':protocol_hash(m),'state_sha256':state_fingerprint(root)}
+        if head is not None:new['previous_head_sha256']=digest(canonical(head))
+        remote.put_verified('head-'+digest(canonical(new))+'.json',canonical(new))
         remote.put_verified('latest-backup.json',canonical(new),immutable=False)
         atomic(root/'remote-head.json',canonical(new))
         return new

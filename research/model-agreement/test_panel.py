@@ -2,7 +2,7 @@ import json,pathlib,collections,unittest
 import core
 class PanelTests(unittest.TestCase):
     def test_approved_fresh_panel(self):
-        r=pathlib.Path(__file__).parent;p=json.loads((r/'inputs/prompts.json').read_text());s=json.loads((r/'inputs/schedule_DRAFT.json').read_text());m=json.loads((r/'manifest_DRAFT.json').read_text())
+        r=pathlib.Path(__file__).parent;p=json.loads((r/'inputs/prompts.json').read_text());s=json.loads((r/'inputs/schedule_PRE_10AM.json').read_text());m=json.loads((r/'manifest_DRAFT.json').read_text())
         core.validate(m,p,s)
         self.assertEqual(sorted(collections.Counter(x['sector'] for x in p).values()),[4]*5)
         self.assertEqual({x['prompt_id'][:3] for x in p},{'HOT','GYM','CLN','COW','PAR'})

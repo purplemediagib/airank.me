@@ -1,5 +1,6 @@
-# OFFLINE TEMPLATE ONLY. Do not move into .github/workflows before review.
+# Isolated study workflow; execution only from pinned research branch.
 name: Isolated model-agreement research
+run-name: research ${{ inputs.operation }} round ${{ inputs.round_number }}
 on:
   workflow_dispatch:
     inputs:
@@ -7,7 +8,7 @@ on:
         description: Reviewed one-job operation; requires reviewed release and private snapshot
         required: true
         type: choice
-        options: [validate, storage-check, init, qualify, activate, round]
+        options: [validate, storage-check, init, qualify, activate, round, preflight, amend-schedule, cloud-round]
         default: validate
       round_number:
         description: Primary round number (1, 2 or 3)
@@ -26,7 +27,7 @@ concurrency:
 jobs:
   study:
     # This policy deliberately excludes private repos and self-hosted/larger runners.
-    if: github.event.repository.private == false
+    if: github.event.repository.private == false && github.ref == 'refs/heads/research/model-agreement-v01'
     runs-on: ubuntu-latest
     timeout-minutes: 180
     environment: airank-research-model-agreement-v01
@@ -56,8 +57,8 @@ jobs:
         run: |
           set -euo pipefail
           umask 077
-          python3 -m unittest -q test_runner test_shutdown test_recovery test_panel test_amendment
-          python3 service.py validate
+          python3 -m unittest -q test_runner test_shutdown test_recovery test_panel test_amendment test_cloud
+          python3 service.py validate --manifest manifest_RELEASE.json
       - name: Nonpaid private storage setup
         if: inputs.operation == 'storage-check' || inputs.operation == 'init'
         env:
@@ -115,3 +116,38 @@ jobs:
           else
             exit 2
           fi
+      - name: Nonpaid cloud preflight or approved schedule amendment
+        if: inputs.operation == 'preflight' || inputs.operation == 'amend-schedule'
+        env:
+          RESEARCH_RELEASE_ENABLED: ${{ vars.RESEARCH_RELEASE_ENABLED }}
+          RESEARCH_STORAGE_HOST: ${{ vars.RESEARCH_STORAGE_HOST }}
+          RESEARCH_STORAGE_ZONE: ${{ vars.RESEARCH_STORAGE_ZONE }}
+          RESEARCH_STORAGE_ACCESS_KEY: ${{ secrets.ACCESS_KEY }}
+          OPERATION: ${{ inputs.operation }}
+          ROUND_NUMBER: ${{ inputs.round_number }}
+        run: |
+          set -euo pipefail
+          umask 077
+          export RESEARCH_DATA_DIR="$RUNNER_TEMP/model-agreement-v01"
+          if [ "$OPERATION" = 'amend-schedule' ]; then
+            python3 cloud_driver.py reschedule
+          else
+            python3 cloud_driver.py preflight --round "$ROUND_NUMBER"
+          fi
+      - name: Autonomous verified cloud round
+        if: inputs.operation == 'cloud-round'
+        env:
+          RESEARCH_RELEASE_ENABLED: ${{ vars.RESEARCH_RELEASE_ENABLED }}
+          RESEARCH_STORAGE_HOST: ${{ vars.RESEARCH_STORAGE_HOST }}
+          RESEARCH_STORAGE_ZONE: ${{ vars.RESEARCH_STORAGE_ZONE }}
+          RESEARCH_STORAGE_ACCESS_KEY: ${{ secrets.ACCESS_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ROUND_NUMBER: ${{ inputs.round_number }}
+        run: |
+          set -euo pipefail
+          umask 077
+          export RESEARCH_DATA_DIR="$RUNNER_TEMP/model-agreement-v01"
+          export RESEARCH_JOB_DEADLINE_EPOCH="$(( $(date +%s) + 9000 ))"
+          python3 cloud_driver.py round --round "$ROUND_NUMBER"
