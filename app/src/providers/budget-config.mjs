@@ -1,7 +1,7 @@
 import {isGuestKimi,KIMI_GUEST_ROUTE} from './routing.mjs';
 import {promptContext} from './common.mjs';
 import {measurementContext} from '../common/measurement-context.mjs';
-import {claudeOutputBudget} from './claude.mjs';
+import {claudeOutputBudget,claudePrompt,trackedClaudeSearches} from './claude.mjs';
 import {openrouterDefaultOutputTokens} from './output-limits.mjs';
 import {openrouterPrompt,openrouterSearchLimits} from './openrouter-policy.mjs';
 import {googleAioMaxRequests} from './google-aio.mjs';
@@ -22,8 +22,9 @@ export function completionLimit(provider,route,env){
 
 // A full model context allowance includes server-added search content and replay.
 // Prices and that model-specific context ceiling are operator supplied, never inferred.
-export function apiBudgetPlan({provider,route,prompt,context,env,guest=null,allowRecovery=true}){
+export function apiBudgetPlan({provider,route,prompt,context,env,guest=null,allowRecovery=true,claudeSearches=trackedClaudeSearches}){
  if(guest)return guestBudgetPlan({provider,route,prompt,context,env,guest});
+ if(provider==='claude')integer(claudeSearches,1,5);
  const outputTokens=completionLimit(provider,route,env);
  if(!env.API_BUDGET_CONFIG_JSON){
   if(provider==='claude'&&route.transport==='direct'&&outputTokens<=1400)
@@ -41,7 +42,7 @@ export function apiBudgetPlan({provider,route,prompt,context,env,guest=null,allo
   (route.transport==='openrouter'&&price.searchEngine!==route.search_engine))
   throw Error('API_BUDGET_ROUTE_MISMATCH');
  const maxInputBytes=integer(price.maxInputBytes,1,1000000);
- const input=route.transport==='openrouter'?openrouterPrompt(prompt,measurementContext(context),route.model):promptContext(prompt,measurementContext(context));
+ const input=route.transport==='openrouter'?openrouterPrompt(prompt,measurementContext(context),route.model):provider==='claude'&&route.transport==='direct'?claudePrompt(prompt,measurementContext(context),claudeSearches):promptContext(prompt,measurementContext(context));
  if(Buffer.byteLength(input,'utf8')>maxInputBytes)throw Error('API_INPUT_LIMIT');
  const maxRequests=route.transport==='dataforseo'&&provider==='google_aio'?googleAioMaxRequests:provider==='claude'&&route.transport==='direct'?2:1;
  let reservedNano,limits;
@@ -65,7 +66,7 @@ export function apiBudgetPlan({provider,route,prompt,context,env,guest=null,allo
   const searchRate=rate(price.searchUsdPerCall);
   const kimi=isGuestKimi(route);
   if(kimi&&(provider!=='kimi'||route.model!==KIMI_GUEST_ROUTE.model||route.search_engine!=='exa'||contextWindowTokens<1048576||inputRate<2||outputRate<10||searchRate<0.007))invalid();
-  const maxSearches=kimi?2:route.transport==='openrouter'?openrouterSearchLimits(route.model).max_uses:3;
+  const maxSearches=kimi?2:route.transport==='openrouter'?openrouterSearchLimits(route.model).max_uses:provider==='claude'?claudeSearches:3;
   const modelPasses=kimi?3:1;
   reservedNano=maxRequests*(modelPasses*(Math.ceil(contextWindowTokens*inputRate*NANO_USD/1000000)+
    Math.ceil(outputTokens*outputRate*NANO_USD/1000000))+Math.ceil(maxSearches*searchRate*NANO_USD));
@@ -78,7 +79,7 @@ export function apiBudgetPlan({provider,route,prompt,context,env,guest=null,allo
   maxTokens:outputTokens,maxRequests,maxInputBytes,...limits};
  if(allowRecovery&&recoveryEnabled(env)&&recoveryRoute(provider,route)){
   const tokens=Math.min(recoveryOutputTokens(outputTokens),plan.contextWindowTokens);
-  const recovery=apiBudgetPlan({provider,route,prompt,context,allowRecovery:false,
+  const recovery=apiBudgetPlan({provider,route,prompt,context,allowRecovery:false,claudeSearches,
    env:{...env,...(route.transport==='openrouter'?{OPENROUTER_MAX_TOKENS:String(tokens)}:{CLAUDE_MAX_TOKENS:String(tokens)})}});
   // Retain both ceilings even if recovery is unnecessary or the first call timed out.
   plan.reservedNano+=recovery.reservedNano;
@@ -104,7 +105,7 @@ function guestBudgetPlan({provider,route,prompt,context,env,guest}){
  if(!guest.providers.includes(provider))throw Error('API_BUDGET_UNBOUNDED_ROUTE');
  const {config,perScanNano,dailyNano}=guestBudgetConfig(env);
  const outputTokens=isGuestKimi(route)?3000:route.transport==='openrouter'?guest.openrouterOutputTokens:completionLimit(provider,route,env);
- const plan=apiBudgetPlan({provider,route,prompt,context,allowRecovery:false,env:{...env,API_BUDGET_CONFIG_JSON:JSON.stringify({dailyUsd:null,routes:config.routes}),
+ const plan=apiBudgetPlan({provider,route,prompt,context,allowRecovery:false,claudeSearches:3,env:{...env,API_BUDGET_CONFIG_JSON:JSON.stringify({dailyUsd:null,routes:config.routes}),
   ...(route.transport==='openrouter'?{OPENROUTER_MAX_TOKENS:String(outputTokens)}:{})}});
  if(plan.mode!=='monetary_reserved')throw Error('API_BUDGET_NOT_CONFIGURED');
  if(plan.reservedNano>perScanNano)throw Error('API_BUDGET_EXHAUSTED');
@@ -116,6 +117,6 @@ export function enforceBudgetInput(budget,provider,route,prompt,context){
  if(budget.provider!==provider||budget.transport!==route.transport||budget.model!==route.model||
   (route.transport==='openrouter'&&budget.searchEngine!==route.search_engine))
   throw Error('API_BUDGET_ROUTE_MISMATCH');
- const input=route.transport==='openrouter'?openrouterPrompt(prompt,context,route.model):promptContext(prompt,context);
+ const input=route.transport==='openrouter'?openrouterPrompt(prompt,context,route.model):provider==='claude'&&route.transport==='direct'?claudePrompt(prompt,context,budget.maxSearches):promptContext(prompt,context);
  if(Buffer.byteLength(input,'utf8')>budget.maxInputBytes)throw Error('API_INPUT_LIMIT');
 }

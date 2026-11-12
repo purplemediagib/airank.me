@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {answerCostInstruction,answerPromptPolicyVersion,answerPromptMeta} from '../src/providers/answer-policy.mjs';
 import {promptContext} from '../src/providers/common.mjs';
 import {openaiSearch} from '../src/providers/openai.mjs';
-import {claudeSearch} from '../src/providers/claude.mjs';
+import {claudeSearch,claudePrompt} from '../src/providers/claude.mjs';
 import {geminiSearch} from '../src/providers/gemini.mjs';
 import {grokSearch,perplexitySearch} from '../src/providers/grounded-responses.mjs';
 import {openrouterSearch} from '../src/providers/openrouter.mjs';
@@ -48,7 +48,7 @@ test('every generative API adapter sends the target and records the prompt polic
  for(const [call,response,input] of cases)await mock(response,async requests=>{
   const result=await call();
   assert.equal(requests.length,1);
-  assert.equal(input(requests[0].body),promptContext(question));
+  assert.equal(input(requests[0].body),result.meta.search_policy?claudePrompt(question):promptContext(question));
   assert.equal(result.meta.prompt_policy,answerPromptPolicyVersion);
   assert.equal(result.meta.answer_cost_target_usd,0.1);
  });
