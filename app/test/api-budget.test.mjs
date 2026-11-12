@@ -36,19 +36,19 @@ async function mockFetch(replies,fn){
 }
 const response=(stop_reason,text='Example answer')=>({stop_reason,usage:{output_tokens:400},model:'fixture-claude',content:[{type:'text',text,citations:[{url:'https://example.com'}]}]});
 
-test('reservation includes two full input contexts, both output allowances and six searches before dispatch',async()=>{
+test('reservation includes two full input contexts, both output allowances and ten searches before dispatch',async()=>{
  const f=await fixture();try{
   await f.run();let paid=0;
   await worker(f,{call:async(...args)=>{
    paid++;const [reservation]=rows(f),plan=JSON.parse(reservation.config_json);
-   assert.equal(reservation.reserved_nano_usd,884576000);
-   assert.equal(plan.maxRequests,2);assert.equal(plan.maxTokens,4096);assert.equal(plan.maxSearches,3);
+   assert.equal(reservation.reserved_nano_usd,924576000);
+   assert.equal(plan.maxRequests,2);assert.equal(plan.maxTokens,4096);assert.equal(plan.maxSearches,5);
    assert.equal(f.sqlite.prepare('SELECT status FROM mon_tasks').get().status,'executing');
    return success(...args);
   }}).tick();
   assert.equal(paid,1);assert.equal(rows(f).length,1);
   assert.equal(evidence(f)[0].meta.api_budget_mode,'monetary_reserved');
-  assert.equal(evidence(f)[0].meta.api_reserved_nano_usd,884576000);
+  assert.equal(evidence(f)[0].meta.api_reserved_nano_usd,924576000);
  }finally{f.close();}
 });
 
@@ -193,10 +193,10 @@ test('initial input and continuation replay are byte bounded; no retry or extra 
   await mockFetch([response('pause_turn'),response('pause_turn')],async requests=>{
    await worker(f2,{call:callRoute}).tick();await worker(f2,{call:callRoute}).tick();
    assert.equal(requests.length,2);assert.deepEqual(requests.map(r=>r.body.max_tokens),[4096,3696]);
-   assert.deepEqual(requests.map(r=>r.body.tools[0].max_uses),[3,3]);
+   assert.deepEqual(requests.map(r=>r.body.tools[0].max_uses),[5,5]);
    assert.equal(evidence(f2)[0].error,'CONTINUATION_LIMIT');
   });
-  assert.equal(rows(f2)[0].reserved_nano_usd,884576000);
+  assert.equal(rows(f2)[0].reserved_nano_usd,924576000);
  }finally{f2.close();}
 });
 
@@ -223,7 +223,7 @@ test('failed and ambiguous calls retain full reservation and are never silently 
     return {status:result,answer:'Partial',citations:[]};
    }});
    await engine.tick();await engine.tick();await worker(f,{call:()=>assert.fail('reissued failure')}).tick();
-   assert.equal(paid,1);assert.equal(rows(f)[0].reserved_nano_usd,884576000);
+   assert.equal(paid,1);assert.equal(rows(f)[0].reserved_nano_usd,924576000);
   }finally{f.close();}
  }
 });
@@ -263,7 +263,7 @@ test('interrupted executing task with no receipt retains money and is never resu
    await tx.execute({sql:'INSERT INTO mon_budget VALUES (?,?)',args:[task.id,f.now()]});
   });
   await worker(f,{call:()=>assert.fail('reissued ambiguous task')}).tick();
-  assert.equal(rows(f).length,1);assert.equal(rows(f)[0].reserved_nano_usd,884576000);
+  assert.equal(rows(f).length,1);assert.equal(rows(f)[0].reserved_nano_usd,924576000);
   assert.equal(evidence(f)[0].status,'interrupted_unknown');
  }finally{f.close();}
 });

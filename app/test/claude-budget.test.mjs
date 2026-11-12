@@ -95,3 +95,42 @@ test('Claude observation preserves repeated original annotations without invente
   assert.equal((await claudeSearch('Question')).observation.complete,false);
  });
 });
+
+test('reserved search headroom is explicit in prompt and tool; legacy remains three',async()=>{
+ for(const maxSearches of [3,5])await mock([response('end_turn')],async requests=>{
+  const result=await claudeSearch('Cover all categories',{maxTokens:4096,budget:{...budget,maxSearches}});
+  assert.equal(requests[0].tools[0].max_uses,maxSearches);
+  assert.match(requests[0].messages[0].content,new RegExp(`at most ${maxSearches} web searches`));
+  assert.match(requests[0].messages[0].content,/reuse successful sources/);
+  assert.equal(result.meta.max_searches_requested,maxSearches);
+ });
+ await mock([],async()=>{
+  await assert.rejects(claudeSearch('Question',{maxTokens:4096,budget:{...budget,maxSearches:6}}),/API_BUDGET_LIMIT_MISMATCH/);
+ });
+});
+test('explicit source gap is retained as incomplete, stripped from display, and never retried blindly',async()=>{
+ const {recoveryReason}=await import('../src/providers/recovery-policy.mjs');
+ await mock([response('end_turn','Supported category. Other category cannot be verified. [[AIRANK_SOURCE_GAP]]')],async()=>{
+  const result=await claudeSearch('Question');
+  assert.equal(result.status,'incomplete');assert.equal(result.observation.complete,false);
+  assert.equal(result.meta.failure_code,'INSUFFICIENT_SOURCE_COVERAGE');
+  assert.equal(result.meta.source_gap,true);assert.equal(result.citations.length,1);
+  assert.ok(!result.answer.includes('[[AIRANK_SOURCE_GAP]]'));
+  assert.equal(recoveryReason(result),null);
+ });
+});
+test('exact known search errors survive safe diagnostics; only temporary errors permit recovery',async()=>{
+ const {recoveryReason}=await import('../src/providers/recovery-policy.mjs');
+ const {safeProviderMeta}=await import('../src/providers/diagnostics.mjs');
+ for(const code of ['max_uses_exceeded','too_many_requests','internal_error','unavailable','invalid_input','secret-unknown-value']){
+  const reply=response('end_turn');reply.content.push({type:'web_search_tool_result',content:{type:'web_search_tool_result_error',error_code:code}});
+  await mock([reply],async()=>{
+   const result=await claudeSearch('Question');
+   assert.equal(result.status,'incomplete');assert.equal(result.observation.complete,false);
+   const meta=safeProviderMeta(result.meta);
+   assert.equal(meta.search_error_codes,code==='secret-unknown-value'?'unknown_search_error':code);
+   assert.equal(meta.search_error_count,1);
+   assert.equal(recoveryReason(result),['too_many_requests','internal_error','unavailable'].includes(code)?'WEB_SEARCH_FAILED':null);
+  });
+ }
+});
