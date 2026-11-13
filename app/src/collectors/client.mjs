@@ -1,9 +1,7 @@
 import {measurementContext} from '../common/measurement-context.mjs';
 import {httpFailure} from '../providers/diagnostics.mjs';
 const engines={openai:'chat_gpt',gemini:'gemini'};
-// Stable country codes from DataForSEO's published LLM Scraper location catalogue.
-// These exact targets do not require a fresh network catalogue before every run.
-const pinnedGeminiLocations=[{country_iso_code:'FI',location_type:'Country',location_code:2246},{country_iso_code:'US',location_type:'Country',location_code:2840}];
+import {geminiCountryLocations} from './gemini-countries.mjs';
 const validId=id=>typeof id==='string'&&/^[\w-]{1,200}$/.test(id);
 export function createCollectorClient({env=process.env,transport=fetch,sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms))}={}){
  const catalogs=new Map(),pendingCatalogs=new Map();
@@ -24,13 +22,14 @@ export function createCollectorClient({env=process.env,transport=fetch,sleep=ms=
    if(route.transport==='dataforseo_scraper'){
     const engine=engines[provider];if(!engine)throw Error('Unsupported consumer platform');
     const root=`https://api.dataforseo.com/v3/ai_optimization/${engine}/llm_scraper`;
-    const pinnedLocation=provider==='gemini'&&pinnedGeminiLocations.some(x=>x.country_iso_code===context.market);
+    const pinnedLocation=provider==='gemini';
+    if(pinnedLocation&&!geminiCountryLocations.some(x=>x.country_iso_code===context.market))return {result:{status:'unsupported_context',meta:{failure_code:'UNSUPPORTED_MARKET_OR_LANGUAGE',submission_attempted:false}}};
     const catalogKey=provider==='gemini'?`${engine}:${pinnedLocation?'pinned':'catalog'}`:`${engine}:${context.market}`;
     if(catalogs.get(catalogKey)?.expires<Date.now())catalogs.delete(catalogKey);
     if(!catalogs.has(catalogKey)){
      if(!pendingCatalogs.has(catalogKey))pendingCatalogs.set(catalogKey,(async()=>{
       const lists=await Promise.all(['locations','languages'].map(async path=>{
-       if(path==='locations'&&pinnedLocation)return pinnedGeminiLocations;
+       if(path==='locations'&&pinnedLocation)return geminiCountryLocations;
        // Catalog GETs are non-billable; retry only transient failures, never task_post.
        const suffix=path==='locations'&&provider==='openai'?`/${context.market}`:'';
        for(let attempt=1;attempt<=3;attempt++){

@@ -1,3 +1,4 @@
+import {geminiCountryLocations} from '../src/collectors/gemini-countries.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {collectorFixture} from './collector-fixture.mjs';
@@ -78,7 +79,7 @@ test('DataForSEO locale preflight refuses Gibraltar without issuing task_post',a
   paths.push(url);return new Response(JSON.stringify({status_code:20000,tasks:[{status_code:20000,result:url.endsWith('languages')?[{language_code:'en'}]:[{country_iso_code:'US',location_type:'Country',location_code:2840}]}]}));
  }});
  const r=await c.submit({provider:'gemini',route:{transport:'dataforseo_scraper'},prompt,context:{market:'GI',language:'en'},taskId:'test'});
- assert.equal(r.result.status,'unsupported_context');assert.equal(paths.length,2);assert.ok(paths.every(p=>!p.includes('task_post')));
+ assert.equal(r.result.status,'unsupported_context');assert.equal(paths.length,0);assert.ok(paths.every(p=>!p.includes('task_post')));
 });
 test('DataForSEO async contract encodes the exact prompt, freezes locale, and polls only the known ID',async()=>{
  const calls=[],question='What does C++ offer at 50% less cost?';
@@ -132,7 +133,7 @@ test('unlimited collector and provider daily limits retain unit reservations and
  }finally{f.close();}
 });
 
-test('Gemini pinned US targeting retains language validation and other markets use unsuffixed catalogue',async()=>{
+test('Gemini pinned US targeting retains language validation and unknown markets fail closed',async()=>{
  const calls=[];
  const client=createCollectorClient({env:{CONSUMER_COLLECTION_ENABLED:'true',DATAFORSEO_LOGIN:'fixture',DATAFORSEO_PASSWORD:'fixture'},transport:async(url,options)=>{
   calls.push({url,method:options.method,body:options.body&&JSON.parse(options.body)});
@@ -167,11 +168,11 @@ test('catalog failures retain safe stage/status, do not bill, and never substitu
   let posts=0,locations=0;
   const client=createCollectorClient({env:{CONSUMER_COLLECTION_ENABLED:'true'},sleep:async()=>{},transport:async(url,options)=>{
    if(options.method==='POST')posts++;
-   if(url.endsWith('/locations')){locations++;return new Response(JSON.stringify({status_code:status}),{status:http});}
+   if(url.endsWith('/languages')){locations++;return new Response(JSON.stringify({status_code:status}),{status:http});}
    return new Response(JSON.stringify({status_code:20000,tasks:[{status_code:20000,result:[{language_code:'fi'}]}]}));
   }});
   const r=await client.submit({provider:'gemini',route:{transport:'dataforseo_scraper'},prompt,context:{market:'CA',language:'fi'},taskId:'test'});
-  assert.equal(posts,0);assert.equal(locations,attempts);assert.equal(r.result.meta.catalog_stage,'locations');assert.equal(r.result.meta.http_status,http);assert.equal(r.result.meta.catalog_status_code,status);assert.equal(r.result.meta.catalog_attempts,attempts);
+  assert.equal(posts,0);assert.equal(locations,attempts);assert.equal(r.result.meta.catalog_stage,'languages');assert.equal(r.result.meta.http_status,http);assert.equal(r.result.meta.catalog_status_code,status);assert.equal(r.result.meta.catalog_attempts,attempts);
  }
 });
 
@@ -196,4 +197,20 @@ test('Gemini pinned location never bypasses unsupported language validation',asy
  }});
  const result=await client.submit({provider:'gemini',route:{transport:'dataforseo_scraper'},prompt,context:{market:'FI',language:'fi'},taskId:'test'});
  assert.equal(result.result.status,'unsupported_context');assert.equal(posts,0);
+});
+
+test('all 191 verified Gemini countries bypass location GET and preserve exact code',async()=>{
+ assert.equal(geminiCountryLocations.length,191);assert.equal(new Set(geminiCountryLocations.map(x=>x.country_iso_code)).size,191);assert.equal(new Set(geminiCountryLocations.map(x=>x.location_code)).size,191);
+ let languages=0,posts=0;const posted=[];
+ const c=createCollectorClient({env:{CONSUMER_COLLECTION_ENABLED:'true'},transport:async(url,opts)=>{
+  assert.ok(!url.includes('/locations'));if(opts.method==='POST'){posts++;posted.push(JSON.parse(opts.body)[0]);return new Response(JSON.stringify({status_code:20000,tasks:[{status_code:20100,id:'test'}]}));}
+  assert.ok(url.endsWith('/languages'));languages++;return new Response(JSON.stringify({status_code:20000,tasks:[{status_code:20000,result:[{language_code:'en'}]}]}));
+ }});
+ await Promise.all(geminiCountryLocations.map(async x=>assert.equal((await c.submit({provider:'gemini',route:{transport:'dataforseo_scraper'},prompt,context:{market:x.country_iso_code,language:'en'},taskId:x.country_iso_code})).remoteId,'test')));
+ assert.equal(posts,191);assert.equal(languages,1);assert.deepEqual(posted.map(x=>x.location_code).sort((a,b)=>a-b),geminiCountryLocations.map(x=>x.location_code).sort((a,b)=>a-b));assert.ok(posted.every(x=>x.language_code==='en'));
+});
+test('unknown and excluded Gemini countries fail before any request',async()=>{
+ const c=createCollectorClient({env:{CONSUMER_COLLECTION_ENABLED:'true'},transport:async()=>{throw Error('must not request');}});
+ for(const market of ['GI','BY']){const r=await c.submit({provider:'gemini',route:{transport:'dataforseo_scraper'},prompt,context:{market,language:'en'},taskId:market});assert.equal(r.result.status,'unsupported_context');assert.equal(r.result.meta.submission_attempted,false);}
+ for(const [market,code] of [['RU','MARKET_EXCLUDED'],['ZZ','INVALID_MEASUREMENT_CONTEXT']])await assert.rejects(c.submit({provider:'gemini',route:{transport:'dataforseo_scraper'},prompt,context:{market,language:'en'},taskId:market}),{code});
 });
