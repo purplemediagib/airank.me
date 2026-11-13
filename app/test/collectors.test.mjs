@@ -132,7 +132,7 @@ test('unlimited collector and provider daily limits retain unit reservations and
  }finally{f.close();}
 });
 
-test('Gemini uses the unsuffixed locations catalog and preserves US English targeting',async()=>{
+test('Gemini pinned US targeting retains language validation and other markets use unsuffixed catalogue',async()=>{
  const calls=[];
  const client=createCollectorClient({env:{CONSUMER_COLLECTION_ENABLED:'true',DATAFORSEO_LOGIN:'fixture',DATAFORSEO_PASSWORD:'fixture'},transport:async(url,options)=>{
   calls.push({url,method:options.method,body:options.body&&JSON.parse(options.body)});
@@ -150,7 +150,7 @@ test('Gemini uses the unsuffixed locations catalog and preserves US English targ
  assert.equal(calls.filter(c=>c.method==='POST').length,1);
 });
 
-test('Gemini retries free transient catalog GETs, shares catalog across markets, preserves requested Finland targeting',async()=>{
+test('Gemini pinned Finland and US skip failing locations GETs and share only their language catalogue',async()=>{
  const calls=[];let locations=0;
  const client=createCollectorClient({env:{CONSUMER_COLLECTION_ENABLED:'true'},sleep:async()=>{},transport:async(url,options)=>{
   calls.push({url,method:options.method,body:options.body&&JSON.parse(options.body)});
@@ -159,7 +159,7 @@ test('Gemini retries free transient catalog GETs, shares catalog across markets,
   return new Response(JSON.stringify({status_code:20000,tasks:[options.method==='POST'?{id:'known-id',status_code:20100}:{status_code:20000,result}]}));
  }});
  for(const [market,language]of [['FI','fi'],['US','en']])assert.equal((await client.submit({provider:'gemini',route:{transport:'dataforseo_scraper'},prompt,context:{market,language},taskId:market})).remoteId,'known-id');
- assert.equal(locations,2);assert.equal(calls.filter(c=>c.url.endsWith('/languages')).length,1);
+ assert.equal(locations,0);assert.equal(calls.filter(c=>c.url.endsWith('/languages')).length,1);
  assert.deepEqual(calls.filter(c=>c.method==='POST').map(c=>[c.body[0].location_code,c.body[0].language_code]),[[2246,'fi'],[2840,'en']]);
 });
 test('catalog failures retain safe stage/status, do not bill, and never substitute another market',async()=>{
@@ -170,7 +170,30 @@ test('catalog failures retain safe stage/status, do not bill, and never substitu
    if(url.endsWith('/locations')){locations++;return new Response(JSON.stringify({status_code:status}),{status:http});}
    return new Response(JSON.stringify({status_code:20000,tasks:[{status_code:20000,result:[{language_code:'fi'}]}]}));
   }});
-  const r=await client.submit({provider:'gemini',route:{transport:'dataforseo_scraper'},prompt,context:{market:'FI',language:'fi'},taskId:'test'});
+  const r=await client.submit({provider:'gemini',route:{transport:'dataforseo_scraper'},prompt,context:{market:'CA',language:'fi'},taskId:'test'});
   assert.equal(posts,0);assert.equal(locations,attempts);assert.equal(r.result.meta.catalog_stage,'locations');assert.equal(r.result.meta.http_status,http);assert.equal(r.result.meta.catalog_status_code,status);assert.equal(r.result.meta.catalog_attempts,attempts);
  }
+});
+
+test('Gemini pinned countries never retry ambiguous paid submissions or change language',async()=>{
+ for(const market of ['FI','US']){
+  let posts=0;
+  const client=createCollectorClient({env:{CONSUMER_COLLECTION_ENABLED:'true'},transport:async(url,options)=>{
+   assert.ok(!url.endsWith('/locations'));
+   if(options.method==='POST'){posts++;const b=JSON.parse(options.body)[0];assert.equal(b.location_code,market==='FI'?2246:2840);assert.equal(b.language_code,'fi');throw Error('uncertain transport');}
+   return new Response(JSON.stringify({status_code:20000,tasks:[{status_code:20000,result:[{language_code:'fi'}]}]}));
+  }});
+  const result=await client.submit({provider:'gemini',route:{transport:'dataforseo_scraper'},prompt,context:{market,language:'fi'},taskId:'test'});
+  assert.equal(result.result.status,'interrupted_unknown');assert.equal(posts,1);
+ }
+});
+test('Gemini pinned location never bypasses unsupported language validation',async()=>{
+ let posts=0;
+ const client=createCollectorClient({env:{CONSUMER_COLLECTION_ENABLED:'true'},transport:async(url,options)=>{
+  if(options.method==='POST')posts++;
+  assert.ok(url.endsWith('/languages'));
+  return new Response(JSON.stringify({status_code:20000,tasks:[{status_code:20000,result:[{language_code:'en'}]}]}));
+ }});
+ const result=await client.submit({provider:'gemini',route:{transport:'dataforseo_scraper'},prompt,context:{market:'FI',language:'fi'},taskId:'test'});
+ assert.equal(result.result.status,'unsupported_context');assert.equal(posts,0);
 });
