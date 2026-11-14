@@ -1,12 +1,34 @@
 // Preserve occurrences and vendor provenance separately from deduplicated metric URLs.
 export const version='consumer-evidence-v1';
 const url=value=>{try{const u=new URL(value);return ['https:','http:'].includes(u.protocol)&&!u.username&&!u.password?u.href:null;}catch{return null;}};
+// Match whole provider non-answers, never a safety keyword inside substantive prose.
+export function isCollectorRefusal(answer){
+ const text=answer.normalize('NFKC').trim().replace(/\s+/g,' ');
+ return /^(?:Turvallisuusasetukseni estävät vastaamisen kehotteeseen\.)(?: Jos haluat, voimme aloittaa alusta uudella\.)?$/iu.test(text)||
+  /^(?:My safety settings prevent me from responding to this prompt\.)(?: (?:If you(?:'d| would) like, we can start over with a new one\.))?$/iu.test(text);
+}
 function markdownCitations(answer){
  const definitions=[...answer.matchAll(/^\[(\d+)\]:\s+(https?:\/\/\S+)/gm)];
  return definitions.flatMap(m=>{
   const occurrences=[...answer.matchAll(/\[[^\]\n]+\]\[(\d+)\]/g)].filter(r=>r[1]===m[1]);
   return occurrences.length&&url(m[2])?[{url:url(m[2]),index:Number(m[1]),occurrences:occurrences.length,kind:'citation',provenance:'answer_reference'}]:[];
  });
+}
+function geminiItemCitations(item,provenance){
+ if(item?.type!=='gemini_text'||typeof item.markdown!=='string'||typeof item.original_text!=='string'||!Array.isArray(item.sources))return [];
+ if(!item.original_text.trim()||/^(?:Sources|Other sources|Lähteet|Muut lähteet)\s*:/iu.test(item.original_text.trim()))return [];
+ const allowed=new Set(item.sources.map(s=>url(s?.url)).filter(Boolean));
+ const body=item.markdown.replace(/```[\s\S]*?```|~~~[\s\S]*?~~~/g,'').replace(/`[^`\n]*`/g,'');
+ const references=[];
+ for(const line of body.split('\n')){
+  // A bare link/list of links does not attach a source to an answer claim.
+  const pattern=/(?<!!)\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)(?:\s+["'][^"']*["'])?\)/g;
+  if(/^\s*(?:[-*+]\s*)?(?:Sources|Other sources|Lähteet|Muut lähteet)\s*:/iu.test(line))continue;
+  const matches=[...line.matchAll(pattern)];
+  if(!matches.length||!/[\p{L}\p{N}]/u.test(line.replace(pattern,'').replace(/^\s*(?:[-*+] |\d+[.)] )/,'')))continue;
+  for(const m of matches){const u=url(m[2]);if(u&&allowed.has(u)&&!item.original_text.includes(m[2])&&m[1].trim().toLowerCase().replace(/^www\./,'')===new URL(u).hostname.toLowerCase().replace(/^www\./,''))references.push({url:u,title:m[1],occurrences:1,kind:'citation',provenance});}
+ }
+ return references;
 }
 export function normalizeCollection({provider,route,raw,context,prompt,remoteId,submissionMeta={}}){
  const dfs=route.transport==='dataforseo_scraper',value=dfs?raw.tasks?.[0]?.result?.[0]:raw.task_result;
@@ -19,12 +41,13 @@ export function normalizeCollection({provider,route,raw,context,prompt,remoteId,
  if(originalPrompt!==prompt)return failed('PROMPT_MISMATCH');
  if(value.error_message||value.finish_reason==='length'||value.finish_reason==='max_tokens')return failed('INCOMPLETE_RESPONSE');
  if(dfs&&(value.language_code!==context.language||value.location_code!==submissionMeta.location_code))return failed('COLLECTION_CONTEXT_MISMATCH');
+ if(provider==='gemini'&&dfs&&isCollectorRefusal(answer))return failed('PROVIDER_REFUSAL');
  const references=markdownCitations(answer);
  const add=(items,kind,provenance)=>{for(const s of Array.isArray(items)?items:[]){const u=url(s?.url);if(!u)continue;references.push({url:u,title:String(s.title??s.name??'').slice(0,1000),kind,provenance,...(Number.isSafeInteger(s.index)?{index:s.index}:{}),...(Number.isSafeInteger(s.cited_count)?{occurrences:s.cited_count}:{}),...(typeof s.markdown==='string'?{passage:s.markdown}:{}),...(typeof s.snippet==='string'?{snippet:s.snippet}:{} )});}};
  if(dfs){
   add(value.sources,'source_reference','result.sources');
   // Item-level sources are separate passage associations, not extra metric votes.
-  const walk=(items,path='',depth=0)=>{if(depth>8)return;for(const [i,item]of (Array.isArray(items)?items:[]).entries()){add(item.sources,'source_reference',`${path}items[${i}].sources`);walk(item.items,`${path}items[${i}].`,depth+1);}};
+  const walk=(items,path='',depth=0)=>{if(depth>8)return;for(const [i,item]of (Array.isArray(items)?items:[]).entries()){add(item.sources,'source_reference',`${path}items[${i}].sources`);if(provider==='gemini')references.push(...geminiItemCitations(item,`${path}items[${i}].markdown`));walk(item.items,`${path}items[${i}].`,depth+1);}};
   walk(value.items);
   add(value.search_results,'retrieval','result.search_results');
  }else if(provider==='grok'){
@@ -35,7 +58,7 @@ export function normalizeCollection({provider,route,raw,context,prompt,remoteId,
   add(value.web_results,'source_reference','web_results');
  }
  // Only answer-backed references enter explicit-citation metrics; ordinary vendor links do not.
- const citations=references.filter(s=>s.kind==='citation').map(s=>({url:s.url,...(s.title?{title:s.title}:{})}));
+ const citations=[...new Map(references.filter(s=>s.kind==='citation').map(s=>[s.url,{url:s.url,...(s.title?{title:s.title}:{})}])).values()];
  const collection={
   version,supplier:dfs?'dataforseo':'scrapeless',surface:'consumer_web',requestedMarket:context.market,requestedLanguage:context.language,
   locationVerification:dfs?'vendor_reported':'unverified',reportedLocationCode:dfs?value.location_code:null,reportedLanguage:dfs?value.language_code:null,
