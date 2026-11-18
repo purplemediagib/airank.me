@@ -73,8 +73,7 @@ jobs:
         shell: bash
         env:
           PRIVATE_STORAGE_ACCESS_KEY: ${{ secrets.ACCESS_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           set -euo pipefail
           REVISION="$(git rev-parse HEAD)"

@@ -85,17 +85,16 @@ def inspect(policy,bundle,e,observed,now):
         require(not k.startswith(('PYTHON','LD_','DYLD_','BASH','GITHUB','RUNNER','INPUT_')) and k not in {'PATH','HOME','ENV','SHELLOPTS','IFS','CDPATH','TMPDIR'})
     require(all(type(v) is str and len(v)<=4096 and '\x00' not in v for v in c['environment'].values()))
     require(not any(re.search(r'(?:^|_)(KEY|TOKEN|PASSWORD|SECRET|CREDENTIAL)(?:_|$)',k) for k in c['environment']))
-    valid={'storage_key','openai_key','openrouter_key','data_dir','start_utc','end_utc','deadline_epoch'}
+    valid={'storage_key','anthropic_key','data_dir','start_utc','end_utc','deadline_epoch'}
     require(set(c['bindings'].values())<=valid)
-    require(c['bindings'].get('OPENAI_API_KEY')=='openai_key' and c['bindings'].get('OPENROUTER_API_KEY')=='openrouter_key')
-    require(all(v!='openai_key' or k=='OPENAI_API_KEY' for k,v in c['bindings'].items()))
-    require(all(v!='openrouter_key' or k=='OPENROUTER_API_KEY' for k,v in c['bindings'].items()))
-    require(not {'OPENAI_API_KEY','OPENROUTER_API_KEY'}&set(c['environment']))
+    require(c['bindings'].get('ANTHROPIC_API_KEY')=='anthropic_key')
+    require(all(v!='anthropic_key' or k=='ANTHROPIC_API_KEY' for k,v in c['bindings'].items()))
+    require(not {'ANTHROPIC_API_KEY','OPENAI_API_KEY','OPENROUTER_API_KEY'}&set(c['environment']))
     return p,c,members
 
 def stage(root,e,observed,now=None,fetcher=fetch):
     now=time.time() if now is None else now;gate(e,observed)
-    require(not e.get('OPENAI_API_KEY') and not e.get('OPENROUTER_API_KEY'))
+    require(not any(e.get(k) for k in ('ANTHROPIC_API_KEY','OPENAI_API_KEY','OPENROUTER_API_KEY')))
     policy=fetcher(e['PRIVATE_POLICY_URL'],e['PRIVATE_STORAGE_ACCESS_KEY'],MAX_POLICY_BYTES)
     bundle=fetcher(e['PRIVATE_BUNDLE_URL'],e['PRIVATE_STORAGE_ACCESS_KEY'],MAX_BUNDLE_BYTES)
     p,c,members=inspect(policy,bundle,e,observed,now)
@@ -135,10 +134,10 @@ def child_environment(root,e,p,c,phase):
         'start_utc':p['not_before_utc'],'end_utc':p['expires_at_utc'],
         'deadline_epoch':str(datetime.fromisoformat(p['expires_at_utc'].replace('Z','+00:00')).timestamp())}
     if phase=='execute':
-        require(bool(e.get('OPENAI_API_KEY')) and bool(e.get('OPENROUTER_API_KEY')))
-        values.update(openai_key=e['OPENAI_API_KEY'],openrouter_key=e['OPENROUTER_API_KEY'])
+        require(bool(e.get('ANTHROPIC_API_KEY')))
+        values.update(anthropic_key=e['ANTHROPIC_API_KEY'])
     for dest,binding in c['bindings'].items():
-        if binding in ('openai_key','openrouter_key') and phase=='prepare':continue
+        if binding in ('anthropic_key') and phase=='prepare':continue
         env[dest]=values[binding]
     return env
 
@@ -169,7 +168,7 @@ def process(argv,cwd,env,log,timeout):
 def run_phase(root,e,observed,phase,clock=time.time,runner=process):
     require(phase in ('prepare','execute'));root=pathlib.Path(root).absolute()
     gate(e,observed)
-    if phase=='prepare':require(not e.get('OPENAI_API_KEY') and not e.get('OPENROUTER_API_KEY'))
+    if phase=='prepare':require(not any(e.get(k) for k in ('ANTHROPIC_API_KEY','OPENAI_API_KEY','OPENROUTER_API_KEY')))
     lock=os.open(root/'bootstrap.lock',os.O_CREAT|os.O_RDWR|os.O_NOFOLLOW,0o600)
     try:
         fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
