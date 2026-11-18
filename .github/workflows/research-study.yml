@@ -1,183 +1,81 @@
-# Isolated study workflow; execution only from pinned research branch.
-name: Isolated model-agreement research
-run-name: research ${{ inputs.operation }} round ${{ inputs.round_number }}
+name: Private reviewed job
+run-name: Private reviewed job
 on:
   workflow_dispatch:
     inputs:
       operation:
-        description: Reviewed one-job operation; requires reviewed release and private snapshot
+        description: Explicit one-time operation
         required: true
         type: choice
-        options: [validate, storage-check, init, qualify, activate, round, preflight, amend-schedule, cloud-round, continuation-amend, continuation-run]
-        default: validate
-      round_number:
-        description: Primary round number (1, 2 or 3)
-        type: choice
-        options: ['1', '2', '3']
-        default: '1'
-      diagnostic_id:
-        description: Exact approved diagnostic slot ID (qualification only)
+        options: [private-job]
+      expires_at_utc:
+        description: Exact UTC expiry from reviewed private policy
+        required: true
         type: string
-        default: ''
 permissions:
   contents: read
 concurrency:
   group: research-model-agreement-v01
   cancel-in-progress: false
 jobs:
-  study:
-    # This policy deliberately excludes private repos and self-hosted/larger runners.
-    if: github.event.repository.private == false && github.ref == 'refs/heads/research/model-agreement-v01'
+  private-job:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.operation == 'private-job' && github.actor == 'purplemediagib' && github.ref == 'refs/heads/research/model-agreement-v01' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 150
     environment: airank-research-model-agreement-v01
-    defaults:
-      run:
-        shell: bash
-        working-directory: research/model-agreement
+    env:
+      REVIEWED_REPOSITORY: purplemediagib/airank.me
+      REVIEWED_BRANCH: research/model-agreement-v01
+      REVIEWED_ACTOR: purplemediagib
+      REVIEWED_ENVIRONMENT: airank-research-model-agreement-v01
+      REVIEWED_CONCURRENCY_GROUP: research-model-agreement-v01
+      REVIEWED_BOOTSTRAP_SHA: ${{ vars.RESEARCH_APPROVED_COMMIT_SHA }}
+      REVIEWED_PRIVATE_POLICY_SHA256: ${{ secrets.REVIEWED_PRIVATE_POLICY_SHA256 }}
+      REVIEWED_PRIVATE_BUNDLE_SHA256: ${{ secrets.REVIEWED_PRIVATE_BUNDLE_SHA256 }}
+      REVIEWED_PRIVATE_CONTRACT_SHA256: ${{ secrets.REVIEWED_PRIVATE_CONTRACT_SHA256 }}
+      REQUESTED_EXPIRY: ${{ inputs.expires_at_utc }}
     steps:
-      - name: Checkout only reviewed study code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # official v4.2.2
+      - name: Check exact reviewed revision before checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$REVIEWED_BOOTSTRAP_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$GITHUB_SHA" = "$REVIEWED_BOOTSTRAP_SHA"
+      - name: Checkout only generic bootstrap
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
+          ref: ${{ github.sha }}
           persist-credentials: false
-          sparse-checkout: research/model-agreement
-          sparse-checkout-cone-mode: false
-          submodules: false
-          lfs: false
           fetch-depth: 1
-      - name: Check immutable reviewed code revision
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /tools/private_job/bootstrap.py
+            /tools/private_job/verify_inputs.py
+      - name: Authenticate private inputs and verify without provider keys
+        shell: bash
         env:
-          APPROVED_SHA: ${{ vars.RESEARCH_APPROVED_COMMIT_SHA }}
+          PRIVATE_POLICY_URL: ${{ secrets.PRIVATE_POLICY_URL }}
+          PRIVATE_BUNDLE_URL: ${{ secrets.PRIVATE_BUNDLE_URL }}
+          PRIVATE_STORAGE_ACCESS_KEY: ${{ secrets.ACCESS_KEY }}
         run: |
           set -euo pipefail
-          test "${#APPROVED_SHA}" = 40
-          test "$GITHUB_SHA" = "$APPROVED_SHA"
-          test "$(git rev-parse HEAD)" = "$APPROVED_SHA"
-      - name: Offline validation only
+          REVISION="$(git rev-parse HEAD)"
+          python tools/private_job/bootstrap.py verify --root "$RUNNER_TEMP/private_job" --observed-revision "$REVISION"
+      - name: Apply reviewed nonpaid private amendment
+        shell: bash
+        env:
+          PRIVATE_STORAGE_ACCESS_KEY: ${{ secrets.ACCESS_KEY }}
         run: |
           set -euo pipefail
-          umask 077
-          python3 -m unittest -q test_runner test_shutdown test_recovery test_panel test_amendment test_cloud test_continuation
-          python3 service.py validate --manifest manifest_RELEASE.json
-          python3 service.py validate --manifest manifest_CONTINUATION.json
-      - name: Nonpaid private storage setup
-        if: inputs.operation == 'storage-check' || inputs.operation == 'init'
+          REVISION="$(git rev-parse HEAD)"
+          python tools/private_job/bootstrap.py prepare --root "$RUNNER_TEMP/private_job" --observed-revision "$REVISION"
+      - name: Execute approved finite private operation
+        shell: bash
         env:
-          RESEARCH_INIT_ENABLED: ${{ vars.RESEARCH_INIT_ENABLED }}
-          RESEARCH_STORAGE_HOST: ${{ vars.RESEARCH_STORAGE_HOST }}
-          RESEARCH_STORAGE_ZONE: ${{ vars.RESEARCH_STORAGE_ZONE }}
-          RESEARCH_STORAGE_ACCESS_KEY: ${{ secrets.ACCESS_KEY }}
-          OPERATION: ${{ inputs.operation }}
-        run: |
-          set -euo pipefail
-          umask 077
-          export RESEARCH_DATA_DIR="$RUNNER_TEMP/model-agreement-v01"
-          python3 setup_driver.py "$OPERATION"
-      - name: Promote reviewed qualification without provider credentials
-        if: inputs.operation == 'activate'
-        env:
-          RESEARCH_OA_RECONCILIATION: ${{ vars.RESEARCH_OA_RECONCILIATION }}
-          RESEARCH_CLAUDE_REALLOCATION: ${{ vars.RESEARCH_CLAUDE_REALLOCATION }}
-          RELEASE_ENABLED: ${{ vars.RESEARCH_RELEASE_ENABLED }}
-          RESEARCH_EXPECTED_HEAD_SHA256: ${{ vars.RESEARCH_EXPECTED_HEAD_SHA256 }}
-          RESEARCH_STORAGE_HOST: ${{ vars.RESEARCH_STORAGE_HOST }}
-          RESEARCH_STORAGE_ZONE: ${{ vars.RESEARCH_STORAGE_ZONE }}
-          RESEARCH_STORAGE_ACCESS_KEY: ${{ secrets.ACCESS_KEY }}
-        run: |
-          set -euo pipefail
-          umask 077
-          test "$RELEASE_ENABLED" = 'reviewed-and-enabled'
-          export RESEARCH_DATA_DIR="$RUNNER_TEMP/model-agreement-v01"
-          export RESEARCH_JOB_DEADLINE_EPOCH="$(( $(date +%s) + 9000 ))"
-          python3 job_driver.py activate
-      - name: One restored finite operation
-        if: inputs.operation == 'qualify' || inputs.operation == 'round'
-        env:
-          RELEASE_ENABLED: ${{ vars.RESEARCH_RELEASE_ENABLED }}
-          RESEARCH_EXPECTED_HEAD_SHA256: ${{ vars.RESEARCH_EXPECTED_HEAD_SHA256 }}
-          RESEARCH_STORAGE_HOST: ${{ vars.RESEARCH_STORAGE_HOST }}
-          RESEARCH_STORAGE_ZONE: ${{ vars.RESEARCH_STORAGE_ZONE }}
-          RESEARCH_STORAGE_ACCESS_KEY: ${{ secrets.ACCESS_KEY }}
+          PRIVATE_STORAGE_ACCESS_KEY: ${{ secrets.ACCESS_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          OPERATION: ${{ inputs.operation }}
-          ROUND_NUMBER: ${{ inputs.round_number }}
-          DIAGNOSTIC_ID: ${{ inputs.diagnostic_id }}
         run: |
           set -euo pipefail
-          umask 077
-          test "$RELEASE_ENABLED" = 'reviewed-and-enabled'
-          export RESEARCH_DATA_DIR="$RUNNER_TEMP/model-agreement-v01"
-          export RESEARCH_JOB_DEADLINE_EPOCH="$(( $(date +%s) + 9000 ))"
-          if [ "$OPERATION" = 'round' ]; then
-            python3 job_driver.py round --round "$ROUND_NUMBER"
-          elif [ "$OPERATION" = 'qualify' ]; then
-            python3 job_driver.py qualify --diagnostic-id "$DIAGNOSTIC_ID"
-          else
-            exit 2
-          fi
-      - name: Nonpaid cloud preflight or approved schedule amendment
-        if: inputs.operation == 'preflight' || inputs.operation == 'amend-schedule'
-        env:
-          RESEARCH_RELEASE_ENABLED: ${{ vars.RESEARCH_RELEASE_ENABLED }}
-          RESEARCH_STORAGE_HOST: ${{ vars.RESEARCH_STORAGE_HOST }}
-          RESEARCH_STORAGE_ZONE: ${{ vars.RESEARCH_STORAGE_ZONE }}
-          RESEARCH_STORAGE_ACCESS_KEY: ${{ secrets.ACCESS_KEY }}
-          OPERATION: ${{ inputs.operation }}
-          ROUND_NUMBER: ${{ inputs.round_number }}
-        run: |
-          set -euo pipefail
-          umask 077
-          export RESEARCH_DATA_DIR="$RUNNER_TEMP/model-agreement-v01"
-          if [ "$OPERATION" = 'amend-schedule' ]; then
-            python3 cloud_driver.py reschedule
-          else
-            python3 cloud_driver.py preflight --round "$ROUND_NUMBER"
-          fi
-      - name: Autonomous verified cloud round
-        if: inputs.operation == 'cloud-round'
-        env:
-          RESEARCH_RELEASE_ENABLED: ${{ vars.RESEARCH_RELEASE_ENABLED }}
-          RESEARCH_STORAGE_HOST: ${{ vars.RESEARCH_STORAGE_HOST }}
-          RESEARCH_STORAGE_ZONE: ${{ vars.RESEARCH_STORAGE_ZONE }}
-          RESEARCH_STORAGE_ACCESS_KEY: ${{ secrets.ACCESS_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          ROUND_NUMBER: ${{ inputs.round_number }}
-        run: |
-          set -euo pipefail
-          umask 077
-          export RESEARCH_DATA_DIR="$RUNNER_TEMP/model-agreement-v01"
-          export RESEARCH_JOB_DEADLINE_EPOCH="$(( $(date +%s) + 9000 ))"
-          python3 cloud_driver.py round --round "$ROUND_NUMBER"
-
-      - name: Reviewed private continuation amendment, no provider credentials
-        if: inputs.operation == 'continuation-amend'
-        env:
-          RESEARCH_RELEASE_ENABLED: ${{ vars.RESEARCH_RELEASE_ENABLED }}
-          RESEARCH_STORAGE_HOST: ${{ vars.RESEARCH_STORAGE_HOST }}
-          RESEARCH_STORAGE_ZONE: ${{ vars.RESEARCH_STORAGE_ZONE }}
-          RESEARCH_STORAGE_ACCESS_KEY: ${{ secrets.ACCESS_KEY }}
-        run: |
-          set -euo pipefail
-          umask 077
-          export RESEARCH_DATA_DIR="$RUNNER_TEMP/model-agreement-v01"
-          python3 continuation.py amend
-      - name: One-use untouched-slot continuation
-        if: inputs.operation == 'continuation-run' && inputs.round_number == '1'
-        env:
-          RESEARCH_RELEASE_ENABLED: ${{ vars.RESEARCH_RELEASE_ENABLED }}
-          RESEARCH_STORAGE_HOST: ${{ vars.RESEARCH_STORAGE_HOST }}
-          RESEARCH_STORAGE_ZONE: ${{ vars.RESEARCH_STORAGE_ZONE }}
-          RESEARCH_STORAGE_ACCESS_KEY: ${{ secrets.ACCESS_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: |
-          set -euo pipefail
-          umask 077
-          export RESEARCH_DATA_DIR="$RUNNER_TEMP/model-agreement-v01"
-          export RESEARCH_JOB_DEADLINE_EPOCH="$(( $(date +%s) + 9000 ))"
-          python3 continuation.py run
+          REVISION="$(git rev-parse HEAD)"
+          python tools/private_job/bootstrap.py execute --root "$RUNNER_TEMP/private_job" --observed-revision "$REVISION"
